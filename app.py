@@ -1,10 +1,51 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import datetime
+import os
+import secrets
 import db
 import importer
 
 app = Flask(__name__)
 db.init_db()
+
+# Chiave per firmare i cookie di sessione: va impostata con la variabile d'ambiente SECRET_KEY
+# in produzione (così le sessioni non si invalidano ad ogni riavvio); in locale, se non è
+# impostata, ne viene generata una casuale ad ogni avvio (va bene per lo sviluppo).
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+
+# Credenziali di accesso al sito: da impostare con le variabili d'ambiente AUTH_USERNAME e
+# AUTH_PASSWORD in produzione. I valori di default sono solo per l'uso in locale.
+AUTH_USERNAME = os.environ.get("AUTH_USERNAME", "admin")
+AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "admin")
+
+
+@app.before_request
+def richiedi_login():
+    if request.path == "/login" or request.path.startswith("/static/"):
+        return None
+    if not session.get("autenticato"):
+        return redirect(url_for("login", next=request.path))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    errore = None
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+            session["autenticato"] = True
+            session.permanent = True
+            destinazione = request.args.get("next") or "/"
+            return redirect(destinazione)
+        errore = "Utente o password non corretti."
+    return render_template("login.html", errore=errore)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 # ---------- PAGINE ----------
