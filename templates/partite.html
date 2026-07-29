@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Partite{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 1 6 15.5"></path><path d="M7 4.5a9 9 0 0 0 0 11"></path><path d="M4 10 Q12 15 20 10"></path></svg>
+      </span>
+      <h1>Partite</h1>
+    </div>
+    <p>Designazioni degli arbitri per le gare</p>
+  </div>
+  <div class="actions">
+    <label for="filtro-alias-campionato" class="riepilogo-label" style="margin-right:2px;">Alias campionato</label>
+    <select id="filtro-alias-campionato" onchange="cambiaFiltroAliasCampionato()" style="padding:8px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo);">
+      <option value="">Tutti</option>
+    </select>
+    <span id="colonne-partite"></span>
+    <span id="colonne-omologazione" style="display:none"></span>
+    <button id="btn-azzera-filtri-partite" class="btn-testo" onclick="azzeraFiltri('#tabella-head-partite', filtriPartite, renderTabellaPartite)">Azzera filtri</button>
+    <button id="btn-azzera-filtri-omologazione" class="btn-testo" style="display:none" onclick="azzeraFiltri('#tabella-head-omologazione', filtriOmologazione, renderTabellaOmologazione)">Azzera filtri</button>
+    <button class="btn btn-import" id="btn-importa-partite">Importa da Excel</button>
+    <button id="btn-nuova-partita" class="btn btn-primary" onclick="apriModalePartita()">+ Nuova partita</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="da_disputare" onclick="cambiaTab('da_disputare')">Da disputare</button>
+  <button class="tab-btn" data-tab="disputate" onclick="cambiaTab('disputate')">Disputate</button>
+  <button class="tab-btn" data-tab="omologazione" onclick="cambiaTab('omologazione')">Omologazione</button>
+</div>
+
+<div class="card" id="card-partite">
+  <div class="table-scroll" style="max-height:70vh;">
+  <table class="tabella-ridimensionabile" id="tabella-partite-el" style="min-width:2400px">
+    <thead id="tabella-head-partite">
+      <tr>
+        <th class="sortable" data-campo="data">Data</th>
+        <th class="sortable" data-campo="ora">Ora</th>
+        <th class="sortable" data-campo="campionato">Campionato</th>
+        <th class="sortable" data-campo="categoria">Categoria</th>
+        <th class="sortable" data-campo="girone">Girone</th>
+        <th class="sortable" data-campo="numero_gara">N. Gara</th>
+        <th class="sortable" data-campo="localita">Località</th>
+        <th class="sortable" data-campo="campo">Campo</th>
+        <th class="sortable" data-campo="aff_a">Aff. Casa</th>
+        <th class="sortable" data-campo="squadra_casa">Casa</th>
+        <th class="sortable" data-campo="aff_b">Aff. Ospite</th>
+        <th class="sortable" data-campo="squadra_ospite">Ospite</th>
+        <th class="sortable col-risultato" data-campo="risultato">Risultato</th>
+        <th class="sortable col-risultato" data-campo="parziali">Parziali</th>
+        <th class="sortable" data-campo="numero_ufficiali">Uff.</th>
+        <th class="sortable" data-campo="arbitro">Arbitro</th>
+        <th class="sortable" data-campo="residenza_arbitro">Res. Arbitro</th>
+        <th class="sortable" data-campo="assistente1">Ass. 1</th>
+        <th class="sortable" data-campo="residenza_assistente1">Res. Ass. 1</th>
+        <th class="sortable" data-campo="osservatore_associato">Oss. Associato</th>
+        <th class="sortable" data-campo="residenza_osservatore_associato">Res. Oss. Ass.</th>
+        <th class="sortable" data-campo="segnapunti">Segnapunti</th>
+        <th class="sortable" data-campo="residenza_segnapunti">Res. Segnapunti</th>
+        <th class="sortable" data-campo="assistente2">Ass. 2</th>
+        <th class="sortable" data-campo="residenza_assistente2">Res. Ass. 2</th>
+        <th class="sortable" data-campo="osservatore">Osservatore</th>
+        <th class="sortable" data-campo="residenza_osservatore">Res. Osservatore</th>
+        <th></th>
+      </tr>
+      <tr class="filtri-row">
+        <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="ora" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="campionato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="categoria" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="girone" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="numero_gara" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="localita" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="campo" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="aff_a" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="squadra_casa" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="aff_b" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="squadra_ospite" placeholder="Filtra..."></th>
+        <th class="col-risultato"><input class="filtro-input" data-campo="risultato" placeholder="Filtra..."></th>
+        <th class="col-risultato"><input class="filtro-input" data-campo="parziali" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="numero_ufficiali" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="assistente1" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_assistente1" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="osservatore_associato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_osservatore_associato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="segnapunti" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_segnapunti" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="assistente2" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_assistente2" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="osservatore" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_osservatore" placeholder="Filtra..."></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-partite"></tbody>
+  </table>
+  </div>
+  <div id="stato-vuoto-partite" class="empty-state" style="display:none">
+    <strong>Nessuna partita qui</strong>
+    Aggiungi una partita manualmente oppure importa un file Excel.
+  </div>
+</div>
+
+<div class="card" id="card-omologazione" style="display:none">
+  <div class="table-scroll" style="max-height:70vh;">
+  <table class="tabella-ridimensionabile" id="tabella-omologazione-el" style="min-width:2500px">
+    <thead id="tabella-head-omologazione">
+      <tr>
+        <th class="sortable" data-campo="data">Data</th>
+        <th class="sortable" data-campo="ora">Ora</th>
+        <th class="sortable" data-campo="campionato">Campionato</th>
+        <th class="sortable" data-campo="categoria">Categoria</th>
+        <th class="sortable" data-campo="girone">Girone</th>
+        <th class="sortable" data-campo="numero_gara">N. Gara</th>
+        <th class="sortable" data-campo="localita">Località</th>
+        <th class="sortable" data-campo="campo">Campo</th>
+        <th class="sortable" data-campo="aff_a">Aff. Casa</th>
+        <th class="sortable" data-campo="squadra_casa">Casa</th>
+        <th class="sortable" data-campo="aff_b">Aff. Ospite</th>
+        <th class="sortable" data-campo="squadra_ospite">Ospite</th>
+        <th class="sortable" data-campo="risultato">Risultato</th>
+        <th class="sortable" data-campo="parziali">Parziali</th>
+        <th class="sortable" data-campo="numero_ufficiali">Uff.</th>
+        <th>Omologazione</th>
+        <th class="sortable" data-campo="arbitro">Arbitro</th>
+        <th class="sortable" data-campo="residenza_arbitro">Res. Arbitro</th>
+        <th class="sortable" data-campo="assistente1">Ass. 1</th>
+        <th class="sortable" data-campo="residenza_assistente1">Res. Ass. 1</th>
+        <th class="sortable" data-campo="osservatore_associato">Oss. Associato</th>
+        <th class="sortable" data-campo="residenza_osservatore_associato">Res. Oss. Ass.</th>
+        <th class="sortable" data-campo="segnapunti">Segnapunti</th>
+        <th class="sortable" data-campo="residenza_segnapunti">Res. Segnapunti</th>
+        <th class="sortable" data-campo="assistente2">Ass. 2</th>
+        <th class="sortable" data-campo="residenza_assistente2">Res. Ass. 2</th>
+        <th class="sortable" data-campo="osservatore">Osservatore</th>
+        <th class="sortable" data-campo="residenza_osservatore">Res. Osservatore</th>
+      </tr>
+      <tr class="filtri-row">
+        <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="ora" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="campionato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="categoria" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="girone" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="numero_gara" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="localita" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="campo" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="aff_a" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="squadra_casa" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="aff_b" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="squadra_ospite" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="risultato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="parziali" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="numero_ufficiali" placeholder="Filtra..."></th>
+        <th>
+          <select class="filtro-input" data-campo="numero_ufficiali" style="width:100%">
+            <option value="">Tutte</option>
+            <option value="1">Omologata</option>
+            <option value="0">Non omologata</option>
+          </select>
+        </th>
+        <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="assistente1" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_assistente1" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="osservatore_associato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_osservatore_associato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="segnapunti" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_segnapunti" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="assistente2" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_assistente2" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="osservatore" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="residenza_osservatore" placeholder="Filtra..."></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-omologazione"></tbody>
+  </table>
+  </div>
+  <div id="stato-vuoto-omologazione" class="empty-state" style="display:none">
+    <strong>Nessuna gara disputata</strong>
+    Le gare disputate compariranno qui con lo stato di omologazione.
+  </div>
+</div>
+
+<!-- Modale aggiungi/modifica partita -->
+<div class="overlay" id="modale-partita">
+  <div class="modal modal-large">
+    <h2 id="titolo-modale-partita">Nuova partita</h2>
+    <input type="hidden" id="partita-id">
+    <div class="form-grid">
+      <div class="form-field"><label>Data</label><input type="date" id="f-data"></div>
+      <div class="form-field"><label>Ora</label><input type="time" id="f-ora"></div>
+      <div class="form-field"><label>Campionato</label><input id="f-campionato"></div>
+      <div class="form-field"><label>Categoria</label><input id="f-categoria"></div>
+      <div class="form-field"><label>Girone</label><input id="f-girone"></div>
+      <div class="form-field"><label>N. Gara</label><input id="f-numero_gara"></div>
+      <div class="form-field"><label>Località</label><input id="f-localita"></div>
+      <div class="form-field"><label>Campo</label><input id="f-campo"></div>
+      <div class="form-field"><label>Aff. Casa</label><input id="f-aff_a"></div>
+      <div class="form-field"><label>Squadra casa</label><input id="f-squadra_casa"></div>
+      <div class="form-field"><label>Aff. Ospite</label><input id="f-aff_b"></div>
+      <div class="form-field"><label>Squadra ospite</label><input id="f-squadra_ospite"></div>
+      <div class="form-field"><label>Risultato</label><input id="f-risultato" placeholder="es. 3-0"></div>
+      <div class="form-field"><label>Parziali</label><input id="f-parziali" placeholder="es. 25/15 25/17 25/18"></div>
+      <div class="form-field"><label>N. Ufficiali</label><input id="f-numero_ufficiali"></div>
+      <div class="form-field"><label>Arbitro</label><input id="f-arbitro"></div>
+      <div class="form-field"><label>Residenza arbitro</label><input id="f-residenza_arbitro"></div>
+      <div class="form-field"><label>Assistente 1</label><input id="f-assistente1"></div>
+      <div class="form-field"><label>Residenza assistente 1</label><input id="f-residenza_assistente1"></div>
+      <div class="form-field"><label>Osservatore associato</label><input id="f-osservatore_associato"></div>
+      <div class="form-field"><label>Residenza oss. associato</label><input id="f-residenza_osservatore_associato"></div>
+      <div class="form-field"><label>Segnapunti</label><input id="f-segnapunti"></div>
+      <div class="form-field"><label>Residenza segnapunti</label><input id="f-residenza_segnapunti"></div>
+      <div class="form-field"><label>Assistente 2</label><input id="f-assistente2"></div>
+      <div class="form-field"><label>Residenza assistente 2</label><input id="f-residenza_assistente2"></div>
+      <div class="form-field"><label>Osservatore</label><input id="f-osservatore"></div>
+      <div class="form-field"><label>Residenza osservatore</label><input id="f-residenza_osservatore"></div>
+      <div class="form-field full">
+        <label>Stato</label>
+        <select id="f-disputata">
+          <option value="0">Da disputare</option>
+          <option value="1">Disputata</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-partita')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaPartita()">Salva</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/omologazione.js') }}"></script>
+<script src="{{ url_for('static', filename='js/partite.js') }}"></script>
+{% endblock %}

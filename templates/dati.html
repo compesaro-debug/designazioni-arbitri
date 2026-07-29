@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Dati{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="16" y1="2" x2="16" y2="6"></line><path d="M8 15h2"></path><path d="M8 18h5"></path></svg>
+      </span>
+      <h1>Dati</h1>
+    </div>
+    <p>Importa partite, indisponibilità e alias campionati delle stagioni passate, da usare nelle statistiche (Report/Riconoscimenti/Copertura) senza interferire con la stagione in corso.</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="apriModaleStagione()">+ Nuova stagione</button>
+  </div>
+</div>
+
+<div class="card" style="padding:20px;">
+  <label class="riepilogo-label" style="display:block; margin-bottom:6px;">Stagione</label>
+  <select id="selettore-stagione-dati" style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo);"></select>
+</div>
+
+<div class="card" id="card-stagione-live" style="padding:20px; margin-top:20px; display:none;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Stagione corrente</p>
+  <p class="hint" style="margin-top:0;">I dati di questa stagione sono gestiti dalle pagine operative (Partite, Indisponibilità, Alias campionati) — non vanno importati qui.</p>
+  <div class="riepilogo-storico" style="margin-top:14px;">
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="live-n-partite">--</div>
+      <div class="riepilogo-label">Partite disputate</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="live-n-indisponibilita">--</div>
+      <div class="riepilogo-label">Indisponibilità</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="live-n-campionati">--</div>
+      <div class="riepilogo-label">Campionati (alias)</div>
+    </div>
+  </div>
+</div>
+
+<div id="sezioni-stagione-storica" style="display:none;">
+  <div class="riepilogo-storico" style="margin:20px 0;">
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="storico-n-partite">--</div>
+      <div class="riepilogo-label">Partite importate</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="storico-n-indisponibilita">--</div>
+      <div class="riepilogo-label">Indisponibilità importate</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="storico-n-campionati">--</div>
+      <div class="riepilogo-label">Campionati (alias)</div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <p class="riepilogo-label" style="margin:0 0 4px;">Partite disputate</p>
+        <p class="hint" style="margin:0;">Stesso formato Excel usato per l'import delle partite disputate correnti.</p>
+      </div>
+      <button class="btn btn-import" onclick="apriImportPartiteStoriche()">Importa da Excel</button>
+    </div>
+  </div>
+
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <p class="riepilogo-label" style="margin:0 0 4px;">Indisponibilità</p>
+        <p class="hint" style="margin:0;">Stesso formato Excel usato per l'import delle indisponibilità correnti.</p>
+      </div>
+      <button class="btn btn-import" onclick="apriImportIndisponibilitaStoriche()">Importa da Excel</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 20px 0;">
+      <p class="riepilogo-label" style="margin:0;">Alias campionati di questa stagione</p>
+      <button class="btn btn-primary" onclick="apriModaleCampionatoStorico()">+ Nuovo campionato</button>
+    </div>
+    <table id="tabella-campionati-storici-el" style="margin-top:14px;">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Squadre</th>
+          <th>Codici collegati</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tabella-campionati-storici"></tbody>
+    </table>
+    <div id="stato-vuoto-campionati-storici" class="empty-state" style="display:none">
+      <strong>Nessun campionato configurato per questa stagione</strong>
+      Crea un campionato e collega le squadre e i codici che vi appartengono, come nella pagina Alias campionati.
+    </div>
+  </div>
+
+  <div class="actions" style="margin-top:20px; justify-content:flex-end;">
+    <button class="btn-danger-text" onclick="eliminaStagioneCorrente()">Elimina questa stagione</button>
+  </div>
+</div>
+
+<div class="overlay" id="modale-stagione">
+  <div class="modal">
+    <h2>Nuova stagione</h2>
+    <div class="form-grid">
+      <div class="form-field full"><label>Nome</label><input id="f-stagione-nome" placeholder="es. 2023/2024"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-stagione')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaStagione()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modale-campionato-storico">
+  <div class="modal">
+    <h2 id="titolo-modale-campionato-storico">Nuovo campionato</h2>
+    <input type="hidden" id="campionato-storico-id">
+    <div class="form-grid">
+      <div class="form-field full"><label>Nome</label><input id="f-campionato-storico-nome" placeholder="es. 2° Divisione Femminile"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-campionato-storico')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaCampionatoStorico()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modale-gestisci-campionato-storico">
+  <div class="modal modal-large">
+    <h2 id="titolo-modale-gestisci-storico">Gestisci campionato</h2>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Squadre</label>
+        <div class="riga-aggiungi">
+          <input id="nuova-squadra-storica-nome" placeholder="Nome squadra">
+          <button class="btn btn-secondary" onclick="aggiungiSquadraStorica()">Aggiungi</button>
+        </div>
+        <ul id="lista-squadre-storiche" class="lista-elementi"></ul>
+      </div>
+      <div class="form-field full">
+        <label>Codici campionato collegati</label>
+        <p class="hint" style="margin-top:-2px;">Il codice esatto come compare nel file importato (es. 2DFUNA, POFF2DIV).</p>
+        <div class="riga-aggiungi">
+          <input id="nuovo-codice-storico" placeholder="es. 2DFUNA">
+          <button class="btn btn-secondary" onclick="aggiungiCodiceStorico()">Aggiungi</button>
+        </div>
+        <ul id="lista-codici-storici" class="lista-elementi"></ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeOverlay('modale-gestisci-campionato-storico')">Fatto</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dati.js') }}"></script>
+{% endblock %}

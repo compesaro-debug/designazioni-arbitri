@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Campionati{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"></path><path d="M8 5H4v2a4 4 0 0 0 4 3"></path><path d="M16 5h4v2a4 4 0 0 1-4 3"></path><line x1="12" y1="13" x2="12" y2="17"></line><path d="M9 17h6l1 4H8l1-4Z"></path></svg>
+      </span>
+      <h1>Campionati</h1>
+    </div>
+    <p>Collega tra loro i gironi/fasi di uno stesso torneo (es. andata/ritorno e playoff), così le statistiche per squadra nelle Designazioni non si spezzano quando cambia il codice campionato</p>
+  </div>
+  <div class="actions">
+    <span id="colonne-campionati"></span>
+    <button class="btn btn-primary" onclick="apriModaleCampionato()">+ Nuovo campionato</button>
+  </div>
+</div>
+
+<div class="card">
+  <table id="tabella-campionati-el">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Squadre</th>
+        <th>Codici collegati</th>
+        <th>Arbitrabile da associato</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-campionati"></tbody>
+  </table>
+  <div id="stato-vuoto-campionati" class="empty-state" style="display:none">
+    <strong>Nessun campionato configurato</strong>
+    Crea un campionato e collega le squadre e i codici (gironi/fasi) che vi appartengono.
+  </div>
+</div>
+
+<div class="overlay" id="modale-campionato">
+  <div class="modal">
+    <h2 id="titolo-modale-campionato">Nuovo campionato</h2>
+    <input type="hidden" id="campionato-id">
+    <div class="form-grid">
+      <div class="form-field full"><label>Nome</label><input id="f-campionato-nome" placeholder="es. 2° Divisione Femminile"></div>
+      <div class="form-field full">
+        <label>Arbitrabile da associato</label>
+        <select id="f-campionato-arbitrabile-associato">
+          <option value="1">Sì</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-campionato')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaCampionato()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modale-gestisci-campionato">
+  <div class="modal modal-large">
+    <h2 id="titolo-modale-gestisci">Gestisci campionato</h2>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Squadre</label>
+        <div class="riga-aggiungi">
+          <input id="nuova-squadra-nome" placeholder="Nome squadra">
+          <button class="btn btn-secondary" onclick="aggiungiSquadra()">Aggiungi</button>
+        </div>
+        <ul id="lista-squadre" class="lista-elementi"></ul>
+      </div>
+      <div class="form-field full">
+        <label>Codici campionato collegati</label>
+        <p class="hint" style="margin-top:-2px;">Il codice esatto come compare nella colonna Campionato delle Partite (es. 2DFUNA, POFF2DIV).</p>
+        <div class="riga-aggiungi">
+          <input id="nuovo-codice" placeholder="es. 2DFUNA">
+          <button class="btn btn-secondary" onclick="aggiungiCodice()">Aggiungi</button>
+        </div>
+        <ul id="lista-codici" class="lista-elementi"></ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeOverlay('modale-gestisci-campionato')">Fatto</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/campionati.js') }}"></script>
+{% endblock %}

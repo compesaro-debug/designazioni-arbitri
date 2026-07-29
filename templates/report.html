@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Report{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19V3"></path></svg>
+      </span>
+      <h1>Report</h1>
+    </div>
+    <p>Statistiche stagionali della sezione</p>
+  </div>
+  <div class="actions">
+    <label class="riepilogo-label" for="selettore-stagione-report" style="margin-right:2px;">Stagione</label>
+    <select id="selettore-stagione-report" onchange="cambiaStagioneReport()" style="padding:8px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo);"></select>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="arbitro" onclick="cambiaTabReport('arbitro')">Report arbitro</button>
+  <button class="tab-btn" data-tab="sezione" onclick="cambiaTabReport('sezione')">Report di sezione</button>
+  <button class="tab-btn" data-tab="campionato" onclick="cambiaTabReport('campionato')">Report campionato</button>
+  <button class="tab-btn" data-tab="copertura" onclick="cambiaTabReport('copertura')">Copertura territoriale</button>
+  <button class="tab-btn" data-tab="confronto" onclick="cambiaTabReport('confronto')">Confronto stagioni</button>
+</div>
+
+<div class="card" id="card-report-arbitro" style="padding:20px;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Report arbitro</p>
+  <p class="hint" style="margin-top:0;">Gare dirette, km percorsi, disponibilità, distribuzione per campionato e per società di un singolo arbitro.</p>
+  <input type="text" id="filtro-report-arbitri" placeholder="Cerca arbitro o comune..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+  <div class="table-scroll" style="max-height:60vh;">
+    <table>
+      <thead>
+        <tr><th>Cognome e nome</th><th>Comune</th><th>Ruolo</th><th></th></tr>
+      </thead>
+      <tbody id="tabella-report-lista-arbitri"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="card-report-sezione" style="padding:20px; display:none;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Report di sezione</p>
+  <p class="hint" style="margin-top:0;">Vista d'insieme su tutti gli arbitri: carico di lavoro, km percorsi e confronto con la media, per qualifica (Nazionale/Regionale/Territoriale).</p>
+
+  <div class="riepilogo-storico" style="margin:14px 0 20px;">
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-n-arbitri">--</div>
+      <div class="riepilogo-label">Arbitri con almeno una gara</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-n-gare">--</div>
+      <div class="riepilogo-label">Designazioni totali stagione</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-media-gare">--</div>
+      <div class="riepilogo-label">Media gare per arbitro</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-km-totali">--</div>
+      <div class="riepilogo-label">Km totali percorsi (sezione)</div>
+    </div>
+  </div>
+
+  <p class="riepilogo-label" style="margin-bottom:8px;">Distribuzione per qualifica</p>
+  <div class="table-scroll" style="margin-bottom:20px;">
+    <table>
+      <thead><tr><th>Qualifica</th><th>N. arbitri</th><th>Gare totali</th><th>% copertura</th><th>Media gare/arbitro</th><th>Km totali</th></tr></thead>
+      <tbody id="tabella-sezione-ruolo"></tbody>
+    </table>
+  </div>
+
+  <div class="actions" style="margin-bottom:8px;">
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-sezione', filtriSezione, renderTabellaSezione)">Azzera filtri</button>
+  </div>
+  <p class="riepilogo-label" style="margin-bottom:8px;">Classifica arbitri per carico di lavoro</p>
+  <div class="table-scroll" style="max-height:60vh;">
+    <table class="tabella-ridimensionabile" id="tabella-sezione-el" style="min-width:900px">
+      <thead id="tabella-head-sezione">
+        <tr>
+          <th class="sortable" data-campo="nome">Arbitro</th>
+          <th class="sortable" data-campo="comune">Comune</th>
+          <th class="sortable" data-campo="ruolo">Qualifica</th>
+          <th class="sortable" data-campo="gare">Gare dirette</th>
+          <th class="sortable" data-campo="km_totali">Km totali</th>
+          <th class="sortable" data-campo="scostamento">Scostamento da media</th>
+        </tr>
+        <tr class="filtri-row">
+          <th><input class="filtro-input" data-campo="nome" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="comune" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="ruolo" placeholder="Filtra..."></th>
+          <th></th>
+          <th></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tabella-sezione"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="card-report-campionato" style="padding:20px; display:none;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Report campionato</p>
+  <p class="hint" style="margin-top:0;">Per ogni campionato (i gironi/fasi collegati nella pagina Alias campionati vengono uniti): quante designazioni sono di arbitri federali rispetto a "Arbitro Associato", e km percorsi. Clic su una riga per il dettaglio squadra/arbitro.</p>
+  <input type="text" id="filtro-report-campionati" placeholder="Cerca campionato..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+  <div class="table-scroll" style="max-height:65vh;">
+    <table>
+      <thead>
+        <tr>
+          <th>Campionato</th>
+          <th>N. gare</th>
+          <th>Federali</th>
+          <th>Associato</th>
+          <th>Km totali</th>
+          <th>Media km/gara (con Associato = 0)</th>
+          <th>Media km/gara (solo federali)</th>
+        </tr>
+      </thead>
+      <tbody id="tabella-report-campionati-lista"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="card-report-copertura" style="padding:20px; display:none;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Copertura territoriale</p>
+  <p class="hint" style="margin-top:0;">Per ogni comune dove si sono giocate gare: quanti arbitri risiedono nel comune stesso o entro <span id="copertura-soglia-km">15</span> km (zona), per individuare i comuni con tante gare ma pochi arbitri vicini disponibili. Le righe in rosso sono comuni senza nessun arbitro nella zona.</p>
+  <input type="text" id="filtro-report-copertura" placeholder="Cerca comune..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+  <div class="table-scroll" style="max-height:65vh;">
+    <table>
+      <thead>
+        <tr>
+          <th>Comune</th>
+          <th>Gare disputate</th>
+          <th>Arbitri residenti</th>
+          <th>Arbitri in zona</th>
+          <th>Gare per arbitro in zona</th>
+        </tr>
+      </thead>
+      <tbody id="tabella-report-copertura"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="card-report-confronto" style="padding:20px; display:none;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Confronto stagioni</p>
+  <p class="hint" style="margin-top:0;">Stessi numeri di sintesi del report di sezione, affiancati anno per anno. Deseleziona una stagione per escluderla dal confronto.</p>
+  <div id="confronto-stagioni-checkbox" class="actions" style="flex-wrap:wrap; margin-bottom:14px;"></div>
+  <div class="table-scroll" style="max-height:70vh;">
+    <table>
+      <thead>
+        <tr>
+          <th>Stagione</th>
+          <th>Qualifica</th>
+          <th>N. arbitri</th>
+          <th>Gare</th>
+          <th>Media gare/arbitro</th>
+          <th>Km totali</th>
+          <th>% copertura</th>
+        </tr>
+      </thead>
+      <tbody id="tabella-confronto-stagioni"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modale dettaglio campionato: quante volte ogni arbitro ha arbitrato ogni squadra -->
+<div class="overlay" id="modale-dettaglio-campionato">
+  <div class="modal modal-xlarge">
+    <h2 id="titolo-modale-dettaglio-campionato">Dettaglio campionato</h2>
+    <input type="text" id="filtro-dettaglio-campionato" placeholder="Cerca squadra o arbitro..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead><tr><th>Squadra</th><th>Arbitro</th><th>Gare dirette</th></tr></thead>
+        <tbody id="tabella-dettaglio-campionato"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-dettaglio-campionato')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+{% include "_report_arbitro_modali.html" %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/report_arbitro.js') }}"></script>
+<script src="{{ url_for('static', filename='js/report.js') }}"></script>
+<script src="{{ url_for('static', filename='js/report_sezione.js') }}"></script>
+<script src="{{ url_for('static', filename='js/report_campionato.js') }}"></script>
+<script src="{{ url_for('static', filename='js/report_copertura.js') }}"></script>
+<script src="{{ url_for('static', filename='js/report_confronto.js') }}"></script>
+{% endblock %}

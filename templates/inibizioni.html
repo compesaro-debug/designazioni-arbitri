@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Inibizioni e note{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"></path><line x1="12" y1="9" x2="12" y2="14"></line><line x1="12" y1="17" x2="12" y2="17.01"></line></svg>
+      </span>
+      <h1>Inibizioni e note</h1>
+    </div>
+    <p>Annotazioni e inibizioni degli arbitri, inserite manualmente</p>
+  </div>
+  <div class="actions">
+    <span id="colonne-inibizioni"></span>
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-inibizioni', filtriInibizioni, renderTabellaInibizioni)">Azzera filtri</button>
+    <button class="btn btn-primary" onclick="apriModaleInibizione()">+ Nuova nota/inibizione</button>
+  </div>
+</div>
+
+<div class="card">
+  <table id="tabella-inibizioni-el">
+    <thead id="tabella-head-inibizioni">
+      <tr>
+        <th class="sortable" data-campo="arbitro">Arbitro</th>
+        <th class="sortable" data-campo="tipo">Tipo</th>
+        <th class="sortable" data-campo="descrizione">Descrizione</th>
+        <th class="sortable" data-campo="codice_affiliazione">Cod. affiliazione società</th>
+        <th></th>
+      </tr>
+      <tr class="filtri-row">
+        <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="tipo" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="descrizione" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="codice_affiliazione" placeholder="Filtra..."></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-inibizioni"></tbody>
+  </table>
+  <div id="stato-vuoto-inibizioni" class="empty-state" style="display:none">
+    <strong>Nessuna nota o inibizione registrata</strong>
+    Aggiungine una con il pulsante qui sopra.
+  </div>
+</div>
+
+<div class="overlay" id="modale-inibizione">
+  <div class="modal">
+    <h2 id="titolo-modale-inibizione">Nuova nota/inibizione</h2>
+    <input type="hidden" id="inibizione-id">
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Arbitro</label>
+        <input id="f-in-arbitro" list="lista-arbitri" placeholder="Cerca un arbitro...">
+        <datalist id="lista-arbitri"></datalist>
+      </div>
+      <div class="form-field full">
+        <label>Tipo</label>
+        <select id="f-in-tipo" onchange="aggiornaCampoCodiceAffiliazione()">
+          <option value="nota">Nota</option>
+          <option value="inibizione">Inibizione</option>
+        </select>
+      </div>
+      <div class="form-field full">
+        <label>Descrizione</label>
+        <textarea id="f-in-descrizione" rows="3"></textarea>
+      </div>
+      <div class="form-field full" id="campo-codice-affiliazione" style="display:none">
+        <label>Codice affiliazione società</label>
+        <input id="f-in-codice_affiliazione">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-inibizione')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaInibizione()">Salva</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/inibizioni.js') }}"></script>
+{% endblock %}

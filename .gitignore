@@ -1,0 +1,20 @@
+# dati reali (contengono informazioni personali degli arbitri): mai in git
+data/
+*.db
+Storico/
+
+# file Excel usati come sorgente/test di import (dati personali reali)
+*.xlsx
+
+# ambiente Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# sessione Claude Code / editor
+.claude/
+.vscode/
+
+# documenti generati, non codice
+*.docx

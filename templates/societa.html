@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Società{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 9h1"></path><path d="M9 13h1"></path><path d="M14 9h1"></path><path d="M14 13h1"></path><path d="M9 21v-4h6v4"></path></svg>
+      </span>
+      <h1>Società</h1>
+    </div>
+    <p>Collega ogni codice di affiliazione alla ragione sociale ufficiale del club: uno stesso codice compare spesso su più squadre/categorie della stessa società.</p>
+  </div>
+  <div class="actions">
+    <span id="colonne-societa"></span>
+    <button class="btn btn-secondary" onclick="importaSocieta()">Importa automaticamente</button>
+    <button class="btn btn-primary" onclick="apriModaleSocieta()">+ Nuova società</button>
+  </div>
+</div>
+
+<div class="card">
+  <input type="text" id="filtro-societa" placeholder="Cerca codice o ragione sociale..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+  <table id="tabella-societa-el">
+    <thead>
+      <tr>
+        <th>Codice affiliazione</th>
+        <th>Ragione sociale</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-societa"></tbody>
+  </table>
+  <div id="stato-vuoto-societa" class="empty-state" style="display:none">
+    <strong>Nessuna società in anagrafica</strong>
+    Usa "Importa automaticamente" per popolarla dai codici già presenti nelle partite, poi correggi le ragioni sociali suggerite dove necessario.
+  </div>
+</div>
+
+<div class="overlay" id="modale-societa">
+  <div class="modal">
+    <h2 id="titolo-modale-societa">Nuova società</h2>
+    <input type="hidden" id="societa-id">
+    <div class="form-grid">
+      <div class="form-field full"><label>Codice affiliazione</label><input id="f-societa-codice" placeholder="es. 090450123"></div>
+      <div class="form-field full"><label>Ragione sociale</label><input id="f-societa-ragione" placeholder="es. Virtus Fano"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-societa')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaSocieta()">Salva</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/societa.js') }}"></script>
+{% endblock %}

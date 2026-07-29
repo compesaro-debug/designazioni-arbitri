@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Indisponibilità{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="15.5" y2="14"></line></svg>
+      </span>
+      <h1>Indisponibilità</h1>
+    </div>
+    <p>Periodi in cui gli arbitri non sono disponibili per le designazioni</p>
+  </div>
+  <div class="actions">
+    <span id="colonne-indisponibilita"></span>
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-indisponibilita', filtriIndisponibilita, renderTabellaIndisponibilita)">Azzera filtri</button>
+    <button class="btn btn-import" onclick="apriImportModal('import-indisponibilita', {endpoint:'/api/indisponibilita/import', onDone: caricaIndisponibilita})">Importa da Excel</button>
+    <button class="btn btn-primary" onclick="apriModaleIndisponibilita()">+ Nuova indisponibilità</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-scroll" style="max-height:70vh;">
+  <table class="tabella-ridimensionabile" id="tabella-indisponibilita-el" style="min-width:1300px">
+    <thead id="tabella-head-indisponibilita">
+      <tr>
+        <th class="sortable" data-campo="arbitro">Arbitro</th>
+        <th class="sortable" data-campo="codice_fiscale">Codice Fiscale</th>
+        <th class="sortable" data-campo="ruolo">Ruolo</th>
+        <th class="sortable" data-campo="data_inizio">Dal</th>
+        <th class="sortable" data-campo="data_fine">Al</th>
+        <th class="sortable" data-campo="motivo">Motivazione</th>
+        <th class="sortable" data-campo="data_richiesta">Data richiesta</th>
+        <th></th>
+      </tr>
+      <tr class="filtri-row">
+        <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="codice_fiscale" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="ruolo" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="data_inizio" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="data_fine" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="motivo" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="data_richiesta" placeholder="Filtra..."></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-indisponibilita"></tbody>
+  </table>
+  </div>
+  <div id="stato-vuoto-indisponibilita" class="empty-state" style="display:none">
+    <strong>Nessuna indisponibilità registrata</strong>
+    Aggiungi un periodo manualmente oppure importa un file Excel.
+  </div>
+</div>
+
+<div class="overlay" id="modale-indisponibilita">
+  <div class="modal modal-large">
+    <h2 id="titolo-modale-indisponibilita">Nuova indisponibilità</h2>
+    <input type="hidden" id="indisponibilita-id">
+    <div class="form-grid">
+      <div class="form-field full"><label>Arbitro</label><input id="f-i-arbitro"></div>
+      <div class="form-field"><label>Codice Fiscale</label><input id="f-i-codice_fiscale"></div>
+      <div class="form-field"><label>Ruolo</label><input id="f-i-ruolo"></div>
+      <div class="form-field"><label>Dal</label><input type="date" id="f-i-data_inizio"></div>
+      <div class="form-field"><label>Ora inizio</label><input type="time" id="f-i-ora_inizio"></div>
+      <div class="form-field"><label>Al</label><input type="date" id="f-i-data_fine"></div>
+      <div class="form-field"><label>Ora fine</label><input type="time" id="f-i-ora_fine"></div>
+      <div class="form-field full"><label>Motivo</label><input id="f-i-motivo"></div>
+      <div class="form-field full"><label>Data richiesta</label><input id="f-i-data_richiesta" placeholder="es. 2026-01-16 21:29"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-indisponibilita')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaIndisponibilita()">Salva</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/indisponibilita.js') }}"></script>
+{% endblock %}

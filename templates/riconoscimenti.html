@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Riconoscimenti{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"></circle><path d="M9 13.5 7 22l5-3 5 3-2-8.5"></path></svg>
+      </span>
+      <h1>Riconoscimenti</h1>
+    </div>
+    <p>Un tocco di riconoscimento per gli arbitri della sezione, calcolato sugli stessi numeri del Report: nessun valore organizzativo, solo un po' di morale.</p>
+  </div>
+  <div class="actions">
+    <label class="riepilogo-label" for="selettore-stagione-riconoscimenti" style="margin-right:2px;">Stagione</label>
+    <select id="selettore-stagione-riconoscimenti" onchange="cambiaStagioneRiconoscimenti()" style="padding:8px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo);"></select>
+  </div>
+</div>
+
+<div class="badge-grid">
+  <div class="badge-card">
+    <div class="badge-emoji">🏃</div>
+    <div class="badge-titolo">Maratoneta</div>
+    <div class="badge-descrizione">Più km percorsi in stagione</div>
+    <div class="badge-vincitore" id="badge-maratoneta-nomi">--</div>
+    <div class="badge-valore" id="badge-maratoneta-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🃏</div>
+    <div class="badge-titolo">Jolly dei campionati</div>
+    <div class="badge-descrizione">Più campionati diversi diretti</div>
+    <div class="badge-vincitore" id="badge-jolly_campionati-nomi">--</div>
+    <div class="badge-valore" id="badge-jolly_campionati-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🏛️</div>
+    <div class="badge-titolo">Jolly delle società</div>
+    <div class="badge-descrizione">Più società diverse affrontate</div>
+    <div class="badge-vincitore" id="badge-jolly_societa-nomi">--</div>
+    <div class="badge-valore" id="badge-jolly_societa-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🧱</div>
+    <div class="badge-titolo">Roccia</div>
+    <div class="badge-descrizione">Zero giorni di indisponibilità totale in stagione</div>
+    <div class="badge-vincitore" id="badge-roccia-nomi">--</div>
+    <div class="badge-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">☀️</div>
+    <div class="badge-titolo">Sempre disponibile</div>
+    <div class="badge-descrizione">Percentuale di disponibilità più alta nell'anno</div>
+    <div class="badge-vincitore" id="badge-sempre_disponibile-nomi">--</div>
+    <div class="badge-valore" id="badge-sempre_disponibile-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">📈</div>
+    <div class="badge-titolo">Rookie in crescita</div>
+    <div class="badge-descrizione">Carico di gare in maggior aumento nella seconda parte della stagione</div>
+    <div class="badge-vincitore" id="badge-rookie-nomi">--</div>
+    <div class="badge-valore" id="badge-rookie-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">📉</div>
+    <div class="badge-titolo">In frenata</div>
+    <div class="badge-descrizione">Carico di gare in maggior calo nella seconda parte della stagione</div>
+    <div class="badge-vincitore" id="badge-in_frenata-nomi">--</div>
+    <div class="badge-valore" id="badge-in_frenata-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🏠</div>
+    <div class="badge-titolo">Local Hero</div>
+    <div class="badge-descrizione">Più gare dirette a 0 km da casa</div>
+    <div class="badge-vincitore" id="badge-local_hero-nomi">--</div>
+    <div class="badge-valore" id="badge-local_hero-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🧭</div>
+    <div class="badge-titolo">Globetrotter</div>
+    <div class="badge-descrizione">Più comuni diversi visitati per arbitrare</div>
+    <div class="badge-vincitore" id="badge-globetrotter-nomi">--</div>
+    <div class="badge-valore" id="badge-globetrotter-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🌍</div>
+    <div class="badge-titolo">Viaggio estremo</div>
+    <div class="badge-descrizione">La trasferta singola più lunga della stagione</div>
+    <div class="badge-vincitore" id="badge-viaggio_estremo-nomi">--</div>
+    <div class="badge-valore" id="badge-viaggio_estremo-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🥇</div>
+    <div class="badge-titolo">Instancabile</div>
+    <div class="badge-descrizione">Più gare dirette in assoluto nella stagione</div>
+    <div class="badge-vincitore" id="badge-instancabile-nomi">--</div>
+    <div class="badge-valore" id="badge-instancabile-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🎯</div>
+    <div class="badge-titolo">Direttore</div>
+    <div class="badge-descrizione">Più gare dirette come Primo Arbitro</div>
+    <div class="badge-vincitore" id="badge-direttore-nomi">--</div>
+    <div class="badge-valore" id="badge-direttore-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🤝</div>
+    <div class="badge-titolo">Spalla di ferro</div>
+    <div class="badge-descrizione">Più gare dirette come 2° Arbitro</div>
+    <div class="badge-vincitore" id="badge-spalla_di_ferro-nomi">--</div>
+    <div class="badge-valore" id="badge-spalla_di_ferro-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🕰️</div>
+    <div class="badge-titolo">Veterano</div>
+    <div class="badge-descrizione">Nel sistema da più tempo (prima gara più lontana)</div>
+    <div class="badge-vincitore" id="badge-veterano-nomi">--</div>
+    <div class="badge-valore" id="badge-veterano-valore"></div>
+  </div>
+  <div class="badge-card">
+    <div class="badge-emoji">🐣</div>
+    <div class="badge-titolo">New Entry</div>
+    <div class="badge-descrizione">Esordio più recente nella stagione</div>
+    <div class="badge-vincitore" id="badge-new_entry-nomi">--</div>
+    <div class="badge-valore" id="badge-new_entry-valore"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/riconoscimenti.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Disponibilità arbitri{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 15l2 2 4-4"></path></svg>
+      </span>
+      <h1>Disponibilità arbitri</h1>
+    </div>
+    <p>Scegli un intervallo di date e vedi subito chi è disponibile giorno per giorno</p>
+  </div>
+</div>
+
+<div class="card" style="padding:20px; margin-bottom:20px;">
+  <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-field">
+      <label>Dal</label>
+      <input type="date" id="disp-dal">
+    </div>
+    <div class="form-field">
+      <label>Al</label>
+      <input type="date" id="disp-al">
+    </div>
+    <button class="btn btn-primary" onclick="cercaDisponibilita()">Cerca</button>
+    <input type="text" id="disp-filtro-arbitro" placeholder="Cerca arbitro o comune..." style="flex:1; min-width:220px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo);">
+    <span id="colonne-disponibilita"></span>
+  </div>
+  <p class="hint" style="margin-top:14px; margin-bottom:0;">
+    <span class="tag tag-verde">✓ Disponibile</span>
+    <span class="tag tag-arancione" style="margin-left:8px;">◐ Non disponibile solo in parte della giornata (clic per il dettaglio)</span>
+    <span class="tag tag-rosso" style="margin-left:8px;">✕ Non disponibile tutto il giorno (clic per il dettaglio)</span>
+  </p>
+</div>
+
+<div class="card">
+  <div class="table-scroll" style="max-height:70vh;">
+    <table class="tabella-ridimensionabile" id="tabella-disponibilita-el" style="min-width:900px">
+      <thead id="tabella-head-disponibilita"></thead>
+      <tbody id="tabella-disponibilita"></tbody>
+    </table>
+  </div>
+  <div id="stato-vuoto-disponibilita" class="empty-state">
+    <strong>Imposta un intervallo di date</strong>
+    Scegli "Dal" e "Al" e premi Cerca per vedere la disponibilità di ogni arbitro giorno per giorno.
+  </div>
+</div>
+
+<div class="overlay" id="modale-dettaglio-indisponibilita">
+  <div class="modal">
+    <h2>Dettaglio indisponibilità</h2>
+    <div class="form-grid">
+      <div class="form-field full"><label>Arbitro</label><p id="dettaglio-indisp-arbitro" style="margin:0; font-size:14px;"></p></div>
+      <div class="form-field"><label>Dal</label><p id="dettaglio-indisp-dal" style="margin:0; font-size:14px;"></p></div>
+      <div class="form-field"><label>Al</label><p id="dettaglio-indisp-al" style="margin:0; font-size:14px;"></p></div>
+      <div class="form-field full"><label>Motivazione</label><p id="dettaglio-indisp-motivo" style="margin:0; font-size:14px;"></p></div>
+      <div class="form-field full"><label>Data richiesta</label><p id="dettaglio-indisp-richiesta" style="margin:0; font-size:14px;"></p></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-dettaglio-indisponibilita')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/disponibilita.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Anagrafica Arbitri{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5"></path><circle cx="17.5" cy="9" r="2.7"></circle><path d="M15.5 13.2c2.8.4 5 2.7 5 6.8"></path></svg>
+      </span>
+      <h1>Anagrafica arbitri</h1>
+    </div>
+    <p>Elenco degli arbitri della sezione</p>
+  </div>
+  <div class="actions">
+    <span id="colonne-arbitri"></span>
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-arbitri', filtriArbitri, renderTabellaArbitri)">Azzera filtri</button>
+    <button class="btn btn-import" onclick="apriImportModal('import-arbitri', {endpoint:'/api/arbitri/import', onDone: caricaArbitri})">Importa da Excel</button>
+    <button class="btn btn-primary" onclick="apriModaleArbitro()">+ Nuovo arbitro</button>
+  </div>
+</div>
+
+<div id="barra-selezione-arbitri" class="filtri-stato attivo" style="display:none; justify-content:space-between; align-items:center;">
+  <span id="conteggio-selezione-arbitri"></span>
+  <div class="actions">
+    <button class="btn-testo" onclick="impostaAttivoMassivo(1)">Segna come in attività</button>
+    <button class="btn-testo" onclick="impostaAttivoMassivo(0)">Segna come non in attività</button>
+    <button class="btn-testo" onclick="deselezionaTuttiArbitri()">Annulla selezione</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-scroll" style="max-height:70vh;">
+  <table id="tabella-arbitri-el">
+    <thead id="tabella-head-arbitri">
+      <tr>
+        <th><input type="checkbox" id="checkbox-tutti-arbitri" onchange="toggleSelezionaTuttiArbitri(this.checked)"></th>
+        <th class="sortable" data-campo="codice_fiscale">Codice fiscale</th>
+        <th class="sortable" data-campo="cognome_nome">Cognome e nome</th>
+        <th class="sortable" data-campo="matricola">Matricola</th>
+        <th class="sortable" data-campo="comune">Comune</th>
+        <th class="sortable" data-campo="ruolo">Ruolo</th>
+        <th class="sortable" data-campo="attivo">Stato</th>
+        <th class="sortable" data-campo="scadenza_certificato_medico">Scad. certificato medico</th>
+        <th class="sortable" data-campo="cellulare">Cellulare</th>
+        <th class="sortable" data-campo="email">E-mail</th>
+        <th></th>
+      </tr>
+      <tr class="filtri-row">
+        <th></th>
+        <th><input class="filtro-input" data-campo="codice_fiscale" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="cognome_nome" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="matricola" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="comune" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="ruolo" placeholder="Filtra..."></th>
+        <th>
+          <select class="filtro-input" data-campo="attivo" style="width:100%">
+            <option value="">Tutti</option>
+            <option value="1">In attività</option>
+            <option value="0">Non in attività</option>
+          </select>
+        </th>
+        <th></th>
+        <th><input class="filtro-input" data-campo="cellulare" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="email" placeholder="Filtra..."></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-arbitri"></tbody>
+  </table>
+  </div>
+  <div id="stato-vuoto-arbitri" class="empty-state" style="display:none">
+    <strong>Nessun arbitro in anagrafica</strong>
+    Aggiungi un arbitro manualmente oppure importa un file Excel.
+  </div>
+</div>
+
+<!-- Modale aggiungi/modifica arbitro -->
+<div class="overlay" id="modale-arbitro">
+  <div class="modal">
+    <h2 id="titolo-modale-arbitro">Nuovo arbitro</h2>
+    <input type="hidden" id="arbitro-id">
+    <div class="form-grid">
+      <div class="form-field full"><label>Cognome e nome</label><input id="f-cognome_nome"></div>
+      <div class="form-field"><label>Codice fiscale</label><input id="f-codice_fiscale"></div>
+      <div class="form-field"><label>Matricola</label><input id="f-matricola"></div>
+      <div class="form-field"><label>Comune</label><input id="f-comune"></div>
+      <div class="form-field"><label>Ruolo</label><input id="f-ruolo" placeholder="es. NAZ, ASS, TER"></div>
+      <div class="form-field">
+        <label>Stato</label>
+        <select id="f-attivo">
+          <option value="1">In attività</option>
+          <option value="0">Non in attività</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Scadenza certificato medico</label><input type="date" id="f-scadenza_certificato_medico"></div>
+      <div class="form-field"><label>Cellulare</label><input id="f-cellulare"></div>
+      <div class="form-field"><label>E-mail</label><input type="email" id="f-email"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-arbitro')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaArbitro()">Salva</button>
+    </div>
+  </div>
+</div>
+
+{% include "_report_arbitro_modali.html" %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/report_arbitro.js') }}"></script>
+<script src="{{ url_for('static', filename='js/arbitri.js') }}"></script>
+{% endblock %}

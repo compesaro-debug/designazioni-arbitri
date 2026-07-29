@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Designazioni{% endblock %}
+
+{% macro filtro_numero(campo) %}
+<div class="filtro-avanzato">
+  <select class="filtro-operatore" data-campo="{{ campo }}" data-tipo="numero">
+    <option value="">tutti</option>
+    <option value="=">=</option>
+    <option value="<">&lt;</option>
+    <option value="<=">&lt;=</option>
+    <option value=">">&gt;</option>
+    <option value=">=">&gt;=</option>
+    <option value="tra">tra</option>
+  </select>
+  <input type="number" class="filtro-valore" data-campo="{{ campo }}">
+  <input type="number" class="filtro-valore2" data-campo="{{ campo }}" style="display:none">
+</div>
+{% endmacro %}
+
+{% macro filtro_data(campo) %}
+<div class="filtro-avanzato">
+  <select class="filtro-operatore" data-campo="{{ campo }}" data-tipo="data">
+    <option value="">tutte</option>
+    <option value="=">il</option>
+    <option value="<">prima del</option>
+    <option value=">">dopo il</option>
+    <option value="tra">tra</option>
+  </select>
+  <input type="date" class="filtro-valore" data-campo="{{ campo }}">
+  <input type="date" class="filtro-valore2" data-campo="{{ campo }}" style="display:none">
+</div>
+{% endmacro %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="14" r="6"></circle><circle cx="9" cy="14" r="2"></circle><path d="M14 11 L21 6"></path><path d="M21 6 h-4 v4"></path></svg>
+      </span>
+      <h1>Designazioni</h1>
+    </div>
+    <p>Assegna l'arbitro alle partite da disputare</p>
+  </div>
+  <div class="actions">
+    <span id="colonne-designazioni"></span>
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-designazioni', filtriDesignazioni, renderTabellaDesignazioni)">Azzera filtri</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-vista="giornaliera" onclick="cambiaVistaDesignazioni('giornaliera')">Vista giornaliera</button>
+  <button class="tab-btn" data-vista="tabella" onclick="cambiaVistaDesignazioni('tabella')">Vista tabella</button>
+</div>
+
+<div id="vista-giornaliera-designazioni">
+  <input type="text" id="filtro-giornaliera-designazioni" placeholder="Cerca squadra o campionato..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:16px;">
+  <div id="giorni-designazioni"></div>
+  <div id="stato-vuoto-giornaliera" class="empty-state" style="display:none">
+    <strong>Nessuna partita da disputare</strong>
+    Aggiungine una nella pagina Partite oppure importa un file Excel.
+  </div>
+</div>
+
+<div class="card" id="vista-tabella-designazioni" style="display:none">
+  <div class="table-scroll" style="max-height:70vh;">
+  <table class="tabella-ridimensionabile" id="tabella-designazioni-el" style="min-width:1650px">
+    <thead id="tabella-head-designazioni">
+      <tr>
+        <th class="sortable" data-campo="data">Data</th>
+        <th class="sortable" data-campo="ora">Ora</th>
+        <th class="sortable" data-campo="campionato">Campionato</th>
+        <th class="sortable" data-campo="numero_gara">N. Gara</th>
+        <th class="sortable" data-campo="localita">Località</th>
+        <th class="sortable" data-campo="campo">Campo</th>
+        <th class="sortable" data-campo="aff_a">Aff. Casa</th>
+        <th class="sortable" data-campo="squadra_casa">Casa</th>
+        <th class="sortable" data-campo="aff_b">Aff. Ospite</th>
+        <th class="sortable" data-campo="squadra_ospite">Ospite</th>
+        <th class="sortable" data-campo="arbitro">Arbitro</th>
+        <th class="sortable" data-campo="assistente1">2° Arbitro</th>
+        <th></th>
+      </tr>
+      <tr class="filtri-row">
+        <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="ora" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="campionato" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="numero_gara" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="localita" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="campo" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="aff_a" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="squadra_casa" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="aff_b" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="squadra_ospite" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+        <th><input class="filtro-input" data-campo="assistente1" placeholder="Filtra..."></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tabella-designazioni"></tbody>
+  </table>
+  </div>
+  <div id="stato-vuoto-designazioni" class="empty-state" style="display:none">
+    <strong>Nessuna partita da disputare</strong>
+    Aggiungine una nella pagina Partite oppure importa un file Excel.
+  </div>
+</div>
+
+<div class="overlay" id="modale-designazione">
+  <div class="modal modal-xlarge">
+    <h2 id="titolo-modale-designazione">Designa arbitro</h2>
+    <p id="info-squadre-modale" class="hint"></p>
+    <p class="hint">
+      <span class="tag tag-rosso">Rosso</span> = non disponibile in quel giorno/orario (in fondo alla lista, con dettaglio dell'indisponibilità) &nbsp;
+      <span class="tag tag-arancione">Arancione</span> = già designato oggi su un'altra gara (resta selezionabile) &nbsp;
+      <span class="tag tag-giallo">Giallo</span> = inibizione per la società di casa o ospite &nbsp;
+      <button class="btn-testo" style="margin-left:10px" onclick="azzeraFiltriCandidati()">Azzera filtri</button>
+      <span id="colonne-candidati" style="margin-left:6px"></span>
+    </p>
+    <input type="text" id="filtro-candidati" placeholder="Cerca arbitro o comune...">
+    <div class="table-scroll" style="max-height:55vh; margin-top:12px;">
+      <table class="tabella-ridimensionabile" id="tabella-candidati-el" style="min-width:1500px">
+        <thead id="tabella-head-candidati">
+          <tr>
+            <th class="sortable" data-campo="nome">Arbitro</th>
+            <th class="sortable" data-campo="ruolo">Ruolo</th>
+            <th class="sortable" data-campo="comune">Comune</th>
+            <th class="sortable" data-campo="distanza_km">Distanza (km)</th>
+            <th class="sortable" data-campo="designato_info">Designato oggi</th>
+            <th class="sortable" data-campo="n_casa_codice">P. dirette casa (cod.)</th>
+            <th class="sortable" data-campo="n_casa_nome">P. dirette casa (nome)</th>
+            <th class="sortable" data-campo="n_osp_codice">P. dirette osp. (cod.)</th>
+            <th class="sortable" data-campo="n_osp_nome">P. dirette osp. (nome)</th>
+            <th class="sortable" data-campo="ultima_designazione_casa">Ultima des. casa</th>
+            <th class="sortable" data-campo="ultima_designazione_ospite">Ultima des. ospite</th>
+            <th class="sortable" data-campo="indisp_dal_data">Dalle</th>
+            <th class="sortable" data-campo="indisp_al_data">Alle</th>
+            <th class="sortable" data-campo="indisp_motivo">Motivazione</th>
+            <th class="sortable" data-campo="note">Note</th>
+            <th class="sortable" data-campo="inibizione">Inibizione</th>
+            <th></th>
+          </tr>
+          <tr class="filtri-row" id="riga-filtri-candidati">
+            <th><input class="filtro-input" data-campo="nome" data-tipo="testo" placeholder="Filtra..."></th>
+            <th><input class="filtro-input" data-campo="ruolo" data-tipo="testo" placeholder="Filtra..."></th>
+            <th><input class="filtro-input" data-campo="comune" data-tipo="testo" placeholder="Filtra..."></th>
+            <th>{{ filtro_numero("distanza_km") }}</th>
+            <th><input class="filtro-input" data-campo="designato_info" data-tipo="testo" placeholder="Filtra..."></th>
+            <th>{{ filtro_numero("n_casa_codice") }}</th>
+            <th>{{ filtro_numero("n_casa_nome") }}</th>
+            <th>{{ filtro_numero("n_osp_codice") }}</th>
+            <th>{{ filtro_numero("n_osp_nome") }}</th>
+            <th>{{ filtro_data("ultima_designazione_casa") }}</th>
+            <th>{{ filtro_data("ultima_designazione_ospite") }}</th>
+            <th>{{ filtro_data("indisp_dal_data") }}</th>
+            <th>{{ filtro_data("indisp_al_data") }}</th>
+            <th><input class="filtro-input" data-campo="indisp_motivo" data-tipo="testo" placeholder="Filtra..."></th>
+            <th><input class="filtro-input" data-campo="note" data-tipo="testo" placeholder="Filtra..."></th>
+            <th><input class="filtro-input" data-campo="inibizione" data-tipo="testo" placeholder="Filtra..."></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tabella-candidati"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-designazione')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale riepilogo associati: quanto delle gare di ciascuna squadra è coperto da un
+     arbitro federale rispetto a 'Arbitro Associato', per nome (alias) e per codice società -->
+<div class="overlay" id="modale-riepilogo-associati">
+  <div class="modal modal-large">
+    <h2 id="titolo-modale-riepilogo-associati">Riepilogo associati</h2>
+    <div id="corpo-riepilogo-associati" class="form-grid"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-riepilogo-associati')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modale-storico">
+  <div class="modal modal-xlarge">
+    <h2 id="titolo-modale-storico">Storico</h2>
+    <div id="riepilogo-storico" class="riepilogo-storico" style="display:none">
+      <div class="riepilogo-tile-doppia">
+        <button class="riepilogo-tile-piccola" id="riepilogo-ultima-casa-nome-btn">
+          <div class="riepilogo-valore-piccolo">--</div>
+          <div class="riepilogo-label">Ultima gara casa (nome)</div>
+        </button>
+        <button class="riepilogo-tile-piccola" id="riepilogo-ultima-casa-cod-btn">
+          <div class="riepilogo-valore-piccolo">--</div>
+          <div class="riepilogo-label">Ultima gara casa (cod. affiliazione)</div>
+        </button>
+      </div>
+      <div class="riepilogo-tile-doppia">
+        <button class="riepilogo-tile-piccola" id="riepilogo-ultima-osp-nome-btn">
+          <div class="riepilogo-valore-piccolo">--</div>
+          <div class="riepilogo-label">Ultima gara ospite (nome)</div>
+        </button>
+        <button class="riepilogo-tile-piccola" id="riepilogo-ultima-osp-cod-btn">
+          <div class="riepilogo-valore-piccolo">--</div>
+          <div class="riepilogo-label">Ultima gara ospite (cod. affiliazione)</div>
+        </button>
+      </div>
+      <div class="riepilogo-tile">
+        <div class="riepilogo-valore" id="riepilogo-15gg">--</div>
+        <div class="riepilogo-label">Ultimi 15 giorni</div>
+      </div>
+      <div class="riepilogo-tile">
+        <div class="riepilogo-valore" id="riepilogo-mese">--</div>
+        <div class="riepilogo-label">Ultimi 30 giorni</div>
+      </div>
+      <div class="riepilogo-tile">
+        <div class="riepilogo-valore" id="riepilogo-anno">--</div>
+        <div class="riepilogo-label">Totale gare disputate</div>
+      </div>
+    </div>
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Campionato</th>
+            <th>Girone</th>
+            <th>N. Gara</th>
+            <th>Casa</th>
+            <th>Ospite</th>
+            <th>Risultato</th>
+            <th>Arbitro</th>
+            <th>2° Arbitro</th>
+            <th id="col-ruolo-storico" style="display:none">Ruolo</th>
+            <th id="col-stato-storico" style="display:none">Stato</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-storico"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-storico')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/designazioni.js') }}"></script>
+{% endblock %}

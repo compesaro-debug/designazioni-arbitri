@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+
+<div class="hero-home">
+  <div class="hero-home-testo">
+    <h1>Designazioni Arbitri</h1>
+    <p>Gestisci partite, disponibilità e designazioni della sezione in un unico posto. Da qui hai il quadro generale della settimana: cosa manca da designare, chi è indisponibile e cosa scade a breve.</p>
+  </div>
+  <div class="hero-home-illustrazione">
+    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="46" r="30" stroke="#C9932E" stroke-width="4"/>
+      <path d="M60 16 A30 30 0 0 1 90 46" stroke="#EDF0F5" stroke-width="4"/>
+      <path d="M34 30 A30 30 0 0 0 34 62" stroke="#EDF0F5" stroke-width="4"/>
+      <path d="M60 16 Q60 46 34 62" stroke="#EDF0F5" stroke-width="3.5" fill="none"/>
+      <path d="M60 16 Q60 46 86 62" stroke="#EDF0F5" stroke-width="3.5" fill="none"/>
+      <path d="M32 46 Q60 60 88 46" stroke="#EDF0F5" stroke-width="3.5" fill="none"/>
+      <rect x="40" y="86" width="40" height="22" rx="11" fill="#EDF0F5"/>
+      <circle cx="60" cy="97" r="8" fill="#1E2A44"/>
+      <path d="M60 89 v4 M60 106 v2 M52 97 h-4 M72 97 h4" stroke="#1E2A44" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+<div class="sezione-home">
+  <h2>Riepilogo di oggi</h2>
+  <div class="dashboard-grid">
+    <a href="/partite" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="16" y1="2" x2="16" y2="6"></line></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_da_disputare }}</div>
+        <div class="dashboard-tile-label">Partite da disputare</div>
+      </div>
+    </a>
+    <a href="/designazioni" class="dashboard-tile">
+      <div class="dashboard-tile-icona ambra">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"></rect><rect x="9" y="2" width="6" height="4" rx="1"></rect><path d="M9 13l2 2 4-4"></path></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_da_designare }}</div>
+        <div class="dashboard-tile-label">Gare ancora da designare</div>
+      </div>
+    </a>
+    <a href="/designazioni" class="dashboard-tile">
+      <div class="dashboard-tile-icona rosso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="15.5" y2="14"></line></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_in_scadenza }}</div>
+        <div class="dashboard-tile-label">Scoperte nei prossimi 7 giorni</div>
+      </div>
+    </a>
+    <a href="/disponibilita" class="dashboard-tile">
+      <div class="dashboard-tile-icona rosso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path><line x1="4" y1="4" x2="20" y2="20"></line></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_indisponibilita_attive }}</div>
+        <div class="dashboard-tile-label">Arbitri indisponibili oggi</div>
+      </div>
+    </a>
+    <a href="/inibizioni" class="dashboard-tile">
+      <div class="dashboard-tile-icona ambra">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"></path><line x1="12" y1="9" x2="12" y2="14"></line><line x1="12" y1="17" x2="12" y2="17.01"></line></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_inibizioni_attive }}</div>
+        <div class="dashboard-tile-label">Inibizioni attive</div>
+      </div>
+    </a>
+    <a href="/arbitri" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5"></path><circle cx="17.5" cy="9" r="2.7"></circle><path d="M15.5 13.2c2.8.4 5 2.7 5 6.8"></path></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_arbitri }}</div>
+        <div class="dashboard-tile-label">Arbitri in anagrafica</div>
+      </div>
+    </a>
+    <a href="/partite?tab=omologazione" class="dashboard-tile">
+      <div class="dashboard-tile-icona rosso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z"></path><path d="M9 13l2 2 4-4"></path></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_da_omologare }}</div>
+        <div class="dashboard-tile-label">Gare ancora da omologare</div>
+      </div>
+    </a>
+    <a href="/arbitri" class="dashboard-tile">
+      <div class="dashboard-tile-icona rosso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+      </div>
+      <div>
+        <div class="dashboard-tile-valore">{{ n_certificati_scadenza }}</div>
+        <div class="dashboard-tile-label">Certificati medici in scadenza (30gg) o scaduti</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="sezione-home">
+  <h2>Sezioni</h2>
+  <div class="dashboard-grid">
+    <a href="/partite" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="16" y1="2" x2="16" y2="6"></line></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Partite</div>
+        <div class="dashboard-tile-label">Calendario gare e import Excel</div>
+      </div>
+    </a>
+    <a href="/arbitri" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Anagrafica arbitri</div>
+        <div class="dashboard-tile-label">Elenco e dati anagrafici</div>
+      </div>
+    </a>
+    <a href="/indisponibilita" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="15.5" y2="14"></line></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Indisponibilità</div>
+        <div class="dashboard-tile-label">Periodi di assenza dichiarati</div>
+      </div>
+    </a>
+    <a href="/inibizioni" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"></path><line x1="12" y1="9" x2="12" y2="14"></line><line x1="12" y1="17" x2="12" y2="17.01"></line></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Inibizioni e note</div>
+        <div class="dashboard-tile-label">Incompatibilità con società e appunti</div>
+      </div>
+    </a>
+    <a href="/designazioni" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"></rect><rect x="9" y="2" width="6" height="4" rx="1"></rect><path d="M9 13l2 2 4-4"></path></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Designazioni</div>
+        <div class="dashboard-tile-label">Assegna arbitro e 2° arbitro alle gare</div>
+      </div>
+    </a>
+    <a href="/disponibilita" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 15l2 2 4-4"></path></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Disponibilità arbitri</div>
+        <div class="dashboard-tile-label">Griglia disponibilità per intervallo di date</div>
+      </div>
+    </a>
+    <a href="/campionati" class="dashboard-tile">
+      <div class="dashboard-tile-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+      </div>
+      <div>
+        <div class="sezione-link-titolo">Campionati</div>
+        <div class="dashboard-tile-label">Squadre e codici collegati per torneo</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+{% endblock %}
