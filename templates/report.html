@@ -29,11 +29,33 @@
 <div class="card" id="card-report-arbitro" style="padding:20px;">
   <p class="riepilogo-label" style="margin:0 0 4px;">Report arbitro</p>
   <p class="hint" style="margin-top:0;">Gare dirette, km percorsi, disponibilità, distribuzione per campionato e per società di un singolo arbitro.</p>
+  <div class="actions" style="margin-bottom:8px;">
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-report-arbitri', filtriReportArbitri, renderListaArbitriReport)">Azzera filtri</button>
+  </div>
   <input type="text" id="filtro-report-arbitri" placeholder="Cerca arbitro o comune..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
   <div class="table-scroll" style="max-height:60vh;">
-    <table>
-      <thead>
-        <tr><th>Cognome e nome</th><th>Comune</th><th>Ruolo</th><th></th></tr>
+    <table class="tabella-ridimensionabile" id="tabella-report-arbitri-el">
+      <thead id="tabella-head-report-arbitri">
+        <tr>
+          <th class="sortable" data-campo="cognome_nome">Cognome e nome</th>
+          <th class="sortable" data-campo="comune">Comune</th>
+          <th class="sortable" data-campo="ruolo">Ruolo</th>
+          <th class="sortable" data-campo="attivo">In attività</th>
+          <th></th>
+        </tr>
+        <tr class="filtri-row">
+          <th><input class="filtro-input" data-campo="cognome_nome" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="comune" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="ruolo" placeholder="Filtra..."></th>
+          <th>
+            <select class="filtro-input" data-campo="attivo" style="width:100%">
+              <option value="">Tutti</option>
+              <option value="1">In attività</option>
+              <option value="0">Non in attività</option>
+            </select>
+          </th>
+          <th></th>
+        </tr>
       </thead>
       <tbody id="tabella-report-lista-arbitri"></tbody>
     </table>

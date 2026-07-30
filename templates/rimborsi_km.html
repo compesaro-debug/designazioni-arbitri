@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Rimborsi km{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-header-titolo">
+      <span class="page-header-icona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-8h10l4 8"></path><rect x="2" y="17" width="20" height="4" rx="1"></rect><circle cx="7" cy="19" r="0.5"></circle><circle cx="17" cy="19" r="0.5"></circle></svg>
+      </span>
+      <h1>Rimborsi km</h1>
+    </div>
+    <p>Gare disputate con arbitro e 2° arbitro designati: dichiara se hanno viaggiato ciascuno con la propria auto o insieme (punto di incontro/auto unica), e correggi i km di rimborso se serve</p>
+  </div>
+</div>
+
+<div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
+  <div class="form-field" style="margin:0;">
+    <label>Da</label>
+    <input type="date" id="rimborsi-data-da">
+  </div>
+  <div class="form-field" style="margin:0;">
+    <label>A</label>
+    <input type="date" id="rimborsi-data-a">
+  </div>
+  <button class="btn-testo" onclick="azzeraFiltroDataRimborsi()">Azzera date</button>
+</div>
+
+<div class="card">
+  <div class="table-scroll" style="max-height:65vh;">
+    <table style="min-width:1200px">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Campionato</th>
+          <th>Squadre</th>
+          <th>1° Arbitro</th>
+          <th>2° Arbitro</th>
+          <th>Modalità trasferta</th>
+          <th>Km 1°</th>
+          <th>Km 2°</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tabella-rimborsi-km"></tbody>
+    </table>
+  </div>
+  <div id="stato-vuoto-rimborsi" class="empty-state" style="display:none">
+    <strong>Nessuna gara disputata con designazione completa in questo periodo</strong>
+    Le gare compaiono qui solo quando sono state disputate e hanno sia il 1° che il 2° arbitro assegnati.
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h2 style="margin-top:0">Totale km rimborso per arbitro (nel periodo)</h2>
+  <table>
+    <thead>
+      <tr><th>Arbitro</th><th>Km totali</th></tr>
+    </thead>
+    <tbody id="tabella-totali-rimborsi"></tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/rimborsi_km.js') }}"></script>
+{% endblock %}

@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import datetime
 import os
+import re
 import secrets
 import db
 import importer
@@ -154,6 +155,11 @@ def pagina_dati():
     return render_template("dati.html", active="dati")
 
 
+@app.route("/rimborsi-km")
+def pagina_rimborsi_km():
+    return render_template("rimborsi_km.html", active="rimborsi_km")
+
+
 # ---------- API: ARBITRI ----------
 
 @app.route("/api/arbitri", methods=["GET"])
@@ -246,8 +252,9 @@ def get_partite():
 @app.route("/api/partite", methods=["POST"])
 def add_partita():
     data = request.json
-    valori = [data.get(c, "") for c in db.PARTITE_COLONNE] + [int(data.get("disputata", 0))]
-    colonne_sql = ",".join(db.PARTITE_COLONNE + ["disputata"])
+    colonne = db.PARTITE_COLONNE + db.PARTITE_RIMBORSO_COLONNE
+    valori = [data.get(c, "") for c in colonne] + [int(data.get("disputata", 0))]
+    colonne_sql = ",".join(colonne + ["disputata"])
     placeholders = ",".join(["?"] * len(valori))
     conn = db.get_db()
     conn.execute(f"INSERT INTO partite ({colonne_sql}) VALUES ({placeholders})", valori)
@@ -259,10 +266,28 @@ def add_partita():
 @app.route("/api/partite/<int:id>", methods=["PUT"])
 def update_partita(id):
     data = request.json
-    valori = [data.get(c, "") for c in db.PARTITE_COLONNE] + [int(data.get("disputata", 0)), id]
-    assegnazioni_sql = ",".join(f"{c}=?" for c in db.PARTITE_COLONNE + ["disputata"])
+    colonne = db.PARTITE_COLONNE + db.PARTITE_RIMBORSO_COLONNE
+    valori = [data.get(c, "") for c in colonne] + [int(data.get("disputata", 0)), id]
+    assegnazioni_sql = ",".join(f"{c}=?" for c in colonne + ["disputata"])
     conn = db.get_db()
     conn.execute(f"UPDATE partite SET {assegnazioni_sql} WHERE id=?", valori)
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/partite/<int:id>/rimborso-km", methods=["PUT"])
+def update_rimborso_km(id):
+    """Aggiorna solo l'accordo di trasferta/rimborso km di una gara, senza toccare nessun
+    altro campo: a differenza della PUT generica su /api/partite/<id> (che richiede l'intero
+    oggetto partita), questa è pensata per essere chiamata con un payload minimo dal popup di
+    designazione e dalla scheda 'Rimborsi km', senza rischiare di svuotare altri campi."""
+    data = request.json
+    conn = db.get_db()
+    conn.execute(
+        "UPDATE partite SET rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
+        (data.get("rimborso_km_modalita", ""), data.get("rimborso_km_manuale_arbitro", ""), data.get("rimborso_km_manuale_assistente1", ""), id),
+    )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -407,6 +432,7 @@ def get_campionati():
         risultato.append({
             "id": c["id"], "nome": c["nome"], "n_squadre": n_squadre, "n_codici": n_codici,
             "arbitrabile_da_associato": c["arbitrabile_da_associato"],
+            "km_per_partita": c["km_per_partita"],
         })
     conn.close()
     return jsonify(risultato)
@@ -417,8 +443,8 @@ def add_campionato():
     data = request.json
     conn = db.get_db()
     cur = conn.execute(
-        "INSERT INTO campionati (nome, arbitrabile_da_associato) VALUES (?,?)",
-        (data.get("nome", ""), int(data.get("arbitrabile_da_associato", 1))),
+        "INSERT INTO campionati (nome, arbitrabile_da_associato, km_per_partita) VALUES (?,?,?)",
+        (data.get("nome", ""), int(data.get("arbitrabile_da_associato", 1)), data.get("km_per_partita", "")),
     )
     conn.commit()
     nuovo_id = cur.lastrowid
@@ -431,8 +457,8 @@ def update_campionato(id):
     data = request.json
     conn = db.get_db()
     conn.execute(
-        "UPDATE campionati SET nome=?, arbitrabile_da_associato=? WHERE id=?",
-        (data.get("nome", ""), int(data.get("arbitrabile_da_associato", 1)), id),
+        "UPDATE campionati SET nome=?, arbitrabile_da_associato=?, km_per_partita=? WHERE id=?",
+        (data.get("nome", ""), int(data.get("arbitrabile_da_associato", 1)), data.get("km_per_partita", ""), id),
     )
     conn.commit()
     conn.close()
@@ -894,6 +920,195 @@ def _risolvi_squadra(nome_squadra, codice_campionato_raw, mappa_codici, mappa_sq
     return mappa_squadre.get(campionato_id, {}).get(_norm_nome(nome_squadra))
 
 
+@app.route("/api/distanze-comuni", methods=["GET"])
+def get_distanze_comuni():
+    """Tabella distanze (comune_a_norm, comune_b_norm, km) così com'è, per i calcoli km lato
+    frontend (es. km totali delle designazioni fatte in Designazioni)."""
+    conn = db.get_db()
+    righe = conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in righe])
+
+
+def _estrai_km_soglia(testo):
+    """Estrae il primo numero (anche decimale) da un testo libero tipo 'max 30 km' -> 30.0.
+    Se il campo non contiene nessun numero, non c'è una soglia da confrontare."""
+    if not testo:
+        return None
+    m = re.search(r"(\d+(?:[.,]\d+)?)", testo)
+    if not m:
+        return None
+    return float(m.group(1).replace(",", "."))
+
+
+def _parse_km_manuale(valore):
+    if valore in (None, ""):
+        return None
+    try:
+        return float(str(valore).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _calcola_km_coppia(p, arbitri_comuni, distanza_fn):
+    """Km di rimborso per arbitro e 2° arbitro su una gara, rispettando l'eventuale accordo
+    di trasferta dichiarato (auto unica / punto di incontro tra i due designati):
+    modalità '' (default) = ognuno la propria auto, calcolo automatico separato per ciascuno;
+    'primo'/'secondo' = ha guidato uno solo dei due (auto unica): chi ha guidato prende il suo
+    km calcolato normalmente, l'altro (passeggero, non ha usato la propria auto) prende 0;
+    'manuale' = km inseriti a mano per ciascuno. Restituisce (km_arbitro, km_assistente1),
+    ognuno None se non calcolabile (nome vuoto o comune/distanza sconosciuti)."""
+    def km_auto(campo):
+        nome = p[campo]
+        if not nome:
+            return None
+        comune = arbitri_comuni.get(_norm_nome(nome))
+        if not comune:
+            return None
+        return distanza_fn(comune, p["localita"])
+
+    km_arbitro_auto = km_auto("arbitro")
+    km_assistente_auto = km_auto("assistente1")
+    modalita = (p["rimborso_km_modalita"] or "").strip()
+
+    if modalita == "manuale":
+        return _parse_km_manuale(p["rimborso_km_manuale_arbitro"]), _parse_km_manuale(p["rimborso_km_manuale_assistente1"])
+    if modalita == "primo":
+        return km_arbitro_auto, 0.0
+    if modalita == "secondo":
+        return 0.0, km_assistente_auto
+    return km_arbitro_auto, km_assistente_auto
+
+
+def _carica_dati_km(conn):
+    """Mappe comuni-arbitro e distanze, condivise dagli endpoint che calcolano km rimborso."""
+    arbitri_comuni = {
+        _norm_nome(r["cognome_nome"]): r["comune"]
+        for r in conn.execute("SELECT cognome_nome, comune FROM arbitri").fetchall()
+    }
+    mappa_km = {
+        (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
+        for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
+    }
+
+    def distanza(comune1, comune2):
+        c1, c2 = _norm_comune(comune1), _norm_comune(comune2)
+        if not c1 or not c2:
+            return None
+        if c1 == c2:
+            return 0.0
+        return mappa_km.get((c1, c2))
+
+    return arbitri_comuni, distanza
+
+
+@app.route("/api/designazioni/report-km", methods=["GET"])
+def report_km_designazioni():
+    """Per le partite ancora da disputare in un intervallo di date, raggruppa per campionato
+    (alias da Alias campionati, fallback al codice grezzo se non collegato) e confronta la
+    media dei km di trasferta degli arbitri già designati (rispettando l'eventuale accordo di
+    trasferta condivisa dichiarato) con la soglia 'Km per partita da provare a rispettare'
+    impostata in Alias campionati."""
+    da = request.args.get("da", "")
+    a = request.args.get("a", "")
+    conn = db.get_db()
+    mappa_codici, nomi_campionati = _carica_alias_campionati(conn)
+    mappa_soglie = {r["id"]: r["km_per_partita"] for r in conn.execute("SELECT id, km_per_partita FROM campionati").fetchall()}
+    arbitri_comuni, distanza = _carica_dati_km(conn)
+    query = (
+        "SELECT campionato, localita, arbitro, assistente1, "
+        "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
+        "FROM partite WHERE disputata=0"
+    )
+    params = []
+    if da:
+        query += " AND data>=?"
+        params.append(da)
+    if a:
+        query += " AND data<=?"
+        params.append(a)
+    partite = conn.execute(query, params).fetchall()
+    conn.close()
+
+    gruppi = {}
+    for p in partite:
+        campionato_id = mappa_codici.get(_norm_nome(p["campionato"])) if p["campionato"] else None
+        if campionato_id is not None:
+            chiave = f"c{campionato_id}"
+            nome = nomi_campionati.get(campionato_id, p["campionato"])
+            soglia_testo = mappa_soglie.get(campionato_id, "")
+        else:
+            chiave = f"raw:{p['campionato']}"
+            nome = p["campionato"] or "(senza campionato)"
+            soglia_testo = ""
+        g = gruppi.setdefault(chiave, {"nome": nome, "soglia_testo": soglia_testo, "n_gare": 0, "km_valori": []})
+        g["n_gare"] += 1
+        km_arbitro, km_assistente1 = _calcola_km_coppia(p, arbitri_comuni, distanza)
+        for km in (km_arbitro, km_assistente1):
+            if km is not None:
+                g["km_valori"].append(km)
+
+    risultati = []
+    for g in gruppi.values():
+        soglia = _estrai_km_soglia(g["soglia_testo"])
+        media = round(sum(g["km_valori"]) / len(g["km_valori"]), 1) if g["km_valori"] else None
+        confronto = None
+        if soglia is not None and media is not None:
+            confronto = "sopra" if media > soglia else ("sotto" if media < soglia else "pari")
+        risultati.append({
+            "nome": g["nome"],
+            "n_gare": g["n_gare"],
+            "n_designazioni_km": len(g["km_valori"]),
+            "media_km": media,
+            "soglia_testo": g["soglia_testo"],
+            "soglia_km": soglia,
+            "confronto": confronto,
+        })
+    risultati.sort(key=lambda r: r["nome"])
+    return jsonify(risultati)
+
+
+@app.route("/api/rimborsi-km", methods=["GET"])
+def get_rimborsi_km():
+    """Scheda 'Rimborsi km': tutte le gare disputate nel periodo scelto con sia arbitro che
+    2° arbitro assegnati, coi km finali di ciascuno (rispettando l'eventuale accordo di
+    trasferta condivisa) pronti per essere consultati o corretti — il rimborso si liquida a
+    gara giocata, non su quelle ancora da disputare."""
+    da = request.args.get("da", "")
+    a = request.args.get("a", "")
+    conn = db.get_db()
+    arbitri_comuni, distanza = _carica_dati_km(conn)
+    query = (
+        "SELECT id, data, ora, campionato, numero_gara, squadra_casa, squadra_ospite, localita, "
+        "arbitro, assistente1, rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
+        "FROM partite WHERE disputata=1 AND arbitro!='' AND assistente1!=''"
+    )
+    params = []
+    if da:
+        query += " AND data>=?"
+        params.append(da)
+    if a:
+        query += " AND data<=?"
+        params.append(a)
+    query += " ORDER BY data, ora"
+    partite = conn.execute(query, params).fetchall()
+    conn.close()
+
+    risultati = []
+    for p in partite:
+        km_arbitro, km_assistente1 = _calcola_km_coppia(p, arbitri_comuni, distanza)
+        risultati.append({
+            "id": p["id"], "data": p["data"], "ora": p["ora"], "campionato": p["campionato"],
+            "numero_gara": p["numero_gara"], "squadra_casa": p["squadra_casa"], "squadra_ospite": p["squadra_ospite"],
+            "arbitro": p["arbitro"], "assistente1": p["assistente1"],
+            "rimborso_km_modalita": p["rimborso_km_modalita"] or "",
+            "rimborso_km_manuale_arbitro": p["rimborso_km_manuale_arbitro"] or "",
+            "rimborso_km_manuale_assistente1": p["rimborso_km_manuale_assistente1"] or "",
+            "km_arbitro": km_arbitro, "km_assistente1": km_assistente1,
+        })
+    return jsonify(risultati)
+
+
 @app.route("/api/designazioni/candidati/<int:partita_id>", methods=["GET"])
 def get_candidati_designazione(partita_id):
     ruolo = request.args.get("ruolo", "arbitro")  # "arbitro" (1°) oppure "assistente1" (2°)
@@ -1317,8 +1532,11 @@ def report_arbitro(id):
     if live:
         rows = conn.execute(
             "SELECT data, campionato, girone, numero_gara, localita, squadra_casa, squadra_ospite, "
-            "aff_a, aff_b, risultato, arbitro, assistente1 FROM partite WHERE disputata=1"
+            "aff_a, aff_b, risultato, arbitro, assistente1, "
+            "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
+            "FROM partite WHERE disputata=1"
         ).fetchall()
+        arbitri_comuni_km, distanza_km = _carica_dati_km(conn)
     else:
         rows = conn.execute(
             "SELECT data, campionato, girone, numero_gara, localita, squadra_casa, squadra_ospite, "
@@ -1335,7 +1553,8 @@ def report_arbitro(id):
         if not _riga_ha_arbitro(r, nome_norm):
             continue
         g = dict(r)
-        g["ruolo_designazione"] = _ruolo_in_riga(r, nome_norm)
+        ruolo_designazione = _ruolo_in_riga(r, nome_norm)
+        g["ruolo_designazione"] = ruolo_designazione
 
         # per il conteggio "per campionato" con alias: se il codice è collegato nella pagina
         # Campionati usa il nome logico (es. tutti i gironi di Terza Divisione insieme),
@@ -1343,17 +1562,23 @@ def report_arbitro(id):
         campionato_id = mappa_codici.get(_norm_nome(r["campionato"]))
         g["campionato_alias"] = nomi_campionati.get(campionato_id, r["campionato"])
 
-        localita_norm = _norm_comune(g["localita"])
-        if not comune_arbitro_norm or not localita_norm:
-            km = None
-        elif comune_arbitro_norm == localita_norm:
-            km = 0.0
+        if live:
+            # rispetta l'eventuale accordo di trasferta dichiarato in Designazioni/Rimborsi km
+            # (auto unica: chi non ha guidato prende 0 km) invece del calcolo sempre separato.
+            km_arbitro, km_assistente1 = _calcola_km_coppia(r, arbitri_comuni_km, distanza_km)
+            km = km_arbitro if ruolo_designazione == "Arbitro" else km_assistente1
         else:
-            riga_km = conn.execute(
-                "SELECT km FROM distanze_comuni WHERE comune_a_norm=? AND comune_b_norm=?",
-                (comune_arbitro_norm, localita_norm),
-            ).fetchone()
-            km = riga_km["km"] if riga_km else None
+            localita_norm = _norm_comune(g["localita"])
+            if not comune_arbitro_norm or not localita_norm:
+                km = None
+            elif comune_arbitro_norm == localita_norm:
+                km = 0.0
+            else:
+                riga_km = conn.execute(
+                    "SELECT km FROM distanze_comuni WHERE comune_a_norm=? AND comune_b_norm=?",
+                    (comune_arbitro_norm, localita_norm),
+                ).fetchone()
+                km = riga_km["km"] if riga_km else None
         g["km"] = km
         if km is None:
             n_km_mancanti += 1
@@ -1484,7 +1709,11 @@ def _calcola_report_sezione(conn, live, stagione_storica_id):
     arbitri = [a for a in arbitri_tutti if (a["ruolo"] or "").strip().upper() != "ASS"]
     nomi_ass_norm = {_norm_nome(a["cognome_nome"]) for a in arbitri_tutti if (a["ruolo"] or "").strip().upper() == "ASS"}
     if live:
-        partite = conn.execute("SELECT localita, arbitro, assistente1 FROM partite WHERE disputata=1").fetchall()
+        partite = conn.execute(
+            "SELECT localita, arbitro, assistente1, "
+            "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
+            "FROM partite WHERE disputata=1"
+        ).fetchall()
     else:
         partite = conn.execute(
             "SELECT localita, arbitro, assistente1 FROM partite_storiche WHERE stagione_id=?", (stagione_storica_id,)
@@ -1493,6 +1722,7 @@ def _calcola_report_sezione(conn, live, stagione_storica_id):
         (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
         for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
     }
+    arbitri_comuni_km = {_norm_nome(a["cognome_nome"]): a["comune"] for a in arbitri_tutti}
 
     def distanza(comune1, comune2):
         a, b = _norm_comune(comune1), _norm_comune(comune2)
@@ -1511,7 +1741,13 @@ def _calcola_report_sezione(conn, live, stagione_storica_id):
             if not _riga_ha_arbitro(p, nome_norm):
                 continue
             n_gare += 1
-            km = distanza(a["comune"], p["localita"])
+            if live:
+                # rispetta l'eventuale accordo di trasferta dichiarato (auto unica: chi non
+                # ha guidato prende 0 km) invece del calcolo sempre separato per persona.
+                km_arbitro, km_assistente1 = _calcola_km_coppia(p, arbitri_comuni_km, distanza)
+                km = km_arbitro if _norm_nome(p["arbitro"]) == nome_norm else km_assistente1
+            else:
+                km = distanza(a["comune"], p["localita"])
             if km is not None:
                 km_tot += km
         risultati.append({
@@ -1635,7 +1871,9 @@ def report_riconoscimenti():
     ]
     if live:
         partite = conn.execute(
-            "SELECT data, campionato, localita, aff_a, aff_b, arbitro, assistente1 FROM partite WHERE disputata=1"
+            "SELECT data, campionato, localita, aff_a, aff_b, arbitro, assistente1, "
+            "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
+            "FROM partite WHERE disputata=1"
         ).fetchall()
         indisponibilita = conn.execute(
             "SELECT arbitro, data_inizio, ora_inizio, data_fine, ora_fine FROM indisponibilita"
@@ -1656,6 +1894,10 @@ def report_riconoscimenti():
     mappa_km = {
         (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
         for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
+    }
+    arbitri_comuni_km = {
+        _norm_nome(r["cognome_nome"]): r["comune"]
+        for r in conn.execute("SELECT cognome_nome, comune FROM arbitri").fetchall()
     }
     conn.close()
 
@@ -1699,7 +1941,13 @@ def report_riconoscimenti():
             if g["localita"]:
                 comuni_distinti.add(_norm_comune(g["localita"]))
 
-            km = distanza(a["comune"], g["localita"])
+            if live:
+                # rispetta l'eventuale accordo di trasferta dichiarato (auto unica: chi non
+                # ha guidato prende 0 km) invece del calcolo sempre separato per persona.
+                km_arbitro, km_assistente1 = _calcola_km_coppia(g, arbitri_comuni_km, distanza)
+                km = km_arbitro if _norm_nome(g["arbitro"]) == nome_norm else km_assistente1
+            else:
+                km = distanza(a["comune"], g["localita"])
             if km is not None:
                 km_totali += km
                 if km == 0:
@@ -1901,7 +2149,9 @@ def report_campionati():
     if live:
         partite = conn.execute(
             "SELECT campionato, girone, numero_gara, localita, squadra_casa, squadra_ospite, "
-            "risultato, arbitro, assistente1 FROM partite WHERE disputata=1 AND campionato!=''"
+            "risultato, arbitro, assistente1, "
+            "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
+            "FROM partite WHERE disputata=1 AND campionato!=''"
         ).fetchall()
     else:
         partite = conn.execute(
@@ -1953,7 +2203,15 @@ def report_campionati():
         n_associato = 0
         km_totali = 0.0
         for p in g["gare"]:
-            for campo_ruolo, ruolo_label in (("arbitro", "Arbitro"), ("assistente1", "2° Arbitro")):
+            if live:
+                # rispetta l'eventuale accordo di trasferta dichiarato (auto unica: chi non
+                # ha guidato prende 0 km) invece del calcolo sempre separato per persona.
+                km_arbitro, km_assistente1 = _calcola_km_coppia(p, arbitri_comuni, distanza)
+            else:
+                km_arbitro = km_assistente1 = None
+            for campo_ruolo, ruolo_label, km_ruolo_live in (
+                ("arbitro", "Arbitro", km_arbitro), ("assistente1", "2° Arbitro", km_assistente1)
+            ):
                 nome_persona = p[campo_ruolo]
                 if not nome_persona:
                     continue
@@ -1962,7 +2220,7 @@ def report_campionati():
                     n_associato += 1
                 elif nome_norm in arbitri_comuni:
                     n_federali += 1
-                    km = distanza(arbitri_comuni[nome_norm], p["localita"])
+                    km = km_ruolo_live if live else distanza(arbitri_comuni[nome_norm], p["localita"])
                     if km is not None:
                         km_totali += km
 

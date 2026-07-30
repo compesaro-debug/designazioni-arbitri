@@ -24,6 +24,7 @@ function renderTabellaCampionati() {
       <td>${c.n_squadre}</td>
       <td>${c.n_codici}</td>
       <td>${arbitrabile ? '<span class="tag tag-verde">Sì</span>' : '<span class="tag tag-rosso">No</span>'}</td>
+      <td>${c.km_per_partita || "-"}</td>
       <td style="white-space:nowrap">
         <button class="btn-danger-text" style="color:var(--primario)" onclick="apriGestioneCampionato(${c.id})">Gestisci</button>
         <button class="btn-danger-text" style="color:var(--primario)" onclick="apriModaleCampionato(${c.id})">Modifica</button>
@@ -40,6 +41,7 @@ function apriModaleCampionato(id) {
   document.getElementById("campionato-id").value = campionato ? campionato.id : "";
   document.getElementById("f-campionato-nome").value = campionato ? campionato.nome : "";
   document.getElementById("f-campionato-arbitrabile-associato").value = campionato && Number(campionato.arbitrabile_da_associato) === 0 ? "0" : "1";
+  document.getElementById("f-campionato-km-per-partita").value = campionato ? (campionato.km_per_partita || "") : "";
   openOverlay("modale-campionato");
 }
 
@@ -47,7 +49,11 @@ async function salvaCampionato() {
   const id = document.getElementById("campionato-id").value;
   const nome = document.getElementById("f-campionato-nome").value.trim();
   if (!nome) return;
-  const payload = { nome, arbitrabile_da_associato: document.getElementById("f-campionato-arbitrabile-associato").value };
+  const payload = {
+    nome,
+    arbitrabile_da_associato: document.getElementById("f-campionato-arbitrabile-associato").value,
+    km_per_partita: document.getElementById("f-campionato-km-per-partita").value.trim(),
+  };
   if (id) {
     await apiSend(`/api/campionati/${id}`, "PUT", payload);
   } else {

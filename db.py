@@ -13,6 +13,12 @@ PARTITE_COLONNE = [
     "assistente2", "residenza_assistente2", "osservatore", "residenza_osservatore",
 ]
 
+# Accordo di trasferta/rimborso km dichiarato per la coppia arbitro+2° arbitro di una gara
+# (es. viaggiano insieme con un'unica auto): solo sulla tabella "partite" live, non su
+# quella storica, per questo è una lista separata da PARTITE_COLONNE (che è condivisa con
+# lo schema di partite_storiche).
+PARTITE_RIMBORSO_COLONNE = ["rimborso_km_modalita", "rimborso_km_manuale_arbitro", "rimborso_km_manuale_assistente1"]
+
 # Elenco completo dei campi della tabella "indisponibilita", nell'ordine in cui compaiono
 # nel file Excel di export usato per l'import (colonne Da/A con data e ora combinate).
 INDISPONIBILITA_COLONNE = [
@@ -26,7 +32,7 @@ NOTE_INIBIZIONI_COLONNE = ["arbitro", "tipo", "descrizione", "codice_affiliazion
 # Campi delle tabelle per collegare tra loro i gironi/fasi di uno stesso campionato
 # (es. "2DFUNA" e "POFF2DIV" sono in realtà lo stesso torneo in due fasi diverse),
 # così le statistiche per squadra non si spezzano quando cambia il codice campionato.
-CAMPIONATI_COLONNE = ["nome"]
+CAMPIONATI_COLONNE = ["nome", "km_per_partita"]
 SQUADRE_COLONNE = ["campionato_id", "nome"]
 CAMPIONATI_CODICI_COLONNE = ["campionato_id", "codice"]
 
@@ -43,7 +49,7 @@ def _migra_se_necessario(conn):
     la aggiunge con ALTER TABLE (senza mai toccare i dati già presenti)."""
     schema_atteso = {
         "arbitri": ["codice_fiscale", "cognome_nome", "matricola", "comune", "ruolo", "scadenza_certificato_medico", "cellulare", "email"],
-        "partite": PARTITE_COLONNE + ["disputata"],
+        "partite": PARTITE_COLONNE + ["disputata"] + PARTITE_RIMBORSO_COLONNE,
         "indisponibilita": INDISPONIBILITA_COLONNE,
         "note_inibizioni": NOTE_INIBIZIONI_COLONNE,
         "campionati": CAMPIONATI_COLONNE,
@@ -129,7 +135,10 @@ def init_db():
             residenza_assistente2 TEXT DEFAULT '',
             osservatore TEXT DEFAULT '',
             residenza_osservatore TEXT DEFAULT '',
-            disputata INTEGER NOT NULL DEFAULT 0
+            disputata INTEGER NOT NULL DEFAULT 0,
+            rimborso_km_modalita TEXT DEFAULT '',
+            rimborso_km_manuale_arbitro TEXT DEFAULT '',
+            rimborso_km_manuale_assistente1 TEXT DEFAULT ''
         )
     """)
 
@@ -162,7 +171,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS campionati (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL DEFAULT '',
-            arbitrabile_da_associato INTEGER NOT NULL DEFAULT 1
+            arbitrabile_da_associato INTEGER NOT NULL DEFAULT 1,
+            km_per_partita TEXT DEFAULT ''
         )
     """)
 

@@ -54,6 +54,23 @@
   <button class="tab-btn" data-vista="tabella" onclick="cambiaVistaDesignazioni('tabella')">Vista tabella</button>
 </div>
 
+<div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
+  <div class="riepilogo-tile" style="max-width:320px; margin:0;">
+    <div class="riepilogo-valore" id="km-totali-designazioni">0 km</div>
+    <div class="riepilogo-label">Km rimborso — arbitri designati in questa vista</div>
+  </div>
+  <div class="form-field" style="margin:0;">
+    <label>Da</label>
+    <input type="date" id="designazioni-data-da">
+  </div>
+  <div class="form-field" style="margin:0;">
+    <label>A</label>
+    <input type="date" id="designazioni-data-a">
+  </div>
+  <button class="btn-testo" onclick="azzeraFiltroDataDesignazioni()">Azzera date</button>
+  <button class="btn btn-secondary" onclick="apriReportKmDesignazioni()">Report km per campionato</button>
+</div>
+
 <div id="vista-giornaliera-designazioni">
   <input type="text" id="filtro-giornaliera-designazioni" placeholder="Cerca squadra o campionato..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:16px;">
   <div id="giorni-designazioni"></div>
@@ -178,6 +195,70 @@
     <div id="corpo-riepilogo-associati" class="form-grid"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-riepilogo-associati')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale rimborso km: appare quando una gara risulta designata sia di arbitro che di 2°
+     arbitro, per dichiarare se hanno viaggiato ciascuno con la propria auto oppure insieme
+     (punto di incontro/auto unica), e con quale km tenere conto ai fini del rimborso. -->
+<div class="overlay" id="modale-rimborso-km">
+  <div class="modal">
+    <h2>Rimborso km</h2>
+    <p class="hint" id="info-gara-rimborso-km"></p>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label><input type="radio" name="rimborso-km-modalita" value="" checked> Ognuno la propria auto <span class="hint" id="rif-km-separato"></span></label>
+      </div>
+      <div class="form-field full">
+        <label><input type="radio" name="rimborso-km-modalita" value="primo"> Ha guidato il 1° arbitro (auto unica) <span class="hint" id="rif-km-primo"></span></label>
+      </div>
+      <div class="form-field full">
+        <label><input type="radio" name="rimborso-km-modalita" value="secondo"> Ha guidato il 2° arbitro (auto unica) <span class="hint" id="rif-km-secondo"></span></label>
+      </div>
+      <div class="form-field full">
+        <label><input type="radio" name="rimborso-km-modalita" value="manuale"> Dichiaro io i km a mano</label>
+      </div>
+      <div class="form-field" id="riga-km-manuale-arbitro" style="display:none">
+        <label id="etichetta-km-manuale-arbitro">Km 1° arbitro</label>
+        <input type="number" id="f-km-manuale-arbitro" step="0.1" min="0">
+      </div>
+      <div class="form-field" id="riga-km-manuale-assistente1" style="display:none">
+        <label id="etichetta-km-manuale-assistente1">Km 2° arbitro</label>
+        <input type="number" id="f-km-manuale-assistente1" step="0.1" min="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-rimborso-km')">Chiudi</button>
+      <button class="btn btn-primary" onclick="salvaRimborsoKm()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale report km: per l'intervallo di date scelto sopra, media dei km di trasferta degli
+     arbitri già designati per ciascun alias campionato, a confronto con la soglia impostata
+     in Alias campionati ("Km per partita da provare a rispettare"). -->
+<div class="overlay" id="modale-report-km">
+  <div class="modal modal-large">
+    <h2>Report km per campionato</h2>
+    <p class="hint" id="periodo-report-km"></p>
+    <div class="table-scroll" style="max-height:60vh; margin-top:10px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Campionato</th>
+            <th>Gare</th>
+            <th>Designazioni con km calcolabile</th>
+            <th>Media km</th>
+            <th>Soglia (Alias campionati)</th>
+            <th>Confronto</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-report-km"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-report-km')">Chiudi</button>
     </div>
   </div>
 </div>

@@ -10,6 +10,197 @@ async function caricaPartiteDesignazioni() {
   window._partiteDesignazioniCache = partite;
   renderTabellaDesignazioni();
   renderVistaGiornaliera();
+  aggiornaKmTotaliDesignazioni();
+}
+
+// ---------- FILTRO PERIODO (da/a): filtra la vista E i km totali/report sotto ----------
+
+function _periodoDesignazioni() {
+  return {
+    da: document.getElementById("designazioni-data-da").value || "",
+    a: document.getElementById("designazioni-data-a").value || "",
+  };
+}
+
+function _partiteFiltratePerData(partite) {
+  const { da, a } = _periodoDesignazioni();
+  if (!da && !a) return partite;
+  return partite.filter(p => (!da || p.data >= da) && (!a || p.data <= a));
+}
+
+function aggiornaVisteDesignazioni() {
+  renderTabellaDesignazioni();
+  renderVistaGiornaliera();
+  aggiornaKmTotaliDesignazioni();
+}
+
+function azzeraFiltroDataDesignazioni() {
+  document.getElementById("designazioni-data-da").value = "";
+  document.getElementById("designazioni-data-a").value = "";
+  aggiornaVisteDesignazioni();
+}
+
+document.getElementById("designazioni-data-da").addEventListener("change", aggiornaVisteDesignazioni);
+document.getElementById("designazioni-data-a").addEventListener("change", aggiornaVisteDesignazioni);
+
+// ---------- KM TOTALI (rimborso) DELLE PARTITE DA DESIGNARE ----------
+// Somma i km (comune di residenza dell'arbitro -> località della gara) di tutti gli
+// arbitri/2° arbitri già designati sulle partite ancora da disputare: un riepilogo rapido
+// di quanti km "pesano" le designazioni fatte finora, indipendentemente da filtri/vista.
+
+function _normNomeDesignazioni(s) {
+  return (s || "").trim().toLowerCase();
+}
+
+function _normComuneDesignazioni(s) {
+  return (s || "").toString().toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "");
+}
+
+async function caricaDatiKmDesignazioni() {
+  const [arbitri, distanze] = await Promise.all([apiGet("/api/arbitri"), apiGet("/api/distanze-comuni")]);
+  window._mappaComuneArbitroDesignazioni = {};
+  arbitri.forEach(a => {
+    window._mappaComuneArbitroDesignazioni[_normNomeDesignazioni(a.cognome_nome)] = a.comune;
+  });
+  window._mappaDistanzeDesignazioni = {};
+  distanze.forEach(d => {
+    window._mappaDistanzeDesignazioni[`${d.comune_a_norm}|${d.comune_b_norm}`] = d.km;
+  });
+}
+
+function _distanzaKmDesignazioni(comuneArbitro, comuneGara) {
+  const a = _normComuneDesignazioni(comuneArbitro);
+  const b = _normComuneDesignazioni(comuneGara);
+  if (!a || !b) return null;
+  if (a === b) return 0;
+  const km = window._mappaDistanzeDesignazioni?.[`${a}|${b}`];
+  return km != null ? km : null;
+}
+
+// Km di rimborso per arbitro e 2° arbitro su una gara, rispettando l'eventuale accordo di
+// trasferta condivisa dichiarato nel popup (mirror lato client di _calcola_km_coppia in app.py).
+function _calcolaKmCoppiaDesignazioni(p) {
+  const kmAuto = (campo) => {
+    const nome = p[campo];
+    if (!nome) return null;
+    const comune = window._mappaComuneArbitroDesignazioni?.[_normNomeDesignazioni(nome)];
+    if (!comune) return null;
+    return _distanzaKmDesignazioni(comune, p.localita);
+  };
+  const kmArbitroAuto = kmAuto("arbitro");
+  const kmAssistenteAuto = kmAuto("assistente1");
+  const modalita = (p.rimborso_km_modalita || "").trim();
+
+  const parseManuale = (v) => {
+    if (v === "" || v == null) return null;
+    const n = parseFloat(String(v).replace(",", "."));
+    return isNaN(n) ? null : n;
+  };
+  if (modalita === "manuale") {
+    return { kmArbitro: parseManuale(p.rimborso_km_manuale_arbitro), kmAssistente1: parseManuale(p.rimborso_km_manuale_assistente1) };
+  }
+  if (modalita === "primo") return { kmArbitro: kmArbitroAuto, kmAssistente1: 0 };
+  if (modalita === "secondo") return { kmArbitro: 0, kmAssistente1: kmAssistenteAuto };
+  return { kmArbitro: kmArbitroAuto, kmAssistente1: kmAssistenteAuto };
+}
+
+function aggiornaKmTotaliDesignazioni() {
+  const el = document.getElementById("km-totali-designazioni");
+  if (!el) return;
+  const partite = _partiteFiltratePerData(window._partiteDesignazioniCache || []);
+  let totale = 0;
+  partite.forEach(p => {
+    const { kmArbitro, kmAssistente1 } = _calcolaKmCoppiaDesignazioni(p);
+    if (kmArbitro != null) totale += kmArbitro;
+    if (kmAssistente1 != null) totale += kmAssistente1;
+  });
+  el.textContent = `${Math.round(totale * 10) / 10} km`;
+}
+
+// ---------- POPUP RIMBORSO KM (dopo aver designato sia arbitro che 2° arbitro) ----------
+
+function _testoRifKm(km) {
+  return km != null ? `(${km} km)` : "(km non calcolabile)";
+}
+
+function apriPopupRimborsoKm(partita) {
+  window._partitaRimborsoKm = partita;
+  const { kmArbitro, kmAssistente1 } = _calcolaKmCoppiaDesignazioni({ ...partita, rimborso_km_modalita: "" });
+
+  document.getElementById("info-gara-rimborso-km").textContent =
+    `${formattaData(partita.data)} ${partita.ora} · ${partita.campionato} · ${partita.arbitro} (1°) / ${partita.assistente1} (2°) — hanno viaggiato ciascuno con la propria auto o insieme?`;
+  document.getElementById("rif-km-separato").textContent = `(1°: ${_testoRifKm(kmArbitro)} · 2°: ${_testoRifKm(kmAssistente1)})`;
+  document.getElementById("rif-km-primo").textContent = `(1°: ${_testoRifKm(kmArbitro)} · 2°: 0 km)`;
+  document.getElementById("rif-km-secondo").textContent = `(1°: 0 km · 2°: ${_testoRifKm(kmAssistente1)})`;
+  document.getElementById("etichetta-km-manuale-arbitro").textContent = `Km ${partita.arbitro}`;
+  document.getElementById("etichetta-km-manuale-assistente1").textContent = `Km ${partita.assistente1}`;
+
+  const modalita = partita.rimborso_km_modalita || "";
+  document.querySelectorAll('input[name="rimborso-km-modalita"]').forEach(r => { r.checked = r.value === modalita; });
+  document.getElementById("f-km-manuale-arbitro").value = partita.rimborso_km_manuale_arbitro || "";
+  document.getElementById("f-km-manuale-assistente1").value = partita.rimborso_km_manuale_assistente1 || "";
+  _aggiornaVisibilitaKmManuale();
+
+  openOverlay("modale-rimborso-km");
+}
+
+function _aggiornaVisibilitaKmManuale() {
+  const manuale = document.querySelector('input[name="rimborso-km-modalita"]:checked')?.value === "manuale";
+  document.getElementById("riga-km-manuale-arbitro").style.display = manuale ? "" : "none";
+  document.getElementById("riga-km-manuale-assistente1").style.display = manuale ? "" : "none";
+}
+
+document.querySelectorAll('input[name="rimborso-km-modalita"]').forEach(r => {
+  r.addEventListener("change", _aggiornaVisibilitaKmManuale);
+});
+
+async function salvaRimborsoKm() {
+  const partita = window._partitaRimborsoKm;
+  if (!partita) return;
+  const modalita = document.querySelector('input[name="rimborso-km-modalita"]:checked')?.value || "";
+  await apiSend(`/api/partite/${partita.id}/rimborso-km`, "PUT", {
+    rimborso_km_modalita: modalita,
+    rimborso_km_manuale_arbitro: modalita === "manuale" ? document.getElementById("f-km-manuale-arbitro").value.trim() : "",
+    rimborso_km_manuale_assistente1: modalita === "manuale" ? document.getElementById("f-km-manuale-assistente1").value.trim() : "",
+  });
+  closeOverlay("modale-rimborso-km");
+  caricaPartiteDesignazioni();
+}
+
+// ---------- REPORT KM PER CAMPIONATO (periodo da/a vs soglia di Alias campionati) ----------
+
+const ETICHETTE_CONFRONTO_KM = {
+  sopra: '<span class="tag tag-rosso">Sopra soglia</span>',
+  sotto: '<span class="tag tag-verde">Sotto soglia</span>',
+  pari: '<span class="tag tag-arancione">Pari alla soglia</span>',
+};
+
+async function apriReportKmDesignazioni() {
+  const { da, a } = _periodoDesignazioni();
+  const params = new URLSearchParams();
+  if (da) params.set("da", da);
+  if (a) params.set("a", a);
+  const righe = await apiGet(`/api/designazioni/report-km?${params.toString()}`);
+
+  document.getElementById("periodo-report-km").textContent = da || a
+    ? `Periodo: ${da ? formattaData(da) : "inizio"} — ${a ? formattaData(a) : "senza limite"}`
+    : "Nessun filtro di data impostato: considerate tutte le partite da disputare.";
+
+  const tbody = document.getElementById("tabella-report-km");
+  tbody.innerHTML = righe.length
+    ? righe.map(r => `
+      <tr>
+        <td>${r.nome}</td>
+        <td>${r.n_gare}</td>
+        <td>${r.n_designazioni_km}</td>
+        <td>${r.media_km != null ? r.media_km + " km" : "-"}</td>
+        <td>${r.soglia_km != null ? r.soglia_km + " km" + (r.soglia_testo && r.soglia_testo !== String(r.soglia_km) ? ` (${r.soglia_testo})` : "") : (r.soglia_testo || "-")}</td>
+        <td>${r.confronto ? ETICHETTE_CONFRONTO_KM[r.confronto] : "-"}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="6" style="text-align:center;color:var(--testo-tenue)">Nessuna partita da disputare in questo periodo</td></tr>`;
+
+  openOverlay("modale-report-km");
 }
 
 // ---------- VISTA GIORNALIERA (riquadri raggruppati per giorno) ----------
@@ -51,7 +242,7 @@ function renderVistaGiornaliera() {
   const contenitore = document.getElementById("giorni-designazioni");
   const vuoto = document.getElementById("stato-vuoto-giornaliera");
 
-  const tutte = window._partiteDesignazioniCache || [];
+  const tutte = _partiteFiltratePerData(window._partiteDesignazioniCache || []);
   if (tutte.length === 0) {
     contenitore.innerHTML = "";
     vuoto.style.display = "block";
@@ -125,7 +316,7 @@ function cellaArbitro(p, campo, etichetta) {
 }
 
 function renderTabellaDesignazioni() {
-  const partite = applicaFiltriOrdinamento(window._partiteDesignazioniCache || [], filtriDesignazioni, ordinamentoDesignazioni, "#tabella-head-designazioni");
+  const partite = applicaFiltriOrdinamento(_partiteFiltratePerData(window._partiteDesignazioniCache || []), filtriDesignazioni, ordinamentoDesignazioni, "#tabella-head-designazioni");
   const tbody = document.getElementById("tabella-designazioni");
   const vuoto = document.getElementById("stato-vuoto-designazioni");
   tbody.innerHTML = "";
@@ -461,7 +652,12 @@ async function designaArbitro(arbitroId) {
   const partita = { ...window._partitaDaDesignare, [campo]: candidato.nome };
   await apiSend(`/api/partite/${partita.id}`, "PUT", partita);
   closeOverlay("modale-designazione");
-  caricaPartiteDesignazioni();
+  await caricaPartiteDesignazioni();
+  // Se con questa designazione la gara ha ora sia arbitro che 2° arbitro, chiede subito come
+  // gestire il rimborso km (auto separate, viaggio insieme, o km inseriti a mano).
+  if (partita.arbitro && partita.assistente1) {
+    apriPopupRimborsoKm(partita);
+  }
 }
 
 // ---------- INIZIALIZZAZIONE ----------
@@ -492,4 +688,5 @@ abilitaOrdinamento("#tabella-head-candidati", ordinamentoCandidati, renderCandid
 abilitaRidimensionamentoColonne("#tabella-candidati-el");
 abilitaSelettoreColonne("#tabella-candidati-el", document.getElementById("colonne-candidati"));
 
+caricaDatiKmDesignazioni().then(aggiornaKmTotaliDesignazioni);
 caricaPartiteDesignazioni();
