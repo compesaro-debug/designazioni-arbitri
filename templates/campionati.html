@@ -19,14 +19,31 @@
 </div>
 
 <div class="card">
+  <div class="actions" style="padding:16px 16px 0;">
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-campionati', filtriCampionati, renderTabellaCampionati)">Azzera filtri</button>
+  </div>
   <table id="tabella-campionati-el">
-    <thead>
+    <thead id="tabella-head-campionati">
       <tr>
-        <th>Nome</th>
-        <th>Squadre</th>
-        <th>Codici collegati</th>
-        <th>Arbitrabile da associato</th>
-        <th>Km per partita</th>
+        <th class="sortable" data-campo="nome">Nome</th>
+        <th class="sortable" data-campo="n_squadre">Squadre</th>
+        <th class="sortable" data-campo="n_codici">Codici collegati</th>
+        <th class="sortable" data-campo="arbitrabile_testo">Arbitrabile da associato</th>
+        <th class="sortable" data-campo="km_per_partita">Km per partita</th>
+        <th></th>
+      </tr>
+      <tr class="filtri-row">
+        <th><input class="filtro-input" data-campo="nome" placeholder="Filtra..."></th>
+        <th></th>
+        <th></th>
+        <th>
+          <select class="filtro-input" data-campo="arbitrabile_testo" style="width:100%">
+            <option value="">Tutte</option>
+            <option value="Sì">Sì</option>
+            <option value="No">No</option>
+          </select>
+        </th>
+        <th><input class="filtro-input" data-campo="km_per_partita" placeholder="Filtra..."></th>
         <th></th>
       </tr>
     </thead>

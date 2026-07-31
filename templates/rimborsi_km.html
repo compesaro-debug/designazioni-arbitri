@@ -14,6 +14,8 @@
   </div>
 </div>
 
+<p class="hint" style="margin-top:-8px; margin-bottom:16px;"><span class="tag tag-giallo">Proposto</span> = accordo di trasferta impostato in precedenza su questa gara, ritrovato dopo un reimport: resta solo un suggerimento, va confermato con il pulsante prima di diventare effettivo.</p>
+
 <div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
   <div class="form-field" style="margin:0;">
     <label>Da</label>
@@ -27,18 +29,46 @@
 </div>
 
 <div class="card">
-  <div class="table-scroll" style="max-height:65vh;">
-    <table style="min-width:1200px">
-      <thead>
+  <div class="actions" style="padding:16px 16px 0;">
+    <span id="colonne-rimborsi"></span>
+    <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-rimborsi', filtriRimborsi, renderTabellaRimborsi)">Azzera filtri</button>
+  </div>
+  <div style="padding:0 16px;">
+    <input type="text" id="filtro-rimborsi-rapido" placeholder="Cerca campionato, squadra o arbitro..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin:10px 0 0;">
+  </div>
+  <div class="table-scroll" style="max-height:65vh; margin-top:10px;">
+    <table class="tabella-ridimensionabile" id="tabella-rimborsi-el" style="min-width:1200px">
+      <thead id="tabella-head-rimborsi">
         <tr>
-          <th>Data</th>
-          <th>Campionato</th>
-          <th>Squadre</th>
-          <th>1° Arbitro</th>
-          <th>2° Arbitro</th>
+          <th class="sortable" data-campo="data">Data</th>
+          <th class="sortable" data-campo="campionato_display">Campionato</th>
+          <th class="sortable" data-campo="squadre">Squadre</th>
+          <th class="sortable" data-campo="arbitro">1° Arbitro</th>
+          <th class="sortable" data-campo="assistente1">2° Arbitro</th>
           <th>Modalità trasferta</th>
-          <th>Km 1°</th>
-          <th>Km 2°</th>
+          <th class="sortable" data-campo="km_arbitro">Km 1°</th>
+          <th class="sortable" data-campo="km_assistente1">Km 2°</th>
+          <th></th>
+        </tr>
+        <tr class="filtri-row">
+          <th></th>
+          <th><input class="filtro-input" data-campo="campionato_display" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="squadre" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="assistente1" placeholder="Filtra..."></th>
+          <th>
+            <select class="filtro-input" data-campo="rimborso_km_modalita" style="width:100%">
+              <option value="">Tutte</option>
+              <option value="separata">Ognuno la propria auto</option>
+              <option value="primo">Auto unica — ha guidato il 1°</option>
+              <option value="secondo">Auto unica — ha guidato il 2°</option>
+              <option value="tutoraggio_primo">Tutoraggio — tutor il 1° (2° azzerato)</option>
+              <option value="tutoraggio_secondo">Tutoraggio — tutor il 2° (1° azzerato)</option>
+              <option value="manuale">Dichiaro a mano</option>
+            </select>
+          </th>
+          <th></th>
+          <th></th>
           <th></th>
         </tr>
       </thead>

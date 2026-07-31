@@ -78,17 +78,47 @@ function apriImportIndisponibilitaStoriche() {
 
 // ---------- ALIAS CAMPIONATI DELLA STAGIONE STORICA (stesso pattern di campionati.js) ----------
 
+let filtriCampionatiStorici = {};
+let ordinamentoCampionatiStorici = { campo: null, direzione: "asc" };
+
 async function caricaCampionatiStorici() {
   const campionati = await apiGet(`/api/stagioni/${_stagioneSelezionataId}/campionati`);
   window._campionatiStoriciCache = campionati;
   renderTabellaCampionatiStorici();
 }
 
+function _rigaCorrispondeFiltriCampionatiStorici(c, filtri) {
+  return Object.entries(filtri).every(([campo, valore]) => {
+    if (!valore) return true;
+    return String(c[campo] ?? "").toLowerCase().includes(valore.toLowerCase());
+  });
+}
+
 function renderTabellaCampionatiStorici() {
   const tbody = document.getElementById("tabella-campionati-storici");
   const vuoto = document.getElementById("stato-vuoto-campionati-storici");
-  const campionati = window._campionatiStoriciCache || [];
   tbody.innerHTML = "";
+
+  let campionati = (window._campionatiStoriciCache || []).filter(c => _rigaCorrispondeFiltriCampionatiStorici(c, filtriCampionatiStorici));
+
+  if (ordinamentoCampionatiStorici.campo) {
+    const campo = ordinamentoCampionatiStorici.campo;
+    const dir = ordinamentoCampionatiStorici.direzione === "asc" ? 1 : -1;
+    const numerico = ["n_squadre", "n_codici"].includes(campo);
+    campionati = [...campionati].sort((a, b) => {
+      let va = a[campo], vb = b[campo];
+      if (numerico) {
+        va = Number(va) || 0;
+        vb = Number(vb) || 0;
+      } else {
+        va = String(va ?? "").toLowerCase();
+        vb = String(vb ?? "").toLowerCase();
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
 
   if (campionati.length === 0) {
     vuoto.style.display = "block";
@@ -102,8 +132,10 @@ function renderTabellaCampionatiStorici() {
       <td>${c.nome}</td>
       <td>${c.n_squadre}</td>
       <td>${c.n_codici}</td>
+      <td>${c.km_per_partita || "-"}</td>
       <td style="white-space:nowrap">
         <button class="btn-danger-text" style="color:var(--primario)" onclick="apriGestioneCampionatoStorico(${c.id})">Gestisci</button>
+        <button class="btn-danger-text" style="color:var(--primario)" onclick="apriModaleCampionatoStorico(${c.id})">Modifica</button>
         <button class="btn-danger-text" onclick="eliminaCampionatoStorico(${c.id})">Elimina</button>
       </td>
     `;
@@ -111,17 +143,25 @@ function renderTabellaCampionatiStorici() {
   });
 }
 
-function apriModaleCampionatoStorico() {
-  document.getElementById("titolo-modale-campionato-storico").textContent = "Nuovo campionato";
-  document.getElementById("campionato-storico-id").value = "";
-  document.getElementById("f-campionato-storico-nome").value = "";
+function apriModaleCampionatoStorico(id) {
+  const campionato = id ? (window._campionatiStoriciCache || []).find(c => c.id === id) : null;
+  document.getElementById("titolo-modale-campionato-storico").textContent = campionato ? "Modifica campionato" : "Nuovo campionato";
+  document.getElementById("campionato-storico-id").value = campionato ? campionato.id : "";
+  document.getElementById("f-campionato-storico-nome").value = campionato ? campionato.nome : "";
+  document.getElementById("f-campionato-storico-km-per-partita").value = campionato ? (campionato.km_per_partita || "") : "";
   openOverlay("modale-campionato-storico");
 }
 
 async function salvaCampionatoStorico() {
+  const id = document.getElementById("campionato-storico-id").value;
   const nome = document.getElementById("f-campionato-storico-nome").value.trim();
   if (!nome) return;
-  await apiSend(`/api/stagioni/${_stagioneSelezionataId}/campionati`, "POST", { nome });
+  const payload = { nome, km_per_partita: document.getElementById("f-campionato-storico-km-per-partita").value.trim() };
+  if (id) {
+    await apiSend(`/api/campionati-storici/${id}`, "PUT", payload);
+  } else {
+    await apiSend(`/api/stagioni/${_stagioneSelezionataId}/campionati`, "POST", payload);
+  }
   closeOverlay("modale-campionato-storico");
   caricaCampionatiStorici();
 }
@@ -154,8 +194,23 @@ async function ricaricaDettaglioCampionatoStorico() {
 
   const listaCodici = document.getElementById("lista-codici-storici");
   listaCodici.innerHTML = dettaglio.codici.length
-    ? dettaglio.codici.map(c => `<li>${c.codice} <button class="btn-danger-text" onclick="rimuoviCodiceStorico(${c.id})">Rimuovi</button></li>`).join("")
+    ? dettaglio.codici.map(c => `
+        <li>
+          ${c.codice}
+          <select class="select-fase-codice" onchange="impostaFaseCodiceStorico(${c.id}, this.value)">
+            <option value="" ${!c.tipo_fase ? "selected" : ""}>Campionato</option>
+            <option value="coppa" ${c.tipo_fase === "coppa" ? "selected" : ""}>Coppa</option>
+            <option value="playoff" ${c.tipo_fase === "playoff" ? "selected" : ""}>Playoff/Play out</option>
+            <option value="final_four" ${c.tipo_fase === "final_four" ? "selected" : ""}>Fasi finali</option>
+          </select>
+          <button class="btn-danger-text" onclick="rimuoviCodiceStorico(${c.id})">Rimuovi</button>
+        </li>
+      `).join("")
     : `<li style="color:var(--testo-tenue)">Nessun codice collegato</li>`;
+}
+
+async function impostaFaseCodiceStorico(id, tipoFase) {
+  await apiSend(`/api/campionati-storici-codici/${id}`, "PUT", { tipo_fase: tipoFase });
 }
 
 async function aggiungiSquadraStorica() {
@@ -189,5 +244,8 @@ async function rimuoviCodiceStorico(id) {
   await ricaricaDettaglioCampionatoStorico();
   caricaCampionatiStorici();
 }
+
+abilitaOrdinamento("#tabella-head-campionati-storici", ordinamentoCampionatiStorici, renderTabellaCampionatiStorici);
+abilitaFiltri("#tabella-head-campionati-storici", filtriCampionatiStorici, renderTabellaCampionatiStorici);
 
 caricaStagioni();

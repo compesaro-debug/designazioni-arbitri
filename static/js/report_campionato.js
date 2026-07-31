@@ -5,6 +5,32 @@ async function caricaReportCampionati() {
   renderTabellaReportCampionati();
 }
 
+function _cellaScostamentoSoglia(c, fase) {
+  if (c.soglia_km == null) return "-";
+  if (c.scostamento_soglia == null) return `<span class="hint">${c.soglia_km} km — nessuna gara federale</span>`;
+  const testo = c.scostamento_soglia > 0 ? `+${c.scostamento_soglia} km` : `${c.scostamento_soglia} km`;
+  const classe = c.scostamento_soglia > 0 ? "tag-rosso" : (c.scostamento_soglia < 0 ? "tag-verde" : "tag-arancione");
+  const arg = fase ? `'${c.chiave}', '${fase}'` : `'${c.chiave}'`;
+  return `<span class="tag ${classe} riga-cliccabile" onclick="event.stopPropagation(); apriGareSopraMedia(${arg})" title="Clic per l'elenco delle gare sopra la media">${testo}</span>`;
+}
+
+function _righeDettaglioFasi(c) {
+  if (!c.dettaglio_fasi || !c.dettaglio_fasi.length) return "";
+  return c.dettaglio_fasi.map(f => `
+    <tr style="color:var(--testo-tenue); font-size:12.5px;">
+      <td style="padding-left:24px">↳ ${f.etichetta}</td>
+      <td>${f.n_gare}</td>
+      <td>${f.n_federali} (${f.pct_federali}%)</td>
+      <td>${f.n_associato} (${f.pct_associato}%)</td>
+      <td>${f.km_totali} km</td>
+      <td>${f.media_km_gara} km</td>
+      <td>${f.media_km_solo_federali} km</td>
+      <td>${f.soglia_km != null ? f.soglia_km + " km" : "-"}</td>
+      <td>${_cellaScostamentoSoglia(f, f.fase)}</td>
+    </tr>
+  `).join("");
+}
+
 function renderTabellaReportCampionati() {
   const filtro = (document.getElementById("filtro-report-campionati").value || "").trim().toLowerCase();
   const righe = _reportCampionatiCache.filter(c => !filtro || c.nome.toLowerCase().includes(filtro));
@@ -19,13 +45,57 @@ function renderTabellaReportCampionati() {
           <td>${c.km_totali} km</td>
           <td>${c.media_km_gara} km</td>
           <td>${c.media_km_solo_federali} km</td>
+          <td>${c.soglia_km != null ? c.soglia_km + " km" : "-"}</td>
+          <td>${_cellaScostamentoSoglia(c)}</td>
         </tr>
-      `).join("") + _rigaTotaleReportCampionati(righe)
-    : `<tr><td colspan="7" style="text-align:center;color:var(--testo-tenue)">Nessun campionato trovato</td></tr>`;
+      ` + _righeDettaglioFasi(c)).join("") + _rigaTotaleReportCampionati(righe)
+    : `<tr><td colspan="9" style="text-align:center;color:var(--testo-tenue)">Nessun campionato trovato</td></tr>`;
 
   tbody.querySelectorAll("tr[data-chiave]").forEach(tr => {
     tr.addEventListener("click", () => apriDettaglioCampionato(tr.dataset.chiave));
   });
+}
+
+// Elenco delle designazioni di arbitri federali con km sopra la media del campionato
+// (media_km_solo_federali): utile per capire quali gare pesano di più sullo scostamento
+// dalla soglia impostata in Alias campionati.
+function apriGareSopraMedia(chiave, fase) {
+  const campionato = _reportCampionatiCache.find(c => c.chiave === chiave);
+  if (!campionato) return;
+  const contesto = fase ? (campionato.dettaglio_fasi || []).find(f => f.fase === fase) : campionato;
+  if (!contesto || contesto.media_km_solo_federali == null) return;
+  const media = contesto.media_km_solo_federali;
+  const gareContesto = fase ? campionato.gare.filter(g => g.tipo_fase === fase) : campionato.gare;
+
+  const righe = [];
+  gareContesto.forEach(g => {
+    [["arbitro", "1° Arbitro", g.km_arbitro], ["assistente1", "2° Arbitro", g.km_assistente1]].forEach(([campo, etichetta, km]) => {
+      const nome = g[campo];
+      if (!nome || nome === "Arbitro Associato" || km == null) return;
+      if (km > media) {
+        righe.push({ data: g.data, numero_gara: g.numero_gara, tipo_fase: g.tipo_fase, squadre: `${g.squadra_casa} vs ${g.squadra_ospite}`, arbitro: nome, ruolo: etichetta, km });
+      }
+    });
+  });
+  righe.sort((a, b) => b.km - a.km);
+
+  document.getElementById("titolo-gare-sopra-media").textContent = `Gare sopra la media — ${campionato.nome}${fase ? " · " + contesto.etichetta : ""}`;
+  document.getElementById("info-gare-sopra-media").textContent = `Media (solo federali): ${media} km — ${righe.length} designazioni sopra media su ${contesto.n_federali} federali`;
+  document.getElementById("tabella-gare-sopra-media").innerHTML = righe.length
+    ? righe.map(r => `
+      <tr>
+        <td>${formattaData(r.data)}</td>
+        <td>${r.numero_gara}</td>
+        <td>${tagFase(r.tipo_fase)}</td>
+        <td>${r.squadre}</td>
+        <td>${r.arbitro}</td>
+        <td>${r.ruolo}</td>
+        <td><span class="tag tag-rosso">${r.km} km</span></td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="7" style="text-align:center;color:var(--testo-tenue)">Nessuna gara sopra la media</td></tr>`;
+
+  openOverlay("modale-gare-sopra-media");
 }
 
 function _rigaTotaleReportCampionati(righe) {
@@ -47,6 +117,8 @@ function _rigaTotaleReportCampionati(righe) {
       <td>${kmTotali} km</td>
       <td>${mediaKmGara} km</td>
       <td>${mediaKmFederali} km</td>
+      <td></td>
+      <td></td>
     </tr>
   `;
 }
@@ -86,8 +158,10 @@ function renderDettaglioCampionato() {
       [g.arbitro, g.assistente1].forEach(arbitro => {
         if (!arbitro) return;
         const chiave = `${squadra}||${arbitro}`;
-        conteggio[chiave] = conteggio[chiave] || { squadra, arbitro, n: 0 };
+        conteggio[chiave] = conteggio[chiave] || { squadra, arbitro, n: 0, perFase: {} };
         conteggio[chiave].n++;
+        const fase = g.tipo_fase || "campionato";
+        conteggio[chiave].perFase[fase] = (conteggio[chiave].perFase[fase] || 0) + 1;
       });
     });
     [g.arbitro, g.assistente1].forEach(arbitro => {
@@ -134,15 +208,22 @@ function renderDettaglioCampionato() {
   const rigaEtichetta = (etichetta, dati) =>
     `<tr><td colspan="2" style="font-size:12.5px; color:var(--testo-tenue)">${etichetta}: Federale ${dati.pctFederale}% &nbsp;·&nbsp; Associato ${dati.pctAssociato}%</td></tr>`;
 
+  const mostraDettaglioFasi = campionato.dettaglio_fasi && campionato.dettaglio_fasi.length > 1;
+
   document.getElementById("tabella-dettaglio-campionato").innerHTML = gruppi.length
     ? _rigaTotaleDettaglioCampionato(righe) + gruppi.map(gr => {
-        const righeArbitro = gr.righe.map((r, i) => `
+        const righeArbitro = gr.righe.map((r, i) => {
+          const dettaglioFasi = mostraDettaglioFasi
+            ? ORDINE_FASI_JS.filter(f => r.perFase[f]).map(f => `${ETICHETTE_FASE_JS[f]} ${r.perFase[f]}`).join(" · ")
+            : "";
+          return `
           <tr${i === 0 ? ' style="border-top:2px solid var(--bordo)"' : ""}>
             ${i === 0 ? `<td rowspan="${gr.righe.length + 3}" style="vertical-align:top">${gr.squadra}</td>` : ""}
             <td>${r.arbitro}</td>
-            <td>${r.n}</td>
+            <td>${r.n}${dettaglioFasi ? `<div style="font-size:11.5px;color:var(--testo-tenue);margin-top:2px;">${dettaglioFasi}</div>` : ""}</td>
           </tr>
-        `).join("");
+        `;
+        }).join("");
         const righePercentuali =
           rigaEtichetta("Totale", gr.totale) +
           rigaEtichetta("In casa", gr.casa) +

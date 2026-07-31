@@ -34,7 +34,10 @@ NOTE_INIBIZIONI_COLONNE = ["arbitro", "tipo", "descrizione", "codice_affiliazion
 # così le statistiche per squadra non si spezzano quando cambia il codice campionato.
 CAMPIONATI_COLONNE = ["nome", "km_per_partita"]
 SQUADRE_COLONNE = ["campionato_id", "nome"]
-CAMPIONATI_CODICI_COLONNE = ["campionato_id", "codice"]
+# "tipo_fase": sotto-alias veloce per distinguere fase campionato/playoff/final four
+# all'interno dello stesso alias, senza doverli separare in alias diversi come si fa per
+# i gironi. Vuoto = "campionato" (fase regolare, il default).
+CAMPIONATI_CODICI_COLONNE = ["campionato_id", "codice", "tipo_fase"]
 
 
 def get_db():
@@ -55,6 +58,8 @@ def _migra_se_necessario(conn):
         "campionati": CAMPIONATI_COLONNE,
         "squadre": SQUADRE_COLONNE,
         "campionati_codici": CAMPIONATI_CODICI_COLONNE,
+        "campionati_storici": ["km_per_partita"],
+        "campionati_storici_codici": ["tipo_fase"],
     }
     cur = conn.cursor()
     tabelle_esistenti = {r[0] for r in cur.execute(
@@ -142,6 +147,24 @@ def init_db():
         )
     """)
 
+    # Scelta di rimborso km (auto unica/tutoraggio/manuale) salvata a parte, indicizzata per
+    # campionato+numero gara invece che per id di riga: la riga di "partite" può essere
+    # cancellata e reimportata (es. import "sostituisci" di da-disputare/disputate), ma la
+    # scelta fatta dal designante deve sopravvivere e ripresentarsi come proposta da
+    # confermare quando la gara ricompare, invece di andare persa.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS rimborso_km_proposte (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            campionato TEXT DEFAULT '',
+            numero_gara TEXT DEFAULT '',
+            arbitro TEXT DEFAULT '',
+            assistente1 TEXT DEFAULT '',
+            rimborso_km_modalita TEXT DEFAULT '',
+            rimborso_km_manuale_arbitro TEXT DEFAULT '',
+            rimborso_km_manuale_assistente1 TEXT DEFAULT ''
+        )
+    """)
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS indisponibilita (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,7 +211,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS campionati_codici (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             campionato_id INTEGER NOT NULL,
-            codice TEXT NOT NULL DEFAULT ''
+            codice TEXT NOT NULL DEFAULT '',
+            tipo_fase TEXT DEFAULT ''
         )
     """)
 
@@ -289,7 +313,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS campionati_storici (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             stagione_id INTEGER NOT NULL,
-            nome TEXT NOT NULL DEFAULT ''
+            nome TEXT NOT NULL DEFAULT '',
+            km_per_partita TEXT DEFAULT ''
         )
     """)
     cur.execute("""
@@ -303,7 +328,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS campionati_storici_codici (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             campionato_storico_id INTEGER NOT NULL,
-            codice TEXT NOT NULL DEFAULT ''
+            codice TEXT NOT NULL DEFAULT '',
+            tipo_fase TEXT DEFAULT ''
         )
     """)
 

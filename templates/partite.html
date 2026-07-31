@@ -22,6 +22,7 @@
     <button id="btn-azzera-filtri-partite" class="btn-testo" onclick="azzeraFiltri('#tabella-head-partite', filtriPartite, renderTabellaPartite)">Azzera filtri</button>
     <button id="btn-azzera-filtri-omologazione" class="btn-testo" style="display:none" onclick="azzeraFiltri('#tabella-head-omologazione', filtriOmologazione, renderTabellaOmologazione)">Azzera filtri</button>
     <button class="btn btn-import" id="btn-importa-partite">Importa da Excel</button>
+    <button class="btn-testo" onclick="openOverlay('modale-spiegazione-import')" title="Come funziona l'import">? Come funziona l'import</button>
     <button id="btn-nuova-partita" class="btn btn-primary" onclick="apriModalePartita()">+ Nuova partita</button>
   </div>
 </div>
@@ -32,6 +33,8 @@
   <button class="tab-btn" data-tab="omologazione" onclick="cambiaTab('omologazione')">Omologazione</button>
 </div>
 
+<p class="hint" id="hint-data-futura" style="display:none; margin:-4px 0 14px;"><span class="tag tag-giallo">Giallo</span> = gara segnata come disputata ma con data futura: probabilmente importata dal sistema principale come già designata ma non ancora giocata davvero</p>
+
 <div class="card" id="card-partite">
   <div class="table-scroll" style="max-height:70vh;">
   <table class="tabella-ridimensionabile" id="tabella-partite-el" style="min-width:2400px">
@@ -40,6 +43,7 @@
         <th class="sortable" data-campo="data">Data</th>
         <th class="sortable" data-campo="ora">Ora</th>
         <th class="sortable" data-campo="campionato">Campionato</th>
+        <th class="sortable" data-campo="tipo_fase">Fase</th>
         <th class="sortable" data-campo="categoria">Categoria</th>
         <th class="sortable" data-campo="girone">Girone</th>
         <th class="sortable" data-campo="numero_gara">N. Gara</th>
@@ -70,6 +74,15 @@
         <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="ora" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="campionato" placeholder="Filtra..."></th>
+        <th>
+          <select class="filtro-input" data-campo="tipo_fase" style="width:100%">
+            <option value="">Tutte</option>
+            <option value="campionato">Campionato</option>
+            <option value="coppa">Coppa</option>
+            <option value="playoff">Playoff/Play out</option>
+            <option value="final_four">Fasi finali</option>
+          </select>
+        </th>
         <th><input class="filtro-input" data-campo="categoria" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="girone" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="numero_gara" placeholder="Filtra..."></th>
@@ -114,6 +127,7 @@
         <th class="sortable" data-campo="data">Data</th>
         <th class="sortable" data-campo="ora">Ora</th>
         <th class="sortable" data-campo="campionato">Campionato</th>
+        <th class="sortable" data-campo="tipo_fase">Fase</th>
         <th class="sortable" data-campo="categoria">Categoria</th>
         <th class="sortable" data-campo="girone">Girone</th>
         <th class="sortable" data-campo="numero_gara">N. Gara</th>
@@ -144,6 +158,15 @@
         <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="ora" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="campionato" placeholder="Filtra..."></th>
+        <th>
+          <select class="filtro-input" data-campo="tipo_fase" style="width:100%">
+            <option value="">Tutte</option>
+            <option value="campionato">Campionato</option>
+            <option value="coppa">Coppa</option>
+            <option value="playoff">Playoff/Play out</option>
+            <option value="final_four">Fasi finali</option>
+          </select>
+        </th>
         <th><input class="filtro-input" data-campo="categoria" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="girone" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="numero_gara" placeholder="Filtra..."></th>
@@ -230,6 +253,45 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-partita')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaPartita()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale di spiegazione: come funziona l'import di Da disputare/Disputate, come vengono
+     riconosciute le gare tra un import e l'altro, e cosa succede a designazioni/rimborsi km. -->
+<div class="overlay" id="modale-spiegazione-import">
+  <div class="modal modal-large">
+    <h2>Come funziona l'import</h2>
+
+    <p class="riepilogo-label">Le due modalità</p>
+    <p>
+      <strong>Aggiungi ai dati esistenti</strong>: le gare del file vengono aggiunte o aggiornate una per una, senza toccare il resto della tabella.<br>
+      <strong>Sostituisci tutti i dati</strong>: prima cancella tutte le gare della scheda che stai importando (solo "Da disputare" oppure solo "Disputate", non entrambe), poi reimporta da zero il file — utile se vuoi che il file rappresenti sempre l'elenco esatto e completo di cosa deve esserci.
+    </p>
+
+    <p class="riepilogo-label">Come viene riconosciuta la stessa gara</p>
+    <p>
+      Ogni gara viene identificata da <strong>campionato + numero gara</strong>, indipendentemente dal fatto che si trovi tra le "Da disputare" o le "Disputate": è la stessa identità per tutta la vita della gara, anche se cambia data, ora o palestra (rinvio), e anche se passa da una scheda all'altra.
+    </p>
+
+    <p class="riepilogo-label">Arbitro e 2° arbitro: solo sulle disputate si conservano</p>
+    <p>
+      Reimportando le <strong>"Disputate"</strong>, se il file non porta un nome la designazione già fatta resta quella che avevi impostato tu; se invece il file ne porta uno (es. chi ha arbitrato davvero), è sempre quello a vincere, anche se diverso.<br>
+      Reimportando invece le <strong>"Da disputare"</strong>, arbitro e 2° arbitro tornano <strong>sempre vuoti</strong>, anche se la gara aveva già una designazione: va rifatta da Designazioni.
+    </p>
+
+    <p class="riepilogo-label">Il rimborso km non si riapplica mai da solo</p>
+    <p>
+      L'accordo di trasferta (auto unica, tutoraggio, km a mano) non viene mai riportato in automatico su una gara reimportata. Se ne esisteva uno impostato in precedenza, lo ritrovi come <span class="tag tag-giallo">Proposto</span> nella pagina <strong>Rimborsi km</strong>: resta un semplice suggerimento finché non lo confermi tu con un clic.
+    </p>
+
+    <p class="riepilogo-label">Gare rinviate</p>
+    <p>
+      Se una gara reimportata ha una data o un orario diverso da quello già in sistema, dopo l'import te la trovi segnalata in un elenco a parte ("gare rinviate"): la designazione resta quella di prima, ma vale la pena ricontrollare la disponibilità dell'arbitro sulla nuova data.
+    </p>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeOverlay('modale-spiegazione-import')">Ho capito</button>
     </div>
   </div>
 </div>

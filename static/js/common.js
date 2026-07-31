@@ -1,3 +1,27 @@
+// ---------- SOTTO-ALIAS CAMPIONATO (campionato/coppa/playoff/fasi finali) ----------
+// Stessa etichetta/colore ovunque compaia il tipo_fase di una gara (Partite, Designazioni,
+// Report...): valori coerenti con ETICHETTE_FASE lato backend (app.py).
+
+const ETICHETTE_FASE_JS = { campionato: "Campionato", coppa: "Coppa", playoff: "Playoff/Play out", final_four: "Fasi finali" };
+const ORDINE_FASI_JS = ["campionato", "coppa", "playoff", "final_four"];
+const CLASSE_TAG_FASE_JS = { campionato: "", coppa: "tag-verde", playoff: "tag-arancione", final_four: "tag-giallo" };
+
+function tagFase(tipoFase) {
+  const fase = tipoFase || "campionato";
+  const etichetta = ETICHETTE_FASE_JS[fase] || fase;
+  const classe = CLASSE_TAG_FASE_JS[fase] || "";
+  return `<span class="tag ${classe}">${etichetta}</span>`;
+}
+
+// ---------- GARE IMPORTATE COME DISPUTATE MA CON DATA FUTURA ----------
+// Il sistema principale (federale) a volte esporta come "disputate" gare già designate ma
+// non ancora giocate nella realtà: si riconoscono dal fatto che la loro data è successiva a
+// oggi. Evidenziarle evita di trattarle come risultati reali finché la data non è passata.
+
+function dataNelFuturo(data) {
+  return !!data && data > new Date().toISOString().slice(0, 10);
+}
+
 // ---------- MENU LATERALE APRIBILE/CHIUDIBILE ----------
 
 function toggleSidebar() {
@@ -217,6 +241,31 @@ function creaImportOverlay(overlayId, config) {
         resultDiv.innerHTML = data.aggiornati > 0
           ? `<div class="import-result ok">Importate ${data.inseriti} righe nuove, aggiornate ${data.aggiornati} già esistenti.</div>`
           : `<div class="import-result ok">Importate ${data.inseriti} righe con successo.</div>`;
+        // gare la cui data/ora e' cambiata rispetto a prima (rinvio): l'arbitro gia' assegnato
+        // resta quello, ma vale la pena ricontrollarne la disponibilita' sulla nuova data.
+        if (data.rinviate && data.rinviate.length) {
+          anteprimaDiv.innerHTML = `
+            <div class="table-scroll" style="max-height:220px; margin-top:10px;">
+              <table>
+                <thead><tr><th>Campionato</th><th>N. Gara</th><th>Data/ora prima</th><th>Data/ora dopo</th></tr></thead>
+                <tbody>
+                  ${data.rinviate.map(g => `
+                    <tr>
+                      <td>${g.campionato}</td>
+                      <td>${g.numero_gara}</td>
+                      <td>${formattaData(g.data_prima)} ${g.ora_prima || ""}</td>
+                      <td><span class="tag tag-arancione">${formattaData(g.data_dopo)} ${g.ora_dopo || ""}</span></td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+            <p class="hint" style="margin-top:6px;">${data.rinviate.length} gare rinviate: l'arbitro già designato resta assegnato, ma ricontrolla la disponibilità sulla nuova data.</p>
+          `;
+          submitBtn.style.display = "none";
+          if (config.onDone) config.onDone();
+          return;
+        }
         anteprimaDiv.innerHTML = "";
         submitBtn.style.display = "none";
         if (config.onDone) config.onDone();

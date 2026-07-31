@@ -88,6 +88,7 @@
         <th class="sortable" data-campo="data">Data</th>
         <th class="sortable" data-campo="ora">Ora</th>
         <th class="sortable" data-campo="campionato">Campionato</th>
+        <th class="sortable" data-campo="tipo_fase">Fase</th>
         <th class="sortable" data-campo="numero_gara">N. Gara</th>
         <th class="sortable" data-campo="localita">Località</th>
         <th class="sortable" data-campo="campo">Campo</th>
@@ -103,6 +104,15 @@
         <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="ora" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="campionato" placeholder="Filtra..."></th>
+        <th>
+          <select class="filtro-input" data-campo="tipo_fase" style="width:100%">
+            <option value="">Tutte</option>
+            <option value="campionato">Campionato</option>
+            <option value="coppa">Coppa</option>
+            <option value="playoff">Playoff/Play out</option>
+            <option value="final_four">Fasi finali</option>
+          </select>
+        </th>
         <th><input class="filtro-input" data-campo="numero_gara" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="localita" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="campo" placeholder="Filtra..."></th>
@@ -132,6 +142,7 @@
       <span class="tag tag-rosso">Rosso</span> = non disponibile in quel giorno/orario (in fondo alla lista, con dettaglio dell'indisponibilità) &nbsp;
       <span class="tag tag-arancione">Arancione</span> = già designato oggi su un'altra gara (resta selezionabile) &nbsp;
       <span class="tag tag-giallo">Giallo</span> = inibizione per la società di casa o ospite &nbsp;
+      <span class="tag tag-rosso">Ha arbitrato andata</span> = ha già diretto la gara di andata/ritorno tra queste due squadre (stesso girone, casa/ospite invertite) &nbsp;
       <button class="btn-testo" style="margin-left:10px" onclick="azzeraFiltriCandidati()">Azzera filtri</button>
       <span id="colonne-candidati" style="margin-left:6px"></span>
     </p>
@@ -145,6 +156,7 @@
             <th class="sortable" data-campo="comune">Comune</th>
             <th class="sortable" data-campo="distanza_km">Distanza (km)</th>
             <th class="sortable" data-campo="designato_info">Designato oggi</th>
+            <th class="sortable" data-campo="andata_info">Andata/ritorno</th>
             <th class="sortable" data-campo="n_casa_codice">P. dirette casa (cod.)</th>
             <th class="sortable" data-campo="n_casa_nome">P. dirette casa (nome)</th>
             <th class="sortable" data-campo="n_osp_codice">P. dirette osp. (cod.)</th>
@@ -164,6 +176,7 @@
             <th><input class="filtro-input" data-campo="comune" data-tipo="testo" placeholder="Filtra..."></th>
             <th>{{ filtro_numero("distanza_km") }}</th>
             <th><input class="filtro-input" data-campo="designato_info" data-tipo="testo" placeholder="Filtra..."></th>
+            <th><input class="filtro-input" data-campo="andata_info" data-tipo="testo" placeholder="Filtra..."></th>
             <th>{{ filtro_numero("n_casa_codice") }}</th>
             <th>{{ filtro_numero("n_casa_nome") }}</th>
             <th>{{ filtro_numero("n_osp_codice") }}</th>
@@ -195,6 +208,36 @@
     <div id="corpo-riepilogo-associati" class="form-grid"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-riepilogo-associati')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale classifica: calcolata al volo dalle gare disputate con risultato del campionato
+     della gara in designazione (esclude le gare "gialle" pre-designate ma non giocate). -->
+<div class="overlay" id="modale-classifica">
+  <div class="modal modal-large">
+    <h2 id="titolo-modale-classifica">Classifica</h2>
+    <p class="hint">Calcolata dalle gare disputate con risultato in sistema — le squadre di questa gara sono evidenziate.</p>
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead>
+          <tr>
+            <th>Pos.</th>
+            <th>Squadra</th>
+            <th>Punti</th>
+            <th>Gare</th>
+            <th>Vinte</th>
+            <th>Perse</th>
+            <th>Set (V/P)</th>
+            <th>Quoz. set</th>
+            <th>Punti (F/S, quoz.)</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-classifica"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-classifica')">Chiudi</button>
     </div>
   </div>
 </div>
@@ -263,6 +306,34 @@
   </div>
 </div>
 
+<!-- Modale dettaglio gare per campionato: elenco delle singole gare dietro una riga del
+     report km, con i km di ciascuna designazione evidenziati sopra/sotto la media del gruppo. -->
+<div class="overlay" id="modale-dettaglio-report-km">
+  <div class="modal modal-large">
+    <h2 id="titolo-dettaglio-report-km">Dettaglio gare</h2>
+    <p class="hint" id="media-dettaglio-report-km"></p>
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>N. Gara</th>
+            <th>Squadre</th>
+            <th>1° Arbitro</th>
+            <th>Km 1°</th>
+            <th>2° Arbitro</th>
+            <th>Km 2°</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-dettaglio-report-km"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-dettaglio-report-km')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modale-storico">
   <div class="modal modal-xlarge">
     <h2 id="titolo-modale-storico">Storico</h2>
@@ -300,6 +371,7 @@
         <div class="riepilogo-label">Totale gare disputate</div>
       </div>
     </div>
+    <p class="hint"><span class="tag tag-giallo">Giallo</span> = gara segnata come disputata ma con data futura: probabilmente importata dal sistema principale come già designata ma non ancora giocata davvero</p>
     <div class="table-scroll" style="max-height:60vh;">
       <table>
         <thead>

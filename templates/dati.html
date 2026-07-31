@@ -82,12 +82,23 @@
       <p class="riepilogo-label" style="margin:0;">Alias campionati di questa stagione</p>
       <button class="btn btn-primary" onclick="apriModaleCampionatoStorico()">+ Nuovo campionato</button>
     </div>
+    <div class="actions" style="padding:0 20px;">
+      <button class="btn-testo" onclick="azzeraFiltri('#tabella-head-campionati-storici', filtriCampionatiStorici, renderTabellaCampionatiStorici)">Azzera filtri</button>
+    </div>
     <table id="tabella-campionati-storici-el" style="margin-top:14px;">
-      <thead>
+      <thead id="tabella-head-campionati-storici">
         <tr>
-          <th>Nome</th>
-          <th>Squadre</th>
-          <th>Codici collegati</th>
+          <th class="sortable" data-campo="nome">Nome</th>
+          <th class="sortable" data-campo="n_squadre">Squadre</th>
+          <th class="sortable" data-campo="n_codici">Codici collegati</th>
+          <th class="sortable" data-campo="km_per_partita">Km per partita</th>
+          <th></th>
+        </tr>
+        <tr class="filtri-row">
+          <th><input class="filtro-input" data-campo="nome" placeholder="Filtra..."></th>
+          <th></th>
+          <th></th>
+          <th><input class="filtro-input" data-campo="km_per_partita" placeholder="Filtra..."></th>
           <th></th>
         </tr>
       </thead>
@@ -123,6 +134,10 @@
     <input type="hidden" id="campionato-storico-id">
     <div class="form-grid">
       <div class="form-field full"><label>Nome</label><input id="f-campionato-storico-nome" placeholder="es. 2° Divisione Femminile"></div>
+      <div class="form-field full">
+        <label>Km per partita da provare a rispettare</label>
+        <input id="f-campionato-storico-km-per-partita" placeholder="es. max 30 km">
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-campionato-storico')">Annulla</button>

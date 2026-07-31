@@ -515,6 +515,8 @@ tbody tr.riga-inibito { background: var(--ambra-tinta); color: var(--accento-scu
 tr.riga-inibito:hover { background: var(--ambra-tinta-hover); }
 tbody tr.riga-designato-oggi { background: var(--arancione-tinta); color: var(--arancione); }
 tr.riga-designato-oggi:hover { background: var(--arancione-tinta-hover); }
+tbody tr.riga-data-futura { background: var(--ambra-tinta); color: var(--accento-scuro); }
+tr.riga-data-futura:hover { background: var(--ambra-tinta-hover); }
 
 /* ---------- PAGINA DISPONIBILITA ---------- */
 

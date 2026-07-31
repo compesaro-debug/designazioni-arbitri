@@ -24,6 +24,7 @@
   <button class="tab-btn" data-tab="campionato" onclick="cambiaTabReport('campionato')">Report campionato</button>
   <button class="tab-btn" data-tab="copertura" onclick="cambiaTabReport('copertura')">Copertura territoriale</button>
   <button class="tab-btn" data-tab="confronto" onclick="cambiaTabReport('confronto')">Confronto stagioni</button>
+  <button class="tab-btn" data-tab="tutoraggi" onclick="cambiaTabReport('tutoraggi')">Tutoraggi</button>
 </div>
 
 <div class="card" id="card-report-arbitro" style="padding:20px;">
@@ -83,12 +84,24 @@
       <div class="riepilogo-valore" id="sezione-km-totali">--</div>
       <div class="riepilogo-label">Km totali percorsi (sezione)</div>
     </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-n-gare-doppia">--</div>
+      <div class="riepilogo-label">Gare con 1° e 2° arbitro designati <span id="sezione-pct-gare-doppia" class="hint"></span></div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-pct-primo">--</div>
+      <div class="riepilogo-label">Designazioni come 1° arbitro</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="sezione-pct-secondo">--</div>
+      <div class="riepilogo-label">Designazioni come 2° arbitro</div>
+    </div>
   </div>
 
   <p class="riepilogo-label" style="margin-bottom:8px;">Distribuzione per qualifica</p>
   <div class="table-scroll" style="margin-bottom:20px;">
     <table>
-      <thead><tr><th>Qualifica</th><th>N. arbitri</th><th>Gare totali</th><th>% copertura</th><th>Media gare/arbitro</th><th>Km totali</th></tr></thead>
+      <thead><tr><th>Qualifica</th><th>N. arbitri</th><th>Gare totali</th><th>% copertura</th><th>Media gare/arbitro</th><th>Km totali</th><th>% 1° arbitro</th><th>% 2° arbitro</th></tr></thead>
       <tbody id="tabella-sezione-ruolo"></tbody>
     </table>
   </div>
@@ -105,6 +118,8 @@
           <th class="sortable" data-campo="comune">Comune</th>
           <th class="sortable" data-campo="ruolo">Qualifica</th>
           <th class="sortable" data-campo="gare">Gare dirette</th>
+          <th class="sortable" data-campo="n_primo">1° arbitro</th>
+          <th class="sortable" data-campo="n_secondo">2° arbitro</th>
           <th class="sortable" data-campo="km_totali">Km totali</th>
           <th class="sortable" data-campo="scostamento">Scostamento da media</th>
         </tr>
@@ -112,6 +127,8 @@
           <th><input class="filtro-input" data-campo="nome" placeholder="Filtra..."></th>
           <th><input class="filtro-input" data-campo="comune" placeholder="Filtra..."></th>
           <th><input class="filtro-input" data-campo="ruolo" placeholder="Filtra..."></th>
+          <th></th>
+          <th></th>
           <th></th>
           <th></th>
           <th></th>
@@ -137,6 +154,8 @@
           <th>Km totali</th>
           <th>Media km/gara (con Associato = 0)</th>
           <th>Media km/gara (solo federali)</th>
+          <th>Km da rispettare</th>
+          <th>Scostamento (solo federali)</th>
         </tr>
       </thead>
       <tbody id="tabella-report-campionati-lista"></tbody>
@@ -186,6 +205,40 @@
   </div>
 </div>
 
+<div class="card" id="card-report-tutoraggi" style="padding:20px; display:none;">
+  <p class="riepilogo-label" style="margin:0 0 4px;">Tutoraggi</p>
+  <p class="hint" style="margin-top:0;">Solo stagione corrente (il tutoraggio si dichiara in Rimborsi km, che esiste solo per la stagione live). Chi era il tutor (km rimborsati) e chi il tutorato (km azzerati — indicato anche quanti sarebbero stati senza tutoraggio), con luogo gara e comune di residenza di entrambi.</p>
+  <div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:14px;">
+    <div class="form-field" style="margin:0;"><label>Da</label><input type="date" id="tutoraggi-data-da"></div>
+    <div class="form-field" style="margin:0;"><label>A</label><input type="date" id="tutoraggi-data-a"></div>
+    <button class="btn-testo" onclick="azzeraFiltroDataTutoraggi()">Azzera date</button>
+  </div>
+  <input type="text" id="filtro-tutoraggi" placeholder="Cerca tutor, tutorato, campionato o squadra..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+  <div class="table-scroll" style="max-height:65vh;">
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Campionato</th>
+          <th>Squadre</th>
+          <th>Luogo gara</th>
+          <th>Tutor</th>
+          <th>Residenza tutor</th>
+          <th>Km tutor (rimborsati)</th>
+          <th>Tutorato</th>
+          <th>Residenza tutorato</th>
+          <th>Km tutorato (azzerati, sarebbero stati)</th>
+        </tr>
+      </thead>
+      <tbody id="tabella-tutoraggi"></tbody>
+    </table>
+  </div>
+  <div id="stato-vuoto-tutoraggi" class="empty-state" style="display:none">
+    <strong>Nessuna gara con tutoraggio in questo periodo</strong>
+    Dichiara il tutoraggio nella pagina Rimborsi km, scegliendo "Tutoraggio" nella modalità trasferta.
+  </div>
+</div>
+
 <!-- Modale dettaglio campionato: quante volte ogni arbitro ha arbitrato ogni squadra -->
 <div class="overlay" id="modale-dettaglio-campionato">
   <div class="modal modal-xlarge">
@@ -203,6 +256,34 @@
   </div>
 </div>
 
+<!-- Modale gare sopra la media km (solo federali): elenco delle designazioni di arbitri
+     federali con km superiore alla media del campionato, per capire quali gare pesano di più. -->
+<div class="overlay" id="modale-gare-sopra-media">
+  <div class="modal modal-large">
+    <h2 id="titolo-gare-sopra-media">Gare sopra la media</h2>
+    <p class="hint" id="info-gare-sopra-media"></p>
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>N. Gara</th>
+            <th>Fase</th>
+            <th>Squadre</th>
+            <th>Arbitro</th>
+            <th>Ruolo</th>
+            <th>Km</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-gare-sopra-media"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-gare-sopra-media')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 {% include "_report_arbitro_modali.html" %}
 
 {% endblock %}
@@ -214,4 +295,5 @@
 <script src="{{ url_for('static', filename='js/report_campionato.js') }}"></script>
 <script src="{{ url_for('static', filename='js/report_copertura.js') }}"></script>
 <script src="{{ url_for('static', filename='js/report_confronto.js') }}"></script>
+<script src="{{ url_for('static', filename='js/report_tutoraggi.js') }}"></script>
 {% endblock %}

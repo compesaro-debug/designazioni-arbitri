@@ -28,10 +28,12 @@ function renderTabellaOmologazione() {
 
   partite.forEach(p => {
     const tr = document.createElement("tr");
+    if (dataNelFuturo(p.data)) tr.classList.add("riga-data-futura");
     tr.innerHTML = `
       <td>${formattaData(p.data)}</td>
       <td>${p.ora}</td>
       <td>${p.campionato}</td>
+      <td>${tagFase(p.tipo_fase)}</td>
       <td>${p.categoria}</td>
       <td>${p.girone}</td>
       <td>${p.numero_gara}</td>

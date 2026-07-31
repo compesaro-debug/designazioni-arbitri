@@ -46,6 +46,7 @@ function cambiaTab(tab) {
   document.getElementById("btn-azzera-filtri-omologazione").style.display = isOmologazione ? "" : "none";
   document.getElementById("btn-importa-partite").style.display = isOmologazione ? "none" : "";
   document.getElementById("btn-nuova-partita").style.display = isOmologazione ? "none" : "";
+  document.getElementById("hint-data-futura").style.display = (tab === "disputate" || isOmologazione) ? "" : "none";
 
   if (isOmologazione) {
     if (!window._omologazioneCaricata) {
@@ -100,10 +101,12 @@ function renderTabellaPartite() {
 
   partite.forEach(p => {
     const tr = document.createElement("tr");
+    if (tabCorrente === "disputate" && dataNelFuturo(p.data)) tr.classList.add("riga-data-futura");
     tr.innerHTML = `
       <td>${formattaData(p.data)}</td>
       <td>${p.ora}</td>
       <td>${p.campionato}</td>
+      <td>${tagFase(p.tipo_fase)}</td>
       <td>${p.categoria}</td>
       <td>${p.girone}</td>
       <td>${p.numero_gara}</td>

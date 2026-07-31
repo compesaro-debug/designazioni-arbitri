@@ -15,13 +15,58 @@ function azzeraFiltroDataRimborsi() {
 
 // ---------- CARICAMENTO E RENDER ----------
 
+let filtriRimborsi = {};
+let ordinamentoRimborsi = { campo: null, direzione: "asc" };
+
 async function caricaRimborsiKm() {
   const { da, a } = _periodoRimborsi();
   const params = new URLSearchParams();
   if (da) params.set("da", da);
   if (a) params.set("a", a);
   const righe = await apiGet(`/api/rimborsi-km?${params.toString()}`);
+  righe.forEach(r => {
+    r.campionato_display = `${r.campionato}${r.numero_gara ? " · n° " + r.numero_gara : ""}`;
+    r.squadre = `${r.squadra_casa} vs ${r.squadra_ospite}`;
+  });
   window._rimborsiKmCache = righe;
+  renderTabellaRimborsi();
+}
+
+function _rigaCorrispondeFiltri(r, filtri) {
+  return Object.entries(filtri).every(([campo, valore]) => {
+    if (!valore) return true;
+    if (campo === "rimborso_km_modalita") {
+      return valore === "separata" ? !r.rimborso_km_modalita : r.rimborso_km_modalita === valore;
+    }
+    return String(r[campo] ?? "").toLowerCase().includes(valore.toLowerCase());
+  });
+}
+
+function renderTabellaRimborsi() {
+  const filtroRapido = (document.getElementById("filtro-rimborsi-rapido").value || "").trim().toLowerCase();
+  let righe = (window._rimborsiKmCache || []).filter(r =>
+    (!filtroRapido || [r.campionato_display, r.squadre, r.arbitro, r.assistente1].some(v => (v || "").toLowerCase().includes(filtroRapido)))
+    && _rigaCorrispondeFiltri(r, filtriRimborsi)
+  );
+
+  if (ordinamentoRimborsi.campo) {
+    const campo = ordinamentoRimborsi.campo;
+    const dir = ordinamentoRimborsi.direzione === "asc" ? 1 : -1;
+    const numerico = ["km_arbitro", "km_assistente1"].includes(campo);
+    righe = [...righe].sort((a, b) => {
+      let va = a[campo], vb = b[campo];
+      if (numerico) {
+        va = va == null ? -Infinity : Number(va);
+        vb = vb == null ? -Infinity : Number(vb);
+      } else {
+        va = String(va ?? "").toLowerCase();
+        vb = String(vb ?? "").toLowerCase();
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
 
   const tbody = document.getElementById("tabella-rimborsi-km");
   const vuoto = document.getElementById("stato-vuoto-rimborsi");
@@ -35,11 +80,40 @@ async function caricaRimborsiKm() {
   _renderTotaliRimborsi(righe);
 }
 
+// Etichette compatte delle modalità, riusate per mostrare la proposta di rimborso km
+// salvata in precedenza (sopravvive a un reimport/cancellazione della gara, vedi backend).
+const ETICHETTE_MODALITA_RIMBORSO = {
+  "primo": "Auto unica — ha guidato il 1°",
+  "secondo": "Auto unica — ha guidato il 2°",
+  "tutoraggio_primo": "Tutoraggio — tutor il 1°",
+  "tutoraggio_secondo": "Tutoraggio — tutor il 2°",
+  "manuale": "Dichiaro a mano",
+};
+
+async function confermaPropostaRimborso(id, modalita, kmManualeArbitro, kmManualeAssistente1) {
+  await apiSend(`/api/partite/${id}/rimborso-km`, "PUT", {
+    rimborso_km_modalita: modalita,
+    rimborso_km_manuale_arbitro: modalita === "manuale" ? (kmManualeArbitro || "") : "",
+    rimborso_km_manuale_assistente1: modalita === "manuale" ? (kmManualeAssistente1 || "") : "",
+  });
+  caricaRimborsiKm();
+}
+
 function _rigaRimborso(r) {
   const manuale = r.rimborso_km_modalita === "manuale";
   const cellaKm = (kmAuto, campoManuale, idRiga) => manuale
     ? `<input type="number" step="0.1" min="0" class="${campoManuale}" style="width:70px" value="${r[campoManuale] || ""}" onchange="salvaRigaRimborso(${idRiga})">`
     : (kmAuto != null ? kmAuto + " km" : "-");
+
+  // proposta salvata in precedenza (dal designante, o da una gara con lo stesso campionato+
+  // numero gara prima di un reimport): mostrata solo se non c'è già una modalità scelta ora,
+  // e mai applicata da sola — serve un clic esplicito su "Conferma".
+  const proposta = (!r.rimborso_km_modalita && r.proposta_modalita)
+    ? `<div class="hint" style="margin-top:4px;">
+        <span class="tag tag-giallo">Proposto</span> ${ETICHETTE_MODALITA_RIMBORSO[r.proposta_modalita] || r.proposta_modalita}
+        <button class="btn-testo" style="padding:2px 8px;font-size:11px;" onclick="confermaPropostaRimborso(${r.id}, '${r.proposta_modalita}', '${r.proposta_km_manuale_arbitro || ""}', '${r.proposta_km_manuale_assistente1 || ""}')">Conferma</button>
+      </div>`
+    : "";
 
   return `
     <tr id="riga-rimborso-${r.id}">
@@ -51,10 +125,13 @@ function _rigaRimborso(r) {
       <td>
         <select class="rimborso-modalita" onchange="salvaRigaRimborso(${r.id})">
           <option value="" ${r.rimborso_km_modalita === "" ? "selected" : ""}>Ognuno la propria auto</option>
-          <option value="primo" ${r.rimborso_km_modalita === "primo" ? "selected" : ""}>Ha guidato il 1° arbitro (2° = 0 km)</option>
-          <option value="secondo" ${r.rimborso_km_modalita === "secondo" ? "selected" : ""}>Ha guidato il 2° arbitro (1° = 0 km)</option>
+          <option value="primo" ${r.rimborso_km_modalita === "primo" ? "selected" : ""}>Auto unica — ha guidato il 1° (2° = 0 km)</option>
+          <option value="secondo" ${r.rimborso_km_modalita === "secondo" ? "selected" : ""}>Auto unica — ha guidato il 2° (1° = 0 km)</option>
+          <option value="tutoraggio_primo" ${r.rimborso_km_modalita === "tutoraggio_primo" ? "selected" : ""}>Tutoraggio — tutor il 1° (2° azzerato)</option>
+          <option value="tutoraggio_secondo" ${r.rimborso_km_modalita === "tutoraggio_secondo" ? "selected" : ""}>Tutoraggio — tutor il 2° (1° azzerato)</option>
           <option value="manuale" ${manuale ? "selected" : ""}>Dichiaro a mano</option>
         </select>
+        ${proposta}
       </td>
       <td>${cellaKm(r.km_arbitro, "rimborso_km_manuale_arbitro", r.id)}</td>
       <td>${cellaKm(r.km_assistente1, "rimborso_km_manuale_assistente1", r.id)}</td>
@@ -91,5 +168,12 @@ async function salvaRigaRimborso(id) {
 
 document.getElementById("rimborsi-data-da").addEventListener("change", caricaRimborsiKm);
 document.getElementById("rimborsi-data-a").addEventListener("change", caricaRimborsiKm);
+document.getElementById("filtro-rimborsi-rapido").addEventListener("input", renderTabellaRimborsi);
+
+abilitaOrdinamento("#tabella-head-rimborsi", ordinamentoRimborsi, renderTabellaRimborsi);
+abilitaFiltri("#tabella-head-rimborsi", filtriRimborsi, renderTabellaRimborsi);
+abilitaRidimensionamentoColonne("#tabella-rimborsi-el");
+rendiHeaderFisso("#tabella-head-rimborsi");
+abilitaSelettoreColonne("#tabella-rimborsi-el", document.getElementById("colonne-rimborsi"));
 
 caricaRimborsiKm();

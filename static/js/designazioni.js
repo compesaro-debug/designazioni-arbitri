@@ -181,6 +181,7 @@ async function apriReportKmDesignazioni() {
   if (da) params.set("da", da);
   if (a) params.set("a", a);
   const righe = await apiGet(`/api/designazioni/report-km?${params.toString()}`);
+  window._reportKmCache = righe;
 
   document.getElementById("periodo-report-km").textContent = da || a
     ? `Periodo: ${da ? formattaData(da) : "inizio"} — ${a ? formattaData(a) : "senza limite"}`
@@ -188,8 +189,8 @@ async function apriReportKmDesignazioni() {
 
   const tbody = document.getElementById("tabella-report-km");
   tbody.innerHTML = righe.length
-    ? righe.map(r => `
-      <tr>
+    ? righe.map((r, i) => `
+      <tr class="riga-cliccabile" onclick="apriDettaglioReportKm(${i})">
         <td>${r.nome}</td>
         <td>${r.n_gare}</td>
         <td>${r.n_designazioni_km}</td>
@@ -201,6 +202,43 @@ async function apriReportKmDesignazioni() {
     : `<tr><td colspan="6" style="text-align:center;color:var(--testo-tenue)">Nessuna partita da disputare in questo periodo</td></tr>`;
 
   openOverlay("modale-report-km");
+}
+
+// Evidenzia un valore km rispetto alla media del gruppo: sopra media = rosso (peggio, più
+// lontano), sotto media = verde, mancante = trattino neutro.
+function _cellaKmVsMedia(km, media) {
+  if (km == null) return "-";
+  if (media == null) return `${km} km`;
+  if (km > media) return `<span class="tag tag-rosso">${km} km</span>`;
+  if (km < media) return `<span class="tag tag-verde">${km} km</span>`;
+  return `<span class="tag tag-arancione">${km} km</span>`;
+}
+
+function apriDettaglioReportKm(indice) {
+  const gruppo = (window._reportKmCache || [])[indice];
+  if (!gruppo) return;
+
+  document.getElementById("titolo-dettaglio-report-km").textContent = `Dettaglio gare — ${gruppo.nome}`;
+  document.getElementById("media-dettaglio-report-km").textContent = gruppo.media_km != null
+    ? `Media del gruppo: ${gruppo.media_km} km — in rosso le designazioni sopra media, in verde quelle sotto media.`
+    : "Nessuna media disponibile (nessuna designazione con km calcolabile in questo gruppo).";
+
+  const tbody = document.getElementById("tabella-dettaglio-report-km");
+  tbody.innerHTML = gruppo.gare.length
+    ? gruppo.gare.map(g => `
+      <tr>
+        <td>${formattaData(g.data)}</td>
+        <td>${g.numero_gara}</td>
+        <td>${g.squadra_casa} vs ${g.squadra_ospite}</td>
+        <td>${g.arbitro || "-"}</td>
+        <td>${_cellaKmVsMedia(g.km_arbitro, gruppo.media_km)}</td>
+        <td>${g.assistente1 || "-"}</td>
+        <td>${_cellaKmVsMedia(g.km_assistente1, gruppo.media_km)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="7" style="text-align:center;color:var(--testo-tenue)">Nessuna gara</td></tr>`;
+
+  openOverlay("modale-dettaglio-report-km");
 }
 
 // ---------- VISTA GIORNALIERA (riquadri raggruppati per giorno) ----------
@@ -289,7 +327,7 @@ function renderVistaGiornaliera() {
           ${gare.map(p => `
             <div class="riquadro-designazione">
               <div class="riquadro-designazione-testata">
-                <span class="riquadro-designazione-campionato">${p.campionato}${p.numero_gara ? " · n° " + p.numero_gara : ""}</span>
+                <span class="riquadro-designazione-campionato">${p.campionato}${p.numero_gara ? " · n° " + p.numero_gara : ""} ${tagFase(p.tipo_fase)}</span>
                 <span class="riquadro-designazione-ora">${p.ora || "-"}</span>
               </div>
               <div class="riquadro-designazione-squadre">${p.squadra_casa} <span class="riquadro-designazione-vs">vs</span> ${p.squadra_ospite}</div>
@@ -333,6 +371,7 @@ function renderTabellaDesignazioni() {
       <td>${formattaData(p.data)}</td>
       <td>${p.ora}</td>
       <td>${p.campionato}</td>
+      <td>${tagFase(p.tipo_fase)}</td>
       <td>${p.numero_gara}</td>
       <td>${p.localita}</td>
       <td>${p.campo}</td>
@@ -362,14 +401,16 @@ async function apriModaleDesignazione(partitaId, ruolo) {
   window._ruoloDaDesignare = ruolo || "arbitro";
   const etichettaRuolo = window._ruoloDaDesignare === "assistente1" ? "2° Arbitro" : "Arbitro";
 
-  document.getElementById("titolo-modale-designazione").textContent =
-    `Designa ${etichettaRuolo} — ${formattaData(partita.data)} ${partita.ora} · ${partita.campionato}, gara n° ${partita.numero_gara}`;
+  document.getElementById("titolo-modale-designazione").innerHTML =
+    `Designa ${etichettaRuolo} — ${formattaData(partita.data)} ${partita.ora} · ${partita.campionato}, gara n° ${partita.numero_gara} ${tagFase(partita.tipo_fase)}`;
   document.getElementById("info-squadre-modale").innerHTML =
     `Casa: <strong>${partita.squadra_casa}</strong> <button class="btn-storico-inline" onclick="apriStoricoSquadra('casa')">storico</button>
      &nbsp;·&nbsp;
      Ospite: <strong>${partita.squadra_ospite}</strong> <button class="btn-storico-inline" onclick="apriStoricoSquadra('ospite')">storico</button>
      &nbsp;·&nbsp;
-     <button class="btn-storico-inline" onclick="apriRiepilogoAssociati()">Riepilogo associati</button>`;
+     <button class="btn-storico-inline" onclick="apriRiepilogoAssociati()">Riepilogo associati</button>
+     &nbsp;·&nbsp;
+     <button class="btn-storico-inline" onclick="apriClassificaDesignazione()">Vedi classifica</button>`;
   document.getElementById("filtro-candidati").value = "";
   document.getElementById("tabella-candidati").innerHTML = "";
   openOverlay("modale-designazione");
@@ -509,12 +550,14 @@ function renderCandidati() {
     const dalle = c.indisp_dal_data ? `${formattaData(c.indisp_dal_data)}${c.indisp_dal_ora ? " " + c.indisp_dal_ora : ""}` : "";
     const alle = c.indisp_al_data ? `${formattaData(c.indisp_al_data)}${c.indisp_al_ora ? " " + c.indisp_al_ora : ""}` : "";
     const designatoOggi = c.designato_oggi ? `Designato per: ${c.designato_info}` : "";
+    const andataRitorno = c.ha_arbitrato_andata ? `<span class="tag tag-rosso" title="${c.andata_info}">Ha arbitrato andata</span>` : "";
     tr.innerHTML = `
       <td class="cella-nome-candidato">${c.nome} <button class="btn-storico-icona" title="Storico ${c.nome}" onclick="apriStoricoArbitroId(${c.id})"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></button></td>
       <td>${c.ruolo}</td>
       <td>${c.comune}</td>
       <td>${c.distanza_km != null ? c.distanza_km + " km" : "-"}</td>
       <td>${designatoOggi}</td>
+      <td>${andataRitorno}</td>
       <td>${cellaConteggio(c.n_casa_codice, c.id, "casa_cod")}</td>
       <td>${cellaConteggio(c.n_casa_nome, c.id, "casa_nome")}</td>
       <td>${cellaConteggio(c.n_osp_codice, c.id, "osp_cod")}</td>
@@ -546,6 +589,10 @@ function mostraStorico(titolo, righe, mostraStato) {
   } else {
     righe.forEach(r => {
       const tr = document.createElement("tr");
+      // storico-squadra non restituisce "disputata" (filtra sempre disputata=1 lato backend);
+      // gare-designate invece mischia disputate e da disputare, quindi va controllato il flag.
+      const eDisputata = r.disputata === undefined || Number(r.disputata) === 1;
+      if (eDisputata && dataNelFuturo(r.data)) tr.classList.add("riga-data-futura");
       tr.innerHTML = `
         <td>${formattaData(r.data)}</td>
         <td>${r.campionato}</td>
@@ -615,6 +662,43 @@ async function apriRiepilogoAssociati() {
   openOverlay("modale-riepilogo-associati");
 }
 
+async function apriClassificaDesignazione() {
+  const partita = window._partitaDaDesignare;
+  if (!partita) return;
+  document.getElementById("titolo-modale-classifica").textContent = `Classifica — ${partita.campionato}`;
+  document.getElementById("tabella-classifica").innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--testo-tenue)">Caricamento...</td></tr>`;
+  openOverlay("modale-classifica");
+
+  const dati = await apiGet(`/api/report/classifica?campionato=${encodeURIComponent(partita.campionato)}`);
+  const righe = (dati.classifica || []);
+  const tbody = document.getElementById("tabella-classifica");
+  tbody.innerHTML = righe.length
+    ? righe.map(r => `
+        <tr${r.squadra === partita.squadra_casa || r.squadra === partita.squadra_ospite ? ' style="font-weight:600;background:var(--verde-tinta)"' : ""}>
+          <td>${r.posizione}</td>
+          <td><button class="btn-storico-inline" data-squadra="${r.squadra.replace(/"/g, "&quot;")}">${r.squadra}</button></td>
+          <td>${r.punti}</td>
+          <td>${r.gare}</td>
+          <td>${r.vinte}</td>
+          <td>${r.perse}</td>
+          <td>${r.set_vinti}/${r.set_persi}</td>
+          <td>${r.quoziente_set ?? "-"}</td>
+          <td>${r.punti_fatti != null ? `${r.punti_fatti}/${r.punti_subiti} (${r.quoziente_punti})` : "-"}</td>
+        </tr>
+      `).join("")
+    : `<tr><td colspan="9" style="text-align:center;color:var(--testo-tenue)">Nessuna gara disputata con risultato per questo campionato</td></tr>`;
+
+  tbody.querySelectorAll("button[data-squadra]").forEach(btn => {
+    btn.addEventListener("click", () => apriGareSquadraClassifica(btn.dataset.squadra, partita.campionato));
+  });
+}
+
+async function apriGareSquadraClassifica(squadra, campionato) {
+  const gare = await apiGet(`/api/report/classifica/gare-squadra?campionato=${encodeURIComponent(campionato)}&squadra=${encodeURIComponent(squadra)}`);
+  document.getElementById("riepilogo-storico").style.display = "none";
+  mostraStorico(`${squadra} — tutte le gare (${campionato})`, gare, true);
+}
+
 function _rigaRiepilogoAssociati(etichetta, dati) {
   if (!dati) {
     return `<p class="hint" style="margin:6px 0">${etichetta}: nessun codice di affiliazione disponibile per questa squadra.</p>`;
@@ -650,6 +734,13 @@ async function designaArbitro(arbitroId) {
   if (!candidato) return;
   const campo = window._ruoloDaDesignare || "arbitro";
   const partita = { ...window._partitaDaDesignare, [campo]: candidato.nome };
+  // cambiando uno dei due ruoli, l'eventuale accordo di rimborso km già scelto in precedenza
+  // potrebbe non avere più senso (es. era "guida il 1°" e il 1° è appena cambiato): lo
+  // azzeriamo e si richiede sempre una scelta fresca al designante, invece di riproporre in
+  // automatico quella vecchia.
+  partita.rimborso_km_modalita = "";
+  partita.rimborso_km_manuale_arbitro = "";
+  partita.rimborso_km_manuale_assistente1 = "";
   await apiSend(`/api/partite/${partita.id}`, "PUT", partita);
   closeOverlay("modale-designazione");
   await caricaPartiteDesignazioni();

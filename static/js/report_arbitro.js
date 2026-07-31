@@ -6,9 +6,10 @@
 function _righeDettaglioReport(gare) {
   return gare.length
     ? gare.map(g => `
-        <tr>
+        <tr${dataNelFuturo(g.data) ? ' class="riga-data-futura"' : ""}>
           <td>${formattaData(g.data)}</td>
           <td>${g.campionato}</td>
+          <td>${tagFase(g.tipo_fase)}</td>
           <td>${g.girone}</td>
           <td>${g.numero_gara}</td>
           <td>${g.squadra_casa}</td>
@@ -17,7 +18,7 @@ function _righeDettaglioReport(gare) {
           <td>${g.ruolo_designazione}</td>
         </tr>
       `).join("")
-    : `<tr><td colspan="8" style="text-align:center;color:var(--testo-tenue)">Nessuna gara</td></tr>`;
+    : `<tr><td colspan="9" style="text-align:center;color:var(--testo-tenue)">Nessuna gara</td></tr>`;
 }
 
 function mostraDettaglioReport(titolo, gare) {
@@ -121,6 +122,19 @@ async function apriReportArbitro(id) {
   document.getElementById("report-gare-primo-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come Primo Arbitro`, garePrimo);
   document.getElementById("report-gare-secondo-btn").textContent = gareSecondo.length;
   document.getElementById("report-gare-secondo-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come 2° Arbitro`, gareSecondo);
+
+  // gare per fase (sotto-alias campionato/coppa/playoff/fasi finali impostato in Alias campionati)
+  [
+    ["campionato", "report-gare-campionato-btn"],
+    ["coppa", "report-gare-coppa-btn"],
+    ["playoff", "report-gare-playoff-btn"],
+    ["final_four", "report-gare-fasifinali-btn"],
+  ].forEach(([fase, idBottone]) => {
+    const gareFase = gare.filter(g => (g.tipo_fase || "campionato") === fase);
+    const bottone = document.getElementById(idBottone);
+    bottone.textContent = gareFase.length;
+    bottone.onclick = () => mostraDettaglioReport(`${dati.arbitro} — ${ETICHETTE_FASE_JS[fase]}`, gareFase);
+  });
 
   // distribuzione per campionato (alias-aware: i gironi collegati nella pagina Campionati
   // vengono conteggiati insieme sotto il nome del torneo logico)

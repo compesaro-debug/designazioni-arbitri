@@ -9,9 +9,11 @@ function cambiaTabReport(tab) {
   document.getElementById("card-report-campionato").style.display = tab === "campionato" ? "" : "none";
   document.getElementById("card-report-copertura").style.display = tab === "copertura" ? "" : "none";
   document.getElementById("card-report-confronto").style.display = tab === "confronto" ? "" : "none";
-  // il confronto mostra sempre tutte le stagioni insieme: il selettore stagione in cima
-  // alla pagina non si applica a questa scheda.
-  document.getElementById("selettore-stagione-report").closest(".actions").style.display = tab === "confronto" ? "none" : "";
+  document.getElementById("card-report-tutoraggi").style.display = tab === "tutoraggi" ? "" : "none";
+  // il confronto mostra sempre tutte le stagioni insieme, e i tutoraggi esistono solo sulla
+  // stagione corrente (Rimborsi km non ha un equivalente storico): il selettore stagione in
+  // cima alla pagina non si applica a queste due schede.
+  document.getElementById("selettore-stagione-report").closest(".actions").style.display = (tab === "confronto" || tab === "tutoraggi") ? "none" : "";
   if (tab === "sezione" && !_sezioneCaricata) {
     _sezioneCaricata = true;
     caricaReportSezione();
@@ -27,6 +29,10 @@ function cambiaTabReport(tab) {
   if (tab === "confronto" && !window._confrontoReportCaricato) {
     window._confrontoReportCaricato = true;
     caricaReportConfronto();
+  }
+  if (tab === "tutoraggi" && !window._tutoraggiReportCaricato) {
+    window._tutoraggiReportCaricato = true;
+    caricaReportTutoraggi();
   }
 }
 
@@ -52,6 +58,10 @@ async function caricaReportSezione() {
   document.getElementById("sezione-n-gare").textContent = dati.n_gare_sezione;
   document.getElementById("sezione-media-gare").textContent = dati.media_gare;
   document.getElementById("sezione-km-totali").textContent = `${dati.km_totali_sezione} km`;
+  document.getElementById("sezione-n-gare-doppia").textContent = dati.n_gare_doppia_designazione;
+  document.getElementById("sezione-pct-gare-doppia").textContent = `(${dati.pct_gare_doppia_designazione}% delle gare disputate)`;
+  document.getElementById("sezione-pct-primo").textContent = `${dati.pct_primo_totale}%`;
+  document.getElementById("sezione-pct-secondo").textContent = `${dati.pct_secondo_totale}%`;
 
   document.getElementById("tabella-sezione-ruolo").innerHTML = dati.distribuzione_ruolo.map(d => `
     <tr>
@@ -61,6 +71,8 @@ async function caricaReportSezione() {
       <td>${d.percentuale}%</td>
       <td>${d.media_gare != null ? d.media_gare : "-"}</td>
       <td>${d.km_totali != null ? d.km_totali + " km" : "-"}</td>
+      <td>${d.pct_primo != null ? d.pct_primo + "%" : "-"}</td>
+      <td>${d.pct_secondo != null ? d.pct_secondo + "%" : "-"}</td>
     </tr>
   `).join("");
 
@@ -80,7 +92,7 @@ function renderTabellaSezione() {
   if (ordinamentoSezione.campo) {
     const campo = ordinamentoSezione.campo;
     const dir = ordinamentoSezione.direzione === "asc" ? 1 : -1;
-    const numerico = ["gare", "km_totali", "scostamento"].includes(campo);
+    const numerico = ["gare", "n_primo", "n_secondo", "km_totali", "scostamento"].includes(campo);
     arbitri = [...arbitri].sort((a, b) => {
       let va = a[campo], vb = b[campo];
       if (numerico) {
@@ -107,12 +119,14 @@ function renderTabellaSezione() {
             <td>${a.comune}</td>
             <td>${a.ruolo}</td>
             <td>${a.gare}</td>
+            <td>${a.n_primo} (${a.pct_primo}%)</td>
+            <td>${a.n_secondo} (${a.pct_secondo}%)</td>
             <td>${a.km_totali} km</td>
             <td>${classeScostamento ? `<span class="tag ${classeScostamento}">${scostamentoTesto}</span>` : scostamentoTesto}</td>
           </tr>
         `;
       }).join("")
-    : `<tr><td colspan="6" style="text-align:center;color:var(--testo-tenue)">Nessun arbitro</td></tr>`;
+    : `<tr><td colspan="8" style="text-align:center;color:var(--testo-tenue)">Nessun arbitro</td></tr>`;
 }
 
 abilitaOrdinamento("#tabella-head-sezione", ordinamentoSezione, renderTabellaSezione);

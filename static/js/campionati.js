@@ -1,5 +1,9 @@
+let filtriCampionati = {};
+let ordinamentoCampionati = { campo: null, direzione: "asc" };
+
 async function caricaCampionati() {
   const campionati = await apiGet("/api/campionati");
+  campionati.forEach(c => { c.arbitrabile_testo = Number(c.arbitrabile_da_associato) === 0 ? "No" : "Sì"; });
   window._campionatiCache = campionati;
   renderTabellaCampionati();
 }
@@ -8,7 +12,27 @@ function renderTabellaCampionati() {
   const tbody = document.getElementById("tabella-campionati");
   const vuoto = document.getElementById("stato-vuoto-campionati");
   tbody.innerHTML = "";
-  const campionati = window._campionatiCache || [];
+
+  let campionati = (window._campionatiCache || []).filter(c => _rigaCorrispondeFiltriCampionati(c, filtriCampionati));
+
+  if (ordinamentoCampionati.campo) {
+    const campo = ordinamentoCampionati.campo;
+    const dir = ordinamentoCampionati.direzione === "asc" ? 1 : -1;
+    const numerico = ["n_squadre", "n_codici"].includes(campo);
+    campionati = [...campionati].sort((a, b) => {
+      let va = a[campo], vb = b[campo];
+      if (numerico) {
+        va = Number(va) || 0;
+        vb = Number(vb) || 0;
+      } else {
+        va = String(va ?? "").toLowerCase();
+        vb = String(vb ?? "").toLowerCase();
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
 
   if (campionati.length === 0) {
     vuoto.style.display = "block";
@@ -32,6 +56,14 @@ function renderTabellaCampionati() {
       </td>
     `;
     tbody.appendChild(tr);
+  });
+}
+
+function _rigaCorrispondeFiltriCampionati(c, filtri) {
+  return Object.entries(filtri).every(([campo, valore]) => {
+    if (!valore) return true;
+    if (campo === "arbitrabile_testo") return c.arbitrabile_testo === valore;
+    return String(c[campo] ?? "").toLowerCase().includes(valore.toLowerCase());
   });
 }
 
@@ -91,8 +123,23 @@ async function ricaricaDettaglioCampionato() {
 
   const listaCodici = document.getElementById("lista-codici");
   listaCodici.innerHTML = dettaglio.codici.length
-    ? dettaglio.codici.map(c => `<li>${c.codice} <button class="btn-danger-text" onclick="rimuoviCodice(${c.id})">Rimuovi</button></li>`).join("")
+    ? dettaglio.codici.map(c => `
+        <li>
+          ${c.codice}
+          <select class="select-fase-codice" onchange="impostaFaseCodice(${c.id}, this.value)">
+            <option value="" ${!c.tipo_fase ? "selected" : ""}>Campionato</option>
+            <option value="coppa" ${c.tipo_fase === "coppa" ? "selected" : ""}>Coppa</option>
+            <option value="playoff" ${c.tipo_fase === "playoff" ? "selected" : ""}>Playoff/Play out</option>
+            <option value="final_four" ${c.tipo_fase === "final_four" ? "selected" : ""}>Fasi finali</option>
+          </select>
+          <button class="btn-danger-text" onclick="rimuoviCodice(${c.id})">Rimuovi</button>
+        </li>
+      `).join("")
     : `<li style="color:var(--testo-tenue)">Nessun codice collegato</li>`;
+}
+
+async function impostaFaseCodice(id, tipoFase) {
+  await apiSend(`/api/campionati-codici/${id}`, "PUT", { tipo_fase: tipoFase });
 }
 
 async function aggiungiSquadra() {
@@ -127,5 +174,7 @@ async function rimuoviCodice(id) {
   caricaCampionati();
 }
 
+abilitaOrdinamento("#tabella-head-campionati", ordinamentoCampionati, renderTabellaCampionati);
+abilitaFiltri("#tabella-head-campionati", filtriCampionati, renderTabellaCampionati);
 abilitaSelettoreColonne("#tabella-campionati-el", document.getElementById("colonne-campionati"));
 caricaCampionati();

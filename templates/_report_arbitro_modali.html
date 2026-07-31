@@ -20,6 +20,24 @@
         <div class="riepilogo-label">Km totali percorsi</div>
       </div>
     </div>
+    <div class="riepilogo-storico" style="margin-bottom:16px">
+      <div class="riepilogo-tile">
+        <button class="riepilogo-valore-btn" id="report-gare-campionato-btn">--</button>
+        <div class="riepilogo-label">Gare di Campionato</div>
+      </div>
+      <div class="riepilogo-tile">
+        <button class="riepilogo-valore-btn" id="report-gare-coppa-btn">--</button>
+        <div class="riepilogo-label">Gare di Coppa</div>
+      </div>
+      <div class="riepilogo-tile">
+        <button class="riepilogo-valore-btn" id="report-gare-playoff-btn">--</button>
+        <div class="riepilogo-label">Gare di Playoff/Play out</div>
+      </div>
+      <div class="riepilogo-tile">
+        <button class="riepilogo-valore-btn" id="report-gare-fasifinali-btn">--</button>
+        <div class="riepilogo-label">Gare di Fasi finali</div>
+      </div>
+    </div>
     <p class="hint" id="report-km-nota"></p>
 
     <p class="riepilogo-label" style="margin:16px 0 8px;" id="report-periodo-disponibilita">Disponibilità</p>
@@ -99,10 +117,11 @@
 <div class="overlay" id="modale-dettaglio-report">
   <div class="modal modal-large">
     <h2 id="titolo-modale-dettaglio-report">Dettaglio</h2>
+    <p class="hint"><span class="tag tag-giallo">Giallo</span> = gara segnata come disputata ma con data futura: probabilmente importata dal sistema principale come già designata ma non ancora giocata davvero</p>
     <div class="table-scroll" style="max-height:60vh;">
       <table>
         <thead>
-          <tr><th>Data</th><th>Campionato</th><th>Girone</th><th>N. Gara</th><th>Casa</th><th>Ospite</th><th>Risultato</th><th>Ruolo</th></tr>
+          <tr><th>Data</th><th>Campionato</th><th>Fase</th><th>Girone</th><th>N. Gara</th><th>Casa</th><th>Ospite</th><th>Risultato</th><th>Ruolo</th></tr>
         </thead>
         <tbody id="tabella-dettaglio-report"></tbody>
       </table>
