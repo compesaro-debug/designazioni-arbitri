@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuale — Designazioni Arbitri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primario:#1E2A44; --primario-chiaro:#2C3B5C;
+  --sfondo:#F4F6F9; --carta:#FFFFFF; --testo:#1B2130; --testo-tenue:#667085;
+  --accento:#C9932E; --accento-scuro:#8A6519;
+  --rosso:#C0392B; --rosso-scuro:#9C2E23; --verde-ok:#2E8B57; --arancione:#C1631E;
+  --bordo:#E1E4EA;
+  --verde-tinta:#E5F3EC; --rosso-tinta:#FBEAEA; --ambra-tinta:#FBF0DC; --arancione-tinta:#FBEADA;
+  --primario-tinta:#EEF1F7; --riga-alt:#FAFBFD;
+  --radius:10px; --ombra-sm:0 1px 2px rgba(15,23,42,.07); --ombra-md:0 10px 24px rgba(15,23,42,.10);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--sfondo);}
+body{
+  font-family:"Source Sans 3","Segoe UI",sans-serif;
+  color:var(--testo); font-size:15.5px; line-height:1.6;
+}
+h1,h2,h3,h4{font-family:"Barlow Condensed","Segoe UI",sans-serif; font-weight:600; letter-spacing:.01em; text-wrap:balance;}
+code{font-family:"Consolas",monospace; background:var(--primario-tinta); padding:1px 6px; border-radius:5px; font-size:.92em;}
+a{color:var(--primario);}
+
+.shell{display:flex; max-width:1180px; margin:0 auto;}
+.toc{
+  width:250px; flex-shrink:0; position:sticky; top:0; align-self:flex-start;
+  height:100vh; overflow-y:auto; padding:26px 14px 40px 20px;
+  border-right:1px solid var(--bordo);
+}
+.toc-torna{display:block; font-size:12.5px; color:var(--testo-tenue); text-decoration:none; margin-bottom:14px;}
+.toc-torna:hover{color:var(--primario);}
+.toc-brand{display:flex; align-items:center; gap:9px; margin-bottom:22px; text-decoration:none;}
+.toc-brand-icon{width:30px; height:30px; border-radius:8px; background:var(--primario); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;}
+.toc-brand-testo{font-family:"Barlow Condensed"; font-weight:600; font-size:14.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--primario); line-height:1.15;}
+.toc nav{display:flex; flex-direction:column; gap:1px;}
+.toc a.toc-link{display:block; padding:6px 10px; border-radius:7px; color:var(--testo-tenue); text-decoration:none; font-size:13.6px;}
+.toc a.toc-link:hover{background:var(--primario-tinta); color:var(--primario);}
+.toc .toc-gruppo{font-family:"Barlow Condensed"; font-weight:600; text-transform:uppercase; letter-spacing:.07em; font-size:11px; color:var(--testo-tenue); margin:16px 0 3px 10px;}
+.toc .toc-gruppo:first-of-type{margin-top:4px;}
+
+.toc-mobile{display:none;}
+
+main{flex:1; min-width:0; padding:38px 44px 100px; max-width:800px;}
+.hero{
+  background:linear-gradient(155deg,var(--primario) 0%, #10182A 100%);
+  color:#EDF0F5; border-radius:var(--radius); padding:34px 36px; box-shadow:var(--ombra-md); margin-bottom:10px;
+}
+.hero .eyebrow{font-family:"Barlow Condensed"; text-transform:uppercase; letter-spacing:.14em; font-size:12px; color:var(--accento); font-weight:600; margin:0 0 8px;}
+.hero h1{font-size:32px; margin:0 0 12px; color:#fff;}
+.hero p{margin:0; max-width:60ch; color:#C7CEE0; font-size:15px;}
+
+section{margin-top:56px; scroll-margin-top:20px;}
+section h2{font-size:26px; color:var(--primario); border-bottom:2px solid var(--bordo); padding-bottom:10px; margin-bottom:6px;}
+section .sotto{color:var(--testo-tenue); font-size:14.5px; margin:0 0 22px;}
+h3{font-size:19px; margin:30px 0 10px; color:var(--testo);}
+h3 .num{color:var(--accento-scuro); font-variant-numeric:tabular-nums; margin-right:2px;}
+h4{font-size:15.5px; margin:20px 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--testo-tenue); font-family:"Source Sans 3"; font-weight:700;}
+p{margin:0 0 14px;}
+ul,ol{margin:0 0 14px; padding-left:22px;}
+li{margin-bottom:5px;}
+.callout{
+  background:var(--ambra-tinta); color:var(--accento-scuro); border-radius:8px; padding:13px 16px;
+  font-size:14px; margin:16px 0; font-weight:600;
+}
+.callout.info{background:var(--primario-tinta); color:var(--primario); font-weight:400;}
+.callout.info strong{font-weight:700;}
+.callout b, .callout strong{font-weight:800;}
+.formula{
+  background:var(--carta); border:1px solid var(--bordo); border-left:4px solid var(--accento);
+  border-radius:8px; padding:14px 18px; margin:14px 0; font-size:14.5px;
+}
+.formula code{background:transparent; padding:0; font-size:1em; color:var(--accento-scuro); font-weight:700;}
+
+/* ---- mockup chrome ---- */
+.mock{
+  border-radius:12px; overflow:hidden; box-shadow:var(--ombra-md); border:1px solid var(--bordo);
+  margin:20px 0 28px; background:var(--carta);
+}
+.mock-app{display:flex; min-height:210px;}
+.mock-sidebar{
+  width:54px; flex-shrink:0; background:linear-gradient(180deg,var(--primario) 0%, #10182A 100%);
+  display:flex; flex-direction:column; align-items:center; gap:16px; padding:14px 0; color:#cfd6e6;
+}
+.mock-sidebar .dot{width:18px; height:18px; border-radius:5px; background:rgba(255,255,255,.16);}
+.mock-sidebar .dot.on{background:var(--accento);}
+.mock-body{flex:1; min-width:0; padding:16px 18px; background:var(--sfondo); font-size:12.3px;}
+.mock-titolo{font-family:"Barlow Condensed"; font-weight:600; text-transform:uppercase; letter-spacing:.03em; font-size:15px; color:var(--primario); margin-bottom:10px;}
+.mock-card{background:var(--carta); border:1px solid var(--bordo); border-radius:8px; padding:12px 14px; margin-bottom:10px;}
+.mock-tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:8px; margin-bottom:10px;}
+.mock-tile{background:var(--carta); border:1px solid var(--bordo); border-radius:8px; padding:9px 10px;}
+.mock-tile b{display:block; font-size:16px; color:var(--primario); font-variant-numeric:tabular-nums;}
+.mock-tile span{color:var(--testo-tenue); font-size:10.5px;}
+table.mock-table{width:100%; border-collapse:collapse; font-size:11.6px;}
+table.mock-table thead th{text-align:left; color:var(--testo-tenue); font-family:"Barlow Condensed"; font-weight:600; text-transform:uppercase; letter-spacing:.04em; font-size:10px; padding:6px 9px; border-bottom:1px solid var(--bordo);}
+table.mock-table tbody td{padding:7px 9px; border-bottom:1px solid var(--bordo);}
+table.mock-table tbody tr:nth-child(even){background:var(--riga-alt);}
+.chip{display:inline-flex; align-items:center; gap:5px; padding:2px 9px 2px 7px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; white-space:nowrap;}
+.chip::before{content:""; width:5px; height:5px; border-radius:50%; background:currentColor;}
+.chip.verde{background:var(--verde-tinta); color:var(--verde-ok);}
+.chip.rosso{background:var(--rosso-tinta); color:var(--rosso-scuro);}
+.chip.giallo{background:var(--ambra-tinta); color:var(--accento-scuro);}
+.chip.arancione{background:var(--arancione-tinta); color:var(--arancione);}
+.mock-banner{background:var(--ambra-tinta); color:var(--accento-scuro); border-radius:6px; padding:7px 10px; font-size:11px; font-weight:600; margin-bottom:10px;}
+.mock-btn{display:inline-block; background:var(--primario); color:#fff; border-radius:6px; padding:4px 10px; font-size:10.5px; font-weight:600;}
+.mock-btn.sec{background:transparent; border:1px solid var(--bordo); color:var(--testo-tenue);}
+
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media (max-width:640px){ .grid2{grid-template-columns:1fr;} }
+
+table.dati{width:100%; border-collapse:collapse; font-size:14px; margin:14px 0 22px;}
+table.dati th{text-align:left; color:var(--testo-tenue); font-family:"Barlow Condensed"; font-weight:600; text-transform:uppercase; letter-spacing:.04em; font-size:11.5px; padding:8px 12px; border-bottom:1px solid var(--bordo);}
+table.dati td{padding:9px 12px; border-bottom:1px solid var(--bordo); vertical-align:top;}
+table.dati tr:nth-child(even){background:var(--riga-alt);}
+
+footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; font-size:12.5px; color:var(--testo-tenue);}
+
+@media (max-width:900px){
+  .toc{display:none;}
+  .toc-mobile{display:block; margin:18px 0 0; padding:0 20px;}
+  .toc-mobile summary{cursor:pointer; font-family:"Barlow Condensed"; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--primario); padding:10px 14px; background:var(--primario-tinta); border-radius:8px;}
+  .toc-mobile nav{display:flex; flex-direction:column; padding:10px 6px;}
+  .toc-mobile a{padding:7px 10px; color:var(--testo-tenue); text-decoration:none; font-size:14px;}
+  .toc-mobile .toc-gruppo{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--testo-tenue); margin:10px 0 2px 10px; font-weight:700;}
+  main{padding:10px 18px 80px; max-width:100%;}
+  .shell{display:block;}
+  .hero{padding:26px 22px;}
+  .hero h1{font-size:26px;}
+  .mock-app{flex-direction:column;}
+  .mock-sidebar{width:100%; flex-direction:row; padding:8px 14px;}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+<aside class="toc">
+  <a href="/" class="toc-torna">&larr; Torna al sito</a>
+  <a href="/" class="toc-brand"><span class="toc-brand-icon">🏐</span><span class="toc-brand-testo">Designazioni<br>Arbitri</span></a>
+  <nav>
+    <a class="toc-link" href="#introduzione">Introduzione e accesso</a>
+    <a class="toc-link" href="#home">Home</a>
+    <div class="toc-gruppo">Arbitri</div>
+    <a class="toc-link" href="#anagrafica">Anagrafica arbitri</a>
+    <a class="toc-link" href="#indisponibilita">Indisponibilità</a>
+    <a class="toc-link" href="#inibizioni">Inibizioni e note</a>
+    <a class="toc-link" href="#riconoscimenti">Riconoscimenti</a>
+    <div class="toc-gruppo">Gare</div>
+    <a class="toc-link" href="#partite">Partite e import Excel</a>
+    <a class="toc-link" href="#designazioni">Designazioni</a>
+    <a class="toc-link" href="#disponibilita">Disponibilità arbitri</a>
+    <a class="toc-link" href="#rimborsi">Rimborsi km</a>
+    <div class="toc-gruppo">Campionati</div>
+    <a class="toc-link" href="#alias">Alias campionati</a>
+    <a class="toc-link" href="#societa">Società</a>
+    <a class="toc-link" href="#dati">Dati (stagioni passate)</a>
+    <div class="toc-gruppo">Report</div>
+    <a class="toc-link" href="#report-arbitro">Report arbitro</a>
+    <a class="toc-link" href="#report-sezione">Report di sezione</a>
+    <a class="toc-link" href="#report-campionato">Report campionato</a>
+    <a class="toc-link" href="#copertura">Copertura territoriale</a>
+    <a class="toc-link" href="#confronto">Confronto stagioni</a>
+    <a class="toc-link" href="#tutoraggi-report">Tutoraggi</a>
+    <div class="toc-gruppo">Riferimento</div>
+    <a class="toc-link" href="#calcoli">Come sono calcolati i numeri</a>
+  </nav>
+</aside>
+
+<main>
+
+<div class="hero">
+  <p class="eyebrow">Manuale d'uso</p>
+  <h1>Designazioni Arbitri</h1>
+  <p>Guida completa a tutte le pagine del sito: cosa fa ciascuna schermata, come si usa, e — in fondo — la spiegazione esatta di ogni calcolo statistico che il sito fa per te.</p>
+</div>
+
+<details class="toc-mobile">
+  <summary>Sommario</summary>
+  <nav>
+    <a href="#introduzione">Introduzione e accesso</a>
+    <a href="#home">Home</a>
+    <div class="toc-gruppo">Arbitri</div>
+    <a href="#anagrafica">Anagrafica arbitri</a>
+    <a href="#indisponibilita">Indisponibilità</a>
+    <a href="#inibizioni">Inibizioni e note</a>
+    <a href="#riconoscimenti">Riconoscimenti</a>
+    <div class="toc-gruppo">Gare</div>
+    <a href="#partite">Partite e import Excel</a>
+    <a href="#designazioni">Designazioni</a>
+    <a href="#disponibilita">Disponibilità arbitri</a>
+    <a href="#rimborsi">Rimborsi km</a>
+    <div class="toc-gruppo">Campionati</div>
+    <a href="#alias">Alias campionati</a>
+    <a href="#societa">Società</a>
+    <a href="#dati">Dati (stagioni passate)</a>
+    <div class="toc-gruppo">Report</div>
+    <a href="#report-arbitro">Report arbitro</a>
+    <a href="#report-sezione">Report di sezione</a>
+    <a href="#report-campionato">Report campionato</a>
+    <a href="#copertura">Copertura territoriale</a>
+    <a href="#confronto">Confronto stagioni</a>
+    <a href="#tutoraggi-report">Tutoraggi</a>
+    <div class="toc-gruppo">Riferimento</div>
+    <a href="#calcoli">Come sono calcolati i numeri</a>
+  </nav>
+</details>
+
+<section id="introduzione">
+  <h2>Introduzione e accesso</h2>
+  <p class="sotto">Cos'è il sito e come muoversi tra le pagine</p>
+
+  <p>Il sito gestisce in un unico posto tutta l'attività della sezione arbitri: anagrafica, indisponibilità, calendario gare, designazioni, rimborsi km e le statistiche della stagione. L'accesso è protetto da utente e password: chi entra vede sempre <strong>lo stesso database condiviso</strong>, quindi le modifiche fatte da un utente sono visibili subito a chiunque altro apra il sito.</p>
+  <p>Il menu a sinistra è diviso in quattro gruppi — <strong>Arbitri, Gare, Campionati, Report</strong> — più la Home. Il manuale segue lo stesso ordine.</p>
+  <div class="callout info">Tutte le pagine di elenco (Arbitri, Partite, Indisponibilità...) hanno filtri per colonna sotto l'intestazione, colonne nascondibili dal pulsante "Colonne", e intestazioni cliccabili per ordinare — funzionano allo stesso modo ovunque nel sito.</div>
+</section>
+
+<section id="home">
+  <h2>Home</h2>
+  <p class="sotto">Il quadro generale della settimana appena entri</p>
+
+  <div class="mock">
+    <div class="mock-app">
+      <div class="mock-sidebar">
+        <div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <div class="mock-body" style="padding:18px 20px;">
+        <div class="mock-titolo">Riepilogo di oggi</div>
+        <div class="mock-tiles">
+          <div class="mock-tile"><b>17</b><span>Partite da disputare</span></div>
+          <div class="mock-tile"><b>17</b><span>Gare da designare</span></div>
+          <div class="mock-tile"><b>2</b><span>Scoperte nei 7 giorni</span></div>
+          <div class="mock-tile"><b>0</b><span>Indisponibili oggi</span></div>
+          <div class="mock-tile"><b>1</b><span>Inibizioni attive</span></div>
+          <div class="mock-tile"><b>92</b><span>Arbitri in anagrafica</span></div>
+          <div class="mock-tile"><b>99</b><span>Da omologare</span></div>
+          <div class="mock-tile"><b>0</b><span>Certificati in scadenza</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>Otto numeri chiave, aggiornati ad ogni apertura della pagina:</p>
+  <ul>
+    <li><strong>Partite da disputare</strong> / <strong>Gare ancora da designare</strong> — quante gare in calendario non hanno ancora sia 1° che 2° arbitro assegnati.</li>
+    <li><strong>Scoperte nei prossimi 7 giorni</strong> — gare nei prossimi sette giorni ancora senza designazione completa: le più urgenti.</li>
+    <li><strong>Arbitri indisponibili oggi</strong> — quanti hanno un periodo di indisponibilità che copre la data odierna.</li>
+    <li><strong>Inibizioni attive</strong> — quante note di tipo "inibizione" sono registrate in Inibizioni e note.</li>
+    <li><strong>Gare ancora da omologare</strong> — partite disputate a cui manca ancora il risultato.</li>
+    <li><strong>Certificati medici in scadenza (30gg) o scaduti</strong> — confronta la scadenza del certificato con la data odierna + 30 giorni (non con la data di una gara specifica: quello è un controllo diverso, vedi Designazioni).</li>
+  </ul>
+  <p>Sotto ai numeri, le stesse sezioni del menu con una riga di descrizione, utile come punto di partenza rapido.</p>
+</section>
+
+<section id="anagrafica">
+  <h2>Anagrafica arbitri</h2>
+  <p class="sotto">Arbitri &rarr; Anagrafica arbitri</p>
+  <p>L'elenco di tutti gli arbitri della sezione, con import da Excel e scheda di modifica per ciascuno.</p>
+
+  <div class="mock">
+    <div class="mock-body">
+      <table class="mock-table">
+        <thead><tr><th>Cognome e nome</th><th>Comune</th><th>Ruolo</th><th>Stato</th><th>Tutoraggio</th><th>Scad. certificato</th></tr></thead>
+        <tbody>
+          <tr><td>Albergamo Michele</td><td>Pesaro</td><td>NAZ</td><td><span class="chip verde">In attività</span></td><td></td><td>12/03/2027</td></tr>
+          <tr><td>Cerisoli Veronica</td><td>Vallefoglia</td><td>TER</td><td><span class="chip verde">In attività</span></td><td><span class="chip giallo">Tutoraggio</span></td><td>&mdash;</td></tr>
+          <tr><td>Rossi Paolo</td><td>Fossombrone</td><td>TER</td><td><span class="chip rosso">Non in attività</span></td><td></td><td style="color:var(--rosso-scuro); font-weight:700;">02/08/2026 (scaduto)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h4>Campi principali</h4>
+  <ul>
+    <li><strong>Codice fiscale, matricola, comune, ruolo</strong> (NAZ / REG / TER / ASS...), <strong>cellulare, e-mail</strong>.</li>
+    <li><strong>Stato (In attività / Non in attività)</strong> — governa se l'arbitro è proponibile in Designazioni. Chi è "Non in attività" resta in anagrafica per lo storico ma non compare più tra i candidati.</li>
+    <li><strong>Ruolo "ASS"</strong> — un caso speciale: chi ha questo ruolo non è un arbitro federale designabile da questa griglia; le sue gare (o quelle segnate "Arbitro Associato") vengono comunque contate nei Report, ma separatamente dai federali.</li>
+    <li><strong>Tutoraggio</strong> — checkbox indipendente dallo stato "In attività". Vedi il riquadro sotto.</li>
+    <li><strong>Scadenza certificato medico</strong> — usata sia dal tile Home (finestra di 30 giorni da oggi) sia dal controllo in Designazioni (finestra sulla data della singola gara).</li>
+  </ul>
+
+  <div class="callout">
+    Il flag "Tutoraggio" NON cambia in nulla la designabilità o le statistiche generali dell'arbitro — conta come attivo a tutti gli effetti. Serve solo a far comparire in automatico, quando lo designi insieme a un collega, una proposta di rimborso km che gli azzera il rimborso e lo sposta tutto sul collega (il tutor guida, il tutorato non è "in trasferta con l'auto propria"). Vedi la sezione Designazioni e Rimborsi km per i dettagli.
+  </div>
+
+  <p>Selezionando più righe con le checkbox a sinistra compare una barra con azioni massive ("Segna come in attività / non in attività"). Il pulsante <strong>Report</strong> su ogni riga apre lo stesso Report arbitro descritto più avanti.</p>
+</section>
+
+<section id="indisponibilita">
+  <h2>Indisponibilità</h2>
+  <p class="sotto">Arbitri &rarr; Indisponibilità</p>
+  <p>Periodi (data/ora inizio &rarr; data/ora fine) in cui un arbitro non è disponibile. Import da Excel o inserimento manuale con motivazione.</p>
+
+  <div class="mock">
+    <div class="mock-body">
+      <table class="mock-table">
+        <thead><tr><th>Arbitro</th><th>Dal</th><th>Al</th><th>Stato</th></tr></thead>
+        <tbody>
+          <tr style="background:var(--rosso-tinta);"><td>Cerisoli Veronica</td><td>16/09/2026</td><td>18/09/2026</td><td><span class="chip rosso">In corso</span></td></tr>
+          <tr style="background:var(--ambra-tinta);"><td>Albergamo Michele</td><td>27/09/2026</td><td>07/10/2026</td><td><span class="chip giallo">Futura</span></td></tr>
+          <tr><td>Rossi Paolo</td><td>28/08/2026</td><td>07/09/2026</td><td style="color:var(--testo-tenue);">Passata</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p>La colonna <strong>Stato</strong> confronta oggi con il periodo: <span class="chip rosso" style="margin:0 3px;">In corso</span> (oggi è dentro il periodo, riga evidenziata in rosso), <span class="chip giallo" style="margin:0 3px;">Futura</span> (deve ancora iniziare, riga evidenziata in giallo) o <strong>Passata</strong> (già conclusa, nessuna evidenziazione). Un filtro a tendina dedicato permette di vedere solo uno di questi tre stati — utile per pulire l'elenco dalle indisponibilità ormai scadute senza doverle cancellare.</p>
+  <p>Una indisponibilità può coprire <strong>l'intera giornata</strong> o solo <strong>una fascia oraria</strong>: se l'ora di inizio/fine non è indicata (o è 00:00/23:59), il giorno è bloccato per intero; altrimenti è "parziale". Questa distinzione è quella che poi in Designazioni fa la differenza tra riga rossa (non disponibile) e riga arancione (parzialmente), e nei Report tra "giorno indisponibile totale" e "parziale" (vedi <a href="#calcoli">Come sono calcolati i numeri</a>).</p>
+</section>
+
+<section id="inibizioni">
+  <h2>Inibizioni e note</h2>
+  <p class="sotto">Arbitri &rarr; Inibizioni e note</p>
+  <p>Annotazioni manuali su un arbitro, di due tipi:</p>
+  <ul>
+    <li><strong>Nota</strong> — testo libero, visibile nella griglia di Designazioni per quell'arbitro, senza bloccare nulla.</li>
+    <li><strong>Inibizione</strong> — collegata a un <strong>codice di affiliazione società</strong>: se quella società (casa o ospite) compare in una gara, l'arbitro viene segnalato in giallo tra i candidati di quella gara specifica (incompatibilità, es. un arbitro non può dirigere gare della propria società).</li>
+  </ul>
+</section>
+
+<section id="riconoscimenti">
+  <h2>Riconoscimenti</h2>
+  <p class="sotto">Arbitri &rarr; Riconoscimenti — nessun valore organizzativo, solo un tocco di morale</p>
+  <p>14 piccoli "premi" scherzosi assegnati automaticamente in base ai numeri della stagione (km, campionati diversi diretti, disponibilità, anzianità...). Un selettore in alto permette di vederli anche per una stagione storica archiviata in Dati.</p>
+  <div class="grid2">
+    <div class="mock-card">🏃 <strong>Maratoneta</strong> — più km percorsi in stagione</div>
+    <div class="mock-card">🃏 <strong>Jolly dei campionati</strong> — più campionati diversi diretti</div>
+    <div class="mock-card">🏛️ <strong>Jolly delle società</strong> — più società diverse affrontate</div>
+    <div class="mock-card">🧱 <strong>Roccia</strong> — zero giorni di indisponibilità totale</div>
+    <div class="mock-card">☀️ <strong>Sempre disponibile</strong> — % di disponibilità più alta</div>
+    <div class="mock-card">📈 <strong>Rookie in crescita</strong> — carico in maggior aumento nella 2ª metà stagione</div>
+    <div class="mock-card">📉 <strong>In frenata</strong> — carico in maggior calo nella 2ª metà stagione</div>
+    <div class="mock-card">🏠 <strong>Local Hero</strong> — più gare dirette a 0 km da casa</div>
+    <div class="mock-card">🧭 <strong>Globetrotter</strong> — più comuni diversi visitati</div>
+    <div class="mock-card">🌍 <strong>Viaggio estremo</strong> — la trasferta singola più lunga</div>
+    <div class="mock-card">🥇 <strong>Instancabile</strong> — più gare in assoluto</div>
+    <div class="mock-card">🎯 <strong>Direttore</strong> — più gare come 1° arbitro</div>
+    <div class="mock-card">🤝 <strong>Spalla di ferro</strong> — più gare come 2° arbitro</div>
+    <div class="mock-card">🕰️ <strong>Veterano</strong> / 🐣 <strong>New Entry</strong> — prima gara più lontana / esordio più recente</div>
+  </div>
+  <p>Le formule esatte di ciascuno sono nell'appendice finale.</p>
+</section>
+
+<section id="partite">
+  <h2>Partite e import Excel</h2>
+  <p class="sotto">Gare &rarr; Partite</p>
+  <p>Il calendario delle gare, diviso in tre schede: <strong>Da disputare</strong>, <strong>Disputate</strong>, <strong>Omologazione</strong> (disputate ma senza risultato ancora). Puoi aggiungere una gara a mano o importare un file Excel — è di gran lunga il modo più usato, quindi merita una spiegazione a parte.</p>
+
+  <h3>Le due modalità di import</h3>
+  <ul>
+    <li><strong>Aggiungi ai dati esistenti</strong> — le gare del file vengono aggiunte o aggiornate una per una, senza toccare il resto della tabella.</li>
+    <li><strong>Sostituisci tutti i dati</strong> — cancella prima tutte le gare della scheda che stai importando (solo "Da disputare" oppure solo "Disputate", mai entrambe insieme), poi reimporta da zero: usalo quando il file deve rappresentare sempre l'elenco esatto e completo di cosa deve esserci.</li>
+  </ul>
+
+  <h3>Come viene riconosciuta la stessa gara</h3>
+  <p>Ogni gara ha un'identità univoca: <strong>campionato + numero gara</strong>. Vale per tutta la sua vita, anche se cambia data/ora/palestra (rinvio) o passa da "Da disputare" a "Disputate".</p>
+
+  <h3>Arbitro e 2° arbitro: si conservano solo sulle disputate</h3>
+  <div class="callout">
+    Reimportando le <strong>Disputate</strong>: se il file non porta un nome, la designazione già fatta resta quella impostata; se il file ne porta uno, quello vince sempre (anche se diverso da quanto già inserito).<br><br>
+    Reimportando le <strong>Da disputare</strong>: arbitro e 2° arbitro tornano <strong>sempre vuoti</strong>, anche se la gara aveva già una designazione — va rifatta da Designazioni. Scelta voluta: una gara "da disputare" ripresentata dal file non deve mai portarsi dietro una designazione vecchia in modo silenzioso.
+  </div>
+
+  <h3>Il rimborso km non si riapplica mai da solo</h3>
+  <p>L'accordo di trasferta (auto unica, tutoraggio, km a mano) non torna mai automaticamente su una gara reimportata. Se ne esisteva uno, lo ritrovi come proposta gialla "Proposto" nella pagina Rimborsi km: resta un suggerimento finché non lo confermi con un clic (vedi <a href="#rimborsi">Rimborsi km</a>).</p>
+
+  <h3>Gare rinviate</h3>
+  <p>Se una gara reimportata ha data o orario diversi da quelli già in sistema, dopo l'import compare in un elenco a parte "gare rinviate": la designazione resta quella di prima, ma vale la pena ricontrollare la disponibilità dell'arbitro sulla nuova data.</p>
+
+  <h3>Il cartellino risultato (scheda Disputate)</h3>
+  <p>Nella scheda <strong>Disputate</strong>, la colonna Risultato mostra un cartellino <span class="chip verde" style="margin:0 3px;">verde</span> col punteggio quando c'è, oppure <span class="chip giallo" style="margin:0 3px;">Da omologare</span> quando manca — così le gare ancora senza risultato si notano subito scorrendo l'elenco, invece di una cella vuota che si confonde con le altre.</p>
+</section>
+
+<section id="designazioni">
+  <h2>Designazioni</h2>
+  <p class="sotto">Gare &rarr; Designazioni — la pagina più usata del sito</p>
+  <p>Le gare da disputare, in vista giornaliera (per data) o tabellare, con un pulsante "Designa" per 1° e 2° arbitro. Cliccandolo si apre la griglia dei candidati.</p>
+
+  <div class="mock">
+    <div class="mock-body" style="padding:16px 18px;">
+      <div class="mock-titolo" style="margin-bottom:4px;">Designa 2° arbitro — 09/08/2026 · TESTAR, gara n° TAR002</div>
+      <div style="font-size:11px; color:var(--testo-tenue); margin-bottom:10px;">Casa: Test Squadra Beta &nbsp;·&nbsp; Ospite: Test Squadra Alfa &nbsp;·&nbsp; <u>Riepilogo associati</u> &nbsp;·&nbsp; <u>Vedi classifica</u></div>
+      <div class="mock-banner">Cerisoli Veronica è in tutoraggio: 2 tutoraggi finora (2 come 1° arbitro, 0 come 2°). Tutor avuti finora: Test Tutor A, Test Tutor B. Servono almeno 3 tutor diversi: ne manca 1.</div>
+      <table class="mock-table">
+        <thead><tr><th>Arbitro</th><th>Comune</th><th>Distanza</th><th>Certificato</th><th>Designato oggi</th><th>Andata/ritorno</th></tr></thead>
+        <tbody>
+          <tr><td>Albergamo Michele</td><td>Pesaro</td><td>24 km</td><td></td><td></td><td><span class="chip rosso">Ha arbitrato andata</span></td></tr>
+          <tr><td>Cecconi Giacomo</td><td>San Costanzo</td><td>94 km</td><td></td><td><span class="chip arancione">Sì</span></td><td></td></tr>
+          <tr style="background:var(--rosso-tinta);"><td style="color:var(--rosso-scuro); font-weight:600;">Rossi Paolo</td><td>Fossombrone</td><td>9 km</td><td><span class="chip rosso">Scaduto 02/08</span></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>Legenda colori dei candidati</h3>
+  <ul>
+    <li><span class="chip rosso" style="margin-right:6px;">Rosso</span> non disponibile in quel giorno/orario — in fondo alla lista, con il dettaglio dell'indisponibilità.</li>
+    <li><span class="chip arancione" style="margin-right:6px;">Arancione</span> già designato oggi su un'altra gara — resta comunque selezionabile.</li>
+    <li><span class="chip giallo" style="margin-right:6px;">Giallo</span> inibizione per la società di casa o ospite (vedi Inibizioni e note).</li>
+    <li><strong>Ha arbitrato andata</strong> — ha già diretto la gara di andata/ritorno tra queste due squadre (stesso girone, casa/ospite invertite): evita di riproporre lo stesso arbitro su entrambe le sfide.</li>
+    <li><strong>Certificato scaduto</strong> — il certificato medico risulterà scaduto <em>alla data di questa gara</em> (non rispetto a oggi): finisce in fondo alla lista.</li>
+  </ul>
+  <p>Le colonne mostrano anche quante volte quell'arbitro ha già diretto le due squadre (per codice società e per nome, utili quando lo stesso club cambia codice), e l'ultima volta che lo ha fatto — ogni numero è cliccabile per vedere l'elenco delle gare dietro al conteggio.</p>
+
+  <h3>L'avviso tutoraggio</h3>
+  <p>Se designi prima un arbitro con il flag <strong>Tutoraggio</strong> attivo, e non ha ancora completato il percorso (serve <strong>almeno 5 tutoraggi totali</strong> e <strong>almeno 3 tutor diversi</strong>), quando apri la designazione dell'altro ruolo compare in alto il banner giallo visibile nell'esempio sopra: quanti tutoraggi ha già fatto, in quanti come 1° e come 2°, e chi sono stati i tutor — così eviti di riproporre sempre la stessa coppia.</p>
+
+  <h3>Dopo la designazione: il popup rimborso km</h3>
+  <p>Non appena una gara ha sia 1° che 2° arbitro, si apre subito un popup per dichiarare come hanno viaggiato: ognuno con la propria auto, auto unica (guida solo uno dei due), tutoraggio (stesso calcolo dell'auto unica, ma per la ragione di tutoraggio, così i Report lo distinguono), o km dichiarati a mano. Se uno dei due è in tutoraggio con meno di 3 tutor o 5 tutoraggi, la modalità giusta è già preselezionata. Questa scelta resta comunque solo una <strong>proposta</strong>: va confermata in Rimborsi km (vedi sotto).</p>
+
+  <p>Il pulsante <strong>Vedi classifica</strong> in alto apre la classifica calcolata in tempo reale per quel campionato/girone (vedi <a href="#calcoli">Come sono calcolati i numeri</a>); cliccando una squadra si vedono tutte le sue gare, disputate e da disputare, in quello stesso codice campionato.</p>
+</section>
+
+<section id="disponibilita">
+  <h2>Disponibilità arbitri</h2>
+  <p class="sotto">Gare &rarr; Disponibilità arbitri</p>
+  <p>Scegli un intervallo di date e ottieni una griglia arbitro &times; giorno: <span class="chip verde" style="margin:0 3px;">verde</span> disponibile, <span class="chip arancione" style="margin:0 3px;">arancione</span> non disponibile solo in parte della giornata, <span class="chip rosso" style="margin:0 3px;">rosso</span> non disponibile tutto il giorno. Cliccando una cella rossa o arancione si vede il dettaglio del periodo di indisponibilità dietro a quel colore.</p>
+</section>
+
+<section id="rimborsi">
+  <h2>Rimborsi km</h2>
+  <p class="sotto">Gare &rarr; Rimborsi km</p>
+  <p>Elenco delle gare <strong>disputate</strong> con sia 1° che 2° arbitro assegnati, coi km calcolati per ciascuno. È qui che il responsabile conferma in via definitiva l'accordo di trasferta.</p>
+
+  <div class="mock">
+    <div class="mock-body" style="padding:16px 18px;">
+      <table class="mock-table">
+        <thead><tr><th>Squadre</th><th>1° Arbitro</th><th>2° Arbitro</th><th>Modalità</th><th>Km 1°</th><th>Km 2°</th></tr></thead>
+        <tbody>
+          <tr><td>Volley Cagli vs Virtus Fano</td><td>Albergamo Michele</td><td>Cerisoli Veronica</td><td>
+            <span class="mock-btn sec">Tutoraggio — tutor il 1°</span><br>
+            <div class="mock-banner" style="margin:5px 0 0; padding:4px 8px; font-size:10px;"><span class="chip giallo" style="margin-right:5px;">Proposto</span>Tutoraggio — tutor il 1° <span class="mock-btn" style="margin-left:6px;">Conferma</span></div>
+          </td><td>24 km</td><td>0 km</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>Come funziona il modello "proposta &rarr; conferma"</h3>
+  <p>La scelta fatta dal designante nel popup di Designazioni <strong>non diventa mai subito ufficiale</strong>: viene salvata come proposta in attesa. Qui su Rimborsi km compare con un cartellino giallo <strong>Proposto</strong> e un pulsante <strong>Conferma</strong>: solo cliccandolo il valore diventa quello ufficiale della gara.</p>
+  <p>Puoi anche scegliere direttamente la modalità dal menu a tendina di ogni riga (equivale a confermare subito): <em>Ognuno la propria auto</em>, <em>Auto unica — ha guidato il 1°/2°</em>, <em>Tutoraggio — tutor il 1°/2°</em> (stesso calcolo dell'auto unica, motivazione diversa), <em>Dichiaro a mano</em> (due caselle libere in km).</p>
+  <div class="callout">
+    Una volta <strong>confermata</strong>, la scelta sopravvive anche se la gara viene cancellata e reimportata (es. import "sostituisci"): viene riapplicata da sola sulla gara corrispondente (stesso campionato + numero gara), senza richiedere una nuova conferma. Una proposta <strong>non confermata</strong>, invece, continua a ripresentarsi come suggerimento finché qualcuno non decide.
+  </div>
+  <p>In fondo alla pagina, i km reali dei comuni di residenza di gara/1°/2° arbitro aiutano a valutare a colpo d'occhio la scelta fatta.</p>
+</section>
+
+<section id="alias">
+  <h2>Alias campionati</h2>
+  <p class="sotto">Campionati &rarr; Alias campionati</p>
+  <p>I file Excel usano spesso <strong>codici diversi</strong> per fasi dello stesso torneo (es. girone di andata, ritorno, playoff con un codice a parte). Questa pagina collega quei codici sotto un unico "campionato logico", così le statistiche per squadra in Designazioni e nei Report non si spezzano quando cambia il codice.</p>
+  <p>Per ogni campionato si gestiscono:</p>
+  <ul>
+    <li><strong>Squadre</strong> collegate (per il conteggio "per nome" quando i codici cambiano).</li>
+    <li><strong>Codici campionato</strong> collegati, ciascuno con un <strong>tipo fase</strong>: Campionato, Coppa, Playoff/Play out, Fasi finali — usato per il dettaglio a parte nei Report campionato e Report arbitro.</li>
+    <li><strong>Arbitrabile da associato</strong> — se questo campionato può essere diretto da un "Arbitro Associato" (non federale).</li>
+    <li><strong>Km per partita da rispettare</strong> — la soglia usata dal Report campionato per segnalare lo scostamento della media reale.</li>
+  </ul>
+</section>
+
+<section id="societa">
+  <h2>Società</h2>
+  <p class="sotto">Campionati &rarr; Società</p>
+  <p>Collega ogni <strong>codice di affiliazione</strong> (come compare nel file Excel) alla ragione sociale ufficiale del club — utile perché lo stesso club spesso ha più squadre/categorie con lo stesso codice. Il pulsante "Importa automaticamente" popola l'elenco dai codici già presenti nelle partite, da correggere poi dove il nome suggerito non è quello giusto.</p>
+</section>
+
+<section id="dati">
+  <h2>Dati (stagioni passate)</h2>
+  <p class="sotto">Report &rarr; Dati</p>
+  <p>Permette di archiviare partite disputate, indisponibilità e alias campionati delle <strong>stagioni precedenti</strong>, per poterli usare nei Report e Riconoscimenti senza interferire in nessun modo con l'operatività della stagione corrente (Designazioni, Home, Partite... continuano a leggere solo i dati live).</p>
+  <ul>
+    <li>La <strong>Stagione corrente</strong> è sempre quella "live": qui non si importa nulla, è gestita dalle pagine operative normali.</li>
+    <li>Ogni <strong>stagione storica</strong> creata (es. "2023/2024") ha una propria area separata: import Excel di partite disputate e indisponibilità (stesso formato di quelli correnti), e propri alias campionati.</li>
+  </ul>
+  <p>Il selettore stagione che compare in cima a Report/Riconoscimenti fa scegliere se guardare la stagione corrente o una di quelle archiviate qui — cambia solo la fonte dei dati, non il modo in cui i numeri vengono calcolati.</p>
+
+  <h3>Chiudere la stagione corrente a fine anno</h3>
+  <p>Sulla scheda "Stagione corrente" c'è il pulsante <strong>Chiudi stagione e archiviala nello storico</strong>, da usare quando la stagione è davvero conclusa e si vuole ripartire da zero. Chiede il nome da dare alla nuova stagione storica (es. "2025/2026") e poi, in un solo passaggio:</p>
+  <ol>
+    <li>Fa <strong>automaticamente un backup</strong> del database prima di toccare qualsiasi cosa.</li>
+    <li><strong>Copia nello storico</strong>: tutte le partite disputate, le indisponibilità e gli alias campionati (squadre e codici collegati) — diventano subito consultabili in Report/Riconoscimenti/Confronto stagioni scegliendo quella stagione.</li>
+    <li><strong>Svuota la stagione corrente</strong>: partite (comprese quelle ancora da disputare, che non hanno senso da archiviare e vengono eliminate), indisponibilità, alias campionati, e le eventuali proposte di rimborso km rimaste in sospeso.</li>
+  </ol>
+  <div class="callout">
+    Non vengono mai toccati: Anagrafica arbitri, Società e le distanze tra comuni — non sono legati a una singola stagione. L'operazione è pensata per essere irreversibile dall'interfaccia (a parte il backup automatico): usala solo a stagione davvero conclusa.
+  </div>
+</section>
+
+<section id="report-arbitro">
+  <h2>Report arbitro</h2>
+  <p class="sotto">Report &rarr; Report arbitro (anche dal pulsante "Report" in Anagrafica)</p>
+  <p>Il report stagionale di un singolo arbitro: gare dirette, km, disponibilità, distribuzione per campionato/società/fase, andamento mensile.</p>
+  <div class="mock-tiles" style="max-width:560px;">
+    <div class="mock-tile"><b>34</b><span>Gare dirette</span></div>
+    <div class="mock-tile"><b>19</b><span>Come 1° arbitro</span></div>
+    <div class="mock-tile"><b>15</b><span>Come 2° arbitro</span></div>
+    <div class="mock-tile"><b>3</b><span>Come tutor</span></div>
+    <div class="mock-tile"><b>1 230</b><span>Km totali</span></div>
+  </div>
+  <p>Ogni numero è cliccabile e apre l'elenco esatto delle gare dietro al conteggio. Il tile <strong>Come tutor</strong> conta le gare in cui questo arbitro ha fatto da tutor (rimborso km a suo favore, collega azzerato) — vedi <a href="#calcoli">Come sono calcolati i numeri</a> per il dettaglio.</p>
+  <p>Più sotto: distribuzione per fase (Campionato/Coppa/Playoff/Fasi finali), per campionato, per società affrontata, un calendario di disponibilità/indisponibilità giorno per giorno dalla prima all'ultima gara mai disputata nel sistema, e un grafico mensile gare/disponibilità.</p>
+</section>
+
+<section id="report-sezione">
+  <h2>Report di sezione</h2>
+  <p class="sotto">Report &rarr; Report di sezione</p>
+  <p>Vista d'insieme su tutti gli arbitri: carico di lavoro, km, confronto con la media, per qualifica (Nazionale/Regionale/Territoriale). Ogni arbitro ha il proprio <strong>scostamento</strong> dalla media gare della sezione, per individuare subito chi ha lavorato molto più o molto meno degli altri.</p>
+</section>
+
+<section id="report-campionato">
+  <h2>Report campionato</h2>
+  <p class="sotto">Report &rarr; Report campionato</p>
+  <p>Per ogni campionato logico (gironi/fasi uniti come da Alias campionati): quante designazioni sono di arbitri federali rispetto ad "Arbitro Associato", quante gare hanno avuto due arbitri federali, quante sono in tutoraggio, e i km percorsi con diverse medie.</p>
+
+  <div class="mock">
+    <div class="mock-body" style="padding:16px 18px;">
+      <table class="mock-table">
+        <thead><tr><th>Campionato</th><th>N. gare</th><th>Federali</th><th>Gare con 2 arbitri</th><th>Gare in tutoraggio</th><th>Media km (no tutoraggio)</th><th>Scostamento</th></tr></thead>
+        <tbody>
+          <tr><td>Under 16 Femminile</td><td>13</td><td>18 (100%)</td><td>5</td><td><span class="chip giallo">2</span> <span style="color:var(--testo-tenue); font-size:10px;">(+1 da disputare)</span></td><td>61.6 km</td><td><span class="chip rosso">+38.3 km</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p>Clic su una riga apre il dettaglio squadra/arbitro (quante volte ognuno ha diretto ogni squadra). Clic sul numero <strong>Gare in tutoraggio</strong> apre l'elenco delle gare con chi era 1° e chi 2° arbitro, marcati tutor/tutorato — comprese le gare <strong>già designate ma non ancora disputate</strong>, evidenziate in giallo, mostrate come anteprima (non entrano nelle statistiche, che restano basate solo sul realmente giocato).</p>
+  <p>Le formule esatte di ogni colonna (federali/associato %, doppio arbitro, medie km con e senza tutoraggio, scostamento dalla soglia) sono nell'appendice finale.</p>
+</section>
+
+<section id="copertura">
+  <h2>Copertura territoriale</h2>
+  <p class="sotto">Report &rarr; Copertura territoriale</p>
+  <p>Per ogni comune dove si sono giocate gare: quanti arbitri risiedono lì o entro 15&nbsp;km di distanza, per individuare le zone con tante gare ma pochi arbitri vicini disponibili — quelle più onerose da coprire in trasferta. Le righe rosse sono comuni <strong>senza nessun arbitro</strong> nella zona.</p>
+</section>
+
+<section id="confronto">
+  <h2>Confronto stagioni</h2>
+  <p class="sotto">Report &rarr; Confronto stagioni</p>
+  <p>Gli stessi numeri di sintesi del Report di sezione (n. arbitri, gare, media gare/arbitro, km totali, % di copertura per qualifica), affiancati stagione per stagione — richiede di aver archiviato le stagioni passate in <a href="#dati">Dati</a>. Le caselle in alto permettono di includere o escludere singole stagioni dal confronto.</p>
+</section>
+
+<section id="tutoraggi-report">
+  <h2>Tutoraggi</h2>
+  <p class="sotto">Report &rarr; Tutoraggi</p>
+  <p>Vista dedicata a tutte le gare in tutoraggio della stagione corrente (il tutoraggio si dichiara in Rimborsi km, che esiste solo per la stagione live).</p>
+  <div class="mock-tiles" style="max-width:560px;">
+    <div class="mock-tile"><b>20</b><span>Gare in tutoraggio</span></div>
+    <div class="mock-tile"><b>61.6 km</b><span>Media km tutor</span></div>
+    <div class="mock-tile"><b>1 232 km</b><span>Km tutor totali</span></div>
+  </div>
+  <p>Un filtro <strong>Arbitro tutorato</strong> in alto restringe riepilogo e tabella a un solo arbitro (utile per controllare a che punto è il suo percorso: quante gare, con quali tutor). La tabella è divisa per campionato; clic su una riga apre l'elenco gare con tutor, tutorato e relative residenze e km.</p>
+</section>
+
+<section id="calcoli">
+  <h2>Come sono calcolati i numeri</h2>
+  <p class="sotto">Appendice tecnica — le formule esatte dietro ogni statistica del sito</p>
+
+  <h3><span class="num">1.</span>Km di trasferta</h3>
+  <p>Alla base di quasi tutti i calcoli km c'è una tabella di distanze comune&ndash;comune (caricata una volta, es. da un file di riferimento). Il km "automatico" di una persona su una gara è sempre: <code>distanza(comune di residenza, comune della gara)</code> — 0 se coincidono, vuoto/non calcolabile se manca uno dei due comuni o la coppia non è in tabella.</p>
+  <p>Quando una gara ha sia 1° che 2° arbitro, l'eventuale <strong>accordo di trasferta</strong> dichiarato in Rimborsi km cambia il risultato finale:</p>
+  <table class="dati">
+    <tr><th>Modalità</th><th>Km 1° arbitro</th><th>Km 2° arbitro</th></tr>
+    <tr><td>(vuota) — ognuno la propria auto</td><td>calcolo automatico</td><td>calcolo automatico</td></tr>
+    <tr><td><code>primo</code> — auto unica, guida il 1°</td><td>calcolo automatico</td><td>0</td></tr>
+    <tr><td><code>secondo</code> — auto unica, guida il 2°</td><td>0</td><td>calcolo automatico</td></tr>
+    <tr><td><code>tutoraggio_primo</code></td><td>calcolo automatico (è il tutor)</td><td>0 (è il tutorato)</td></tr>
+    <tr><td><code>tutoraggio_secondo</code></td><td>0 (è il tutorato)</td><td>calcolo automatico (è il tutor)</td></tr>
+    <tr><td><code>manuale</code></td><td>valore inserito a mano</td><td>valore inserito a mano</td></tr>
+  </table>
+  <p><code>tutoraggio_primo/secondo</code> e <code>primo/secondo</code> producono esattamente lo stesso numero: cambia solo l'etichetta mostrata nei Report (per distinguere "hanno condiviso l'auto" da "percorso di tutoraggio").</p>
+
+  <h3><span class="num">2.</span>Chi è il "tutor" di una gara</h3>
+  <div class="formula">Un arbitro è <b>tutor</b> in una gara se la modalità è <code>tutoraggio_primo</code> ed è lui il 1° arbitro, oppure <code>tutoraggio_secondo</code> ed è lui il 2°. È <b>tutorato</b> nel caso opposto (quello a cui i km vengono azzerati).</div>
+  <p>Questo calcolo guarda sempre il dato registrato sulla gara stessa (confermato), <strong>mai</strong> il flag "Tutoraggio" dell'anagrafica dell'arbitro: se in seguito togli quel flag perché ha finito il percorso, tutte le gare già registrate restano contate come tutoraggio.</p>
+
+  <h3><span class="num">3.</span>Quando un arbitro "ha finito" il tutoraggio</h3>
+  <div class="formula">Servono almeno <code>3</code> tutor diversi <b>e</b> almeno <code>5</code> tutoraggi totali (come tutorato). Il banner in Designazioni compare solo se il flag Tutoraggio è attivo <b>e</b> manca uno dei due requisiti.</div>
+
+  <h3><span class="num">4.</span>Classifica di un girone</h3>
+  <p>Calcolata al volo (non importata) sulle gare <strong>disputate con risultato non vuoto</strong> di quel preciso codice campionato — le gare "gialle" (disputata=1 ma senza risultato ancora inserito) vengono escluse a monte.</p>
+  <div class="formula">Punti per il risultato a set — margine = set della vincente &minus; set della perdente:<br>
+  margine &ge; 2 &rarr; <code>3</code> punti alla vincente, <code>0</code> alla perdente (es. 3&ndash;0, 3&ndash;1, o 2&ndash;0 nel formato a 3 set giovanile)<br>
+  margine = 1 &rarr; <code>2</code> punti alla vincente, <code>1</code> alla perdente (es. 3&ndash;2, o 2&ndash;1 giovanile)</div>
+  <p>La stessa identica regola copre sia il formato a 5 set degli adulti sia quello a 3 set delle categorie giovanili, senza dover sapere a priori il formato della categoria.</p>
+  <p><strong>Quoziente set</strong> e <strong>quoziente punti</strong> = set vinti/persi (o punti fatti/subiti); se il denominatore è 0 mostra "Max" (se il numeratore è positivo) o nessun dato. Punti fatti/subiti vengono calcolati solo se <strong>ogni</strong> gara di quella squadra ha il campo "parziali" (punteggio dei singoli set) compilato — altrimenti restano vuoti per non mostrare un dato parziale fuorviante.</p>
+
+  <h3><span class="num">5.</span>Report campionato: le colonne</h3>
+  <ul>
+    <li><strong>Federali / Associato</strong> — ogni designazione (1° o 2° arbitro) di una gara disputata conta come "federale" se la persona è in anagrafica con ruolo diverso da ASS, altrimenti come "Arbitro Associato". Le percentuali sono sul totale delle designazioni (federali + associato) del campionato.</li>
+    <li><strong>Gare con 2 arbitri</strong> — gare in cui <em>entrambi</em> i ruoli sono coperti da un arbitro federale (non conta se uno dei due è Associato o mancante).</li>
+    <li><strong>Gare in tutoraggio</strong> — gare con modalità <code>tutoraggio_primo</code>/<code>tutoraggio_secondo</code> confermata. Il numero fra parentesi "(+N da disputare)" sono gare già designate con tutoraggio proposto/confermato ma non ancora giocate: mostrate solo nel drill-down, non contate nella statistica.</li>
+    <li><strong>Media km/gara (con Associato = 0)</strong> = km totali &divide; (federali + associato) — un Associato "pesa" come 0 km nel numeratore ma conta comunque nel denominatore.</li>
+    <li><strong>Media km/gara (solo federali)</strong> = km totali &divide; numero di designazioni federali soltanto.</li>
+    <li><strong>Media km/gara (federali, no tutoraggio)</strong> = la stessa media, ma escludendo anche le designazioni delle gare in tutoraggio: chi è tutorato ha sempre 0 km per costruzione, quindi includerlo abbasserebbe artificialmente la media "vera".</li>
+    <li><strong>Scostamento</strong> = media km/gara (solo federali, o la versione "no tutoraggio") &minus; "Km per partita da rispettare" impostato in Alias campionati per quel campionato. Verde se sotto soglia, rosso se sopra, arancione se esattamente in linea.</li>
+  </ul>
+
+  <h3><span class="num">6.</span>Report di sezione</h3>
+  <ul>
+    <li>Per ogni arbitro: gare dirette, km totali (stesso calcolo del punto 1), % come 1°/come 2°.</li>
+    <li><strong>Media gare</strong> = gare totali della sezione &divide; numero di arbitri che hanno diretto almeno una gara (chi non ha mai arbitrato non entra nel calcolo, altrimenti diluirebbe la media).</li>
+    <li><strong>Scostamento</strong> di ogni arbitro = sue gare &minus; media gare della sezione.</li>
+    <li>La distribuzione per qualifica (NAZ/REG/TER + Arbitro Associato a parte) mostra la percentuale di ciascuna sul totale di tutte le designazioni, quindi le percentuali sommano sempre a 100%.</li>
+  </ul>
+
+  <h3><span class="num">7.</span>Copertura territoriale</h3>
+  <div class="formula">Per ogni comune con almeno una gara disputata: <b>arbitri residenti</b> = quanti vivono in quel comune. <b>Arbitri in zona</b> = residenti + quelli di ogni altro comune a distanza &le; 15&nbsp;km. <b>Gare per arbitro in zona</b> = gare disputate lì &divide; arbitri in zona.</div>
+  <p>I comuni senza nessun arbitro in zona vengono sempre in cima (ordinati per numero di gare, i più critici); gli altri sono ordinati per rapporto gare/arbitro decrescente.</p>
+
+  <h3><span class="num">8.</span>Disponibilità % (Report arbitro e Riconoscimenti)</h3>
+  <p>Per ogni giorno di calendario dalla prima all'ultima gara mai disputata nel sistema (stesso punto di partenza per tutti, per numeri confrontabili), un arbitro è: <strong>indisponibile totale</strong> se un periodo di indisponibilità copre l'intera giornata; <strong>parziale</strong> se lo copre solo in parte; <strong>disponibile</strong> altrimenti. <code>% disponibilità = giorni disponibili &divide; giorni di calendario totali &times; 100</code>.</p>
+
+  <h3><span class="num">9.</span>Riconoscimenti — le formule</h3>
+  <p>Tutti calcolati sulle gare disputate della stagione scelta. Ogni premio va al valore massimo (o minimo per "In frenata") tra gli arbitri con almeno una gara; in caso di parità vince più di un nome insieme.</p>
+  <ul>
+    <li><strong>Maratoneta</strong>: km totali più alti (richiede &gt; 0,1 km).</li>
+    <li><strong>Jolly dei campionati / delle società</strong>: numero di campionati (alias) o società diverse incontrate, il più alto (almeno 2).</li>
+    <li><strong>Roccia</strong>: tutti gli arbitri con zero giorni di indisponibilità totale in stagione (nessun "vincitore" singolo, è un elenco).</li>
+    <li><strong>Sempre disponibile</strong>: % di disponibilità più alta (stessa formula del punto 8).</li>
+    <li><strong>Rookie in crescita / In frenata</strong>: si divide la sequenza dei mesi in cui l'arbitro ha diretto gare a metà; si confronta la media gare/mese della seconda metà con la prima. Il maggior aumento vince "Rookie", il maggior calo "In frenata" (serve uno scarto di almeno 0,01 per evitare pareggi banali a zero).</li>
+    <li><strong>Local Hero</strong>: più gare dirette a esattamente 0 km da casa (stesso comune della gara).</li>
+    <li><strong>Globetrotter</strong>: più comuni diversi in cui ha arbitrato.</li>
+    <li><strong>Viaggio estremo</strong>: la singola gara con più km in assoluto.</li>
+    <li><strong>Instancabile</strong>: più gare dirette in totale (1° + 2° arbitro insieme).</li>
+    <li><strong>Direttore / Spalla di ferro</strong>: più gare come 1° arbitro / come 2° arbitro.</li>
+    <li><strong>Veterano / New Entry</strong>: la data della prima gara mai diretta, rispettivamente la più lontana nel tempo o la più recente.</li>
+  </ul>
+
+</section>
+
+<footer>
+  Manuale d'uso di "Designazioni Arbitri" — aggiornato con le funzionalità del sito alla data di redazione. Le illustrazioni delle schermate sono ricostruzioni fedeli (stessi colori, font e struttura reali) e non screenshot pixel-per-pixel.
+</footer>
+
+</main>
+</div>
+</body>
+</html>

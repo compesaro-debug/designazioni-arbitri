@@ -146,6 +146,13 @@ def pagina_riconoscimenti():
     return render_template("riconoscimenti.html", active="riconoscimenti")
 
 
+@app.route("/manuale")
+def pagina_manuale():
+    # Pagina autonoma (non estende base.html): ha già il proprio layout completo con
+    # sommario laterale, quindi non deve annidarsi dentro la sidebar del sito.
+    return render_template("manuale.html")
+
+
 @app.route("/report")
 def pagina_report():
     return render_template("report.html", active="report")
