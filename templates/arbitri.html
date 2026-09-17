@@ -41,6 +41,7 @@
         <th class="sortable" data-campo="comune">Comune</th>
         <th class="sortable" data-campo="ruolo">Ruolo</th>
         <th class="sortable" data-campo="attivo">Stato</th>
+        <th class="sortable" data-campo="tutoraggio">Tutoraggio</th>
         <th class="sortable" data-campo="scadenza_certificato_medico">Scad. certificato medico</th>
         <th class="sortable" data-campo="cellulare">Cellulare</th>
         <th class="sortable" data-campo="email">E-mail</th>
@@ -58,6 +59,13 @@
             <option value="">Tutti</option>
             <option value="1">In attività</option>
             <option value="0">Non in attività</option>
+          </select>
+        </th>
+        <th>
+          <select class="filtro-input" data-campo="tutoraggio" style="width:100%">
+            <option value="">Tutti</option>
+            <option value="1">Sì</option>
+            <option value="0">No</option>
           </select>
         </th>
         <th></th>
@@ -92,6 +100,10 @@
           <option value="1">In attività</option>
           <option value="0">Non in attività</option>
         </select>
+      </div>
+      <div class="form-field" style="display:flex; align-items:center; gap:8px; padding-top:22px;">
+        <input type="checkbox" id="f-tutoraggio" style="width:auto;">
+        <label for="f-tutoraggio" style="margin:0">In tutoraggio (rimborso km azzerato e spostato sul collega)</label>
       </div>
       <div class="form-field"><label>Scadenza certificato medico</label><input type="date" id="f-scadenza_certificato_medico"></div>
       <div class="form-field"><label>Cellulare</label><input id="f-cellulare"></div>

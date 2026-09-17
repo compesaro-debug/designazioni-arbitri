@@ -99,8 +99,8 @@ function _calcolaKmCoppiaDesignazioni(p) {
   if (modalita === "manuale") {
     return { kmArbitro: parseManuale(p.rimborso_km_manuale_arbitro), kmAssistente1: parseManuale(p.rimborso_km_manuale_assistente1) };
   }
-  if (modalita === "primo") return { kmArbitro: kmArbitroAuto, kmAssistente1: 0 };
-  if (modalita === "secondo") return { kmArbitro: 0, kmAssistente1: kmAssistenteAuto };
+  if (modalita === "primo" || modalita === "tutoraggio_primo") return { kmArbitro: kmArbitroAuto, kmAssistente1: 0 };
+  if (modalita === "secondo" || modalita === "tutoraggio_secondo") return { kmArbitro: 0, kmAssistente1: kmAssistenteAuto };
   return { kmArbitro: kmArbitroAuto, kmAssistente1: kmAssistenteAuto };
 }
 
@@ -123,7 +123,7 @@ function _testoRifKm(km) {
   return km != null ? `(${km} km)` : "(km non calcolabile)";
 }
 
-function apriPopupRimborsoKm(partita) {
+function apriPopupRimborsoKm(partita, suggerimento) {
   window._partitaRimborsoKm = partita;
   const { kmArbitro, kmAssistente1 } = _calcolaKmCoppiaDesignazioni({ ...partita, rimborso_km_modalita: "" });
 
@@ -132,10 +132,25 @@ function apriPopupRimborsoKm(partita) {
   document.getElementById("rif-km-separato").textContent = `(1°: ${_testoRifKm(kmArbitro)} · 2°: ${_testoRifKm(kmAssistente1)})`;
   document.getElementById("rif-km-primo").textContent = `(1°: ${_testoRifKm(kmArbitro)} · 2°: 0 km)`;
   document.getElementById("rif-km-secondo").textContent = `(1°: 0 km · 2°: ${_testoRifKm(kmAssistente1)})`;
+  document.getElementById("rif-km-tutoraggio-primo").textContent = `(1°: ${_testoRifKm(kmArbitro)} · 2°: 0 km)`;
+  document.getElementById("rif-km-tutoraggio-secondo").textContent = `(1°: 0 km · 2°: ${_testoRifKm(kmAssistente1)})`;
   document.getElementById("etichetta-km-manuale-arbitro").textContent = `Km ${partita.arbitro}`;
   document.getElementById("etichetta-km-manuale-assistente1").textContent = `Km ${partita.assistente1}`;
 
-  const modalita = partita.rimborso_km_modalita || "";
+  // se uno dei due è in tutoraggio il backend suggerisce già la modalità corretta: viene
+  // preselezionata, ma resta una proposta come le altre — il designante può comunque
+  // cambiarla, e serve sempre la conferma del responsabile su Rimborsi km.
+  const notaSuggerimento = document.getElementById("nota-suggerimento-rimborso");
+  if (suggerimento) {
+    const chiTutor = suggerimento === "tutoraggio_secondo" ? partita.assistente1 : partita.arbitro;
+    const chiTutorato = suggerimento === "tutoraggio_secondo" ? partita.arbitro : partita.assistente1;
+    notaSuggerimento.textContent = `${chiTutorato} è in tutoraggio: proposto in automatico il rimborso al collega ${chiTutor}, azzerato per il tutorato.`;
+    notaSuggerimento.style.display = "";
+  } else {
+    notaSuggerimento.style.display = "none";
+  }
+
+  const modalita = suggerimento || partita.rimborso_km_modalita || "";
   document.querySelectorAll('input[name="rimborso-km-modalita"]').forEach(r => { r.checked = r.value === modalita; });
   document.getElementById("f-km-manuale-arbitro").value = partita.rimborso_km_manuale_arbitro || "";
   document.getElementById("f-km-manuale-assistente1").value = partita.rimborso_km_manuale_assistente1 || "";
@@ -158,10 +173,13 @@ async function salvaRimborsoKm() {
   const partita = window._partitaRimborsoKm;
   if (!partita) return;
   const modalita = document.querySelector('input[name="rimborso-km-modalita"]:checked')?.value || "";
+  // il designante qui sta solo proponendo l'accordo di trasferta: resta in attesa di conferma
+  // del responsabile su Rimborsi km, non diventa subito il dato ufficiale della gara.
   await apiSend(`/api/partite/${partita.id}/rimborso-km`, "PUT", {
     rimborso_km_modalita: modalita,
     rimborso_km_manuale_arbitro: modalita === "manuale" ? document.getElementById("f-km-manuale-arbitro").value.trim() : "",
     rimborso_km_manuale_assistente1: modalita === "manuale" ? document.getElementById("f-km-manuale-assistente1").value.trim() : "",
+    conferma: false,
   });
   closeOverlay("modale-rimborso-km");
   caricaPartiteDesignazioni();
@@ -416,9 +434,45 @@ async function apriModaleDesignazione(partitaId, ruolo) {
   openOverlay("modale-designazione");
   rendiHeaderFisso("#tabella-head-candidati");
 
+  await aggiornaBannerTutoraggio(partita, ruolo);
+
   const candidati = await apiGet(`/api/designazioni/candidati/${partitaId}?ruolo=${window._ruoloDaDesignare}`);
   window._candidatiCache = candidati;
   renderCandidati();
+}
+
+// Un arbitro in tutoraggio "finisce" solo quando ha fatto almeno 5 tutoraggi totali E con
+// almeno 3 tutor diversi. Se il ruolo già designato su questa gara è occupato da un arbitro
+// ancora in tutoraggio a cui manca uno dei due requisiti, mostra un avviso mentre si sceglie
+// l'altro ruolo (il tutor), con lo storico di quanti tutoraggi ha già fatto e chi sono stati i
+// tutor finora — per aiutare a non riproporre sempre lo stesso e a completare il percorso.
+const TUTOR_DIVERSI_RICHIESTI = 3;
+const TUTORAGGI_TOTALI_RICHIESTI = 5;
+
+async function aggiornaBannerTutoraggio(partita, ruolo) {
+  const banner = document.getElementById("banner-tutoraggio-designazione");
+  const nomeAltroRuolo = ruolo === "assistente1" ? partita.arbitro : partita.assistente1;
+  if (!nomeAltroRuolo) {
+    banner.style.display = "none";
+    return;
+  }
+  const dati = await apiGet(`/api/designazioni/tutoraggio-storico?nome=${encodeURIComponent(nomeAltroRuolo)}`);
+  const mancaTutor = dati.n_tutor_distinti < TUTOR_DIVERSI_RICHIESTI;
+  const mancaTotale = dati.n_totale < TUTORAGGI_TOTALI_RICHIESTI;
+  if (!dati.ok || !dati.tutoraggio_attivo || (!mancaTutor && !mancaTotale)) {
+    banner.style.display = "none";
+    return;
+  }
+  const elencoTutor = dati.tutor.length ? dati.tutor.join(", ") : "nessuno finora";
+  const partiTesto = [];
+  if (mancaTotale) partiTesto.push(`servono almeno ${TUTORAGGI_TOTALI_RICHIESTI} tutoraggi totali: ne mancano ${TUTORAGGI_TOTALI_RICHIESTI - dati.n_totale}`);
+  if (mancaTutor) partiTesto.push(`servono almeno ${TUTOR_DIVERSI_RICHIESTI} tutor diversi: ne mancano ${TUTOR_DIVERSI_RICHIESTI - dati.n_tutor_distinti} — scegli possibilmente un tutor diverso da quelli già avuti`);
+  banner.innerHTML =
+    `${nomeAltroRuolo} è in tutoraggio: ${dati.n_totale} tutoraggi finora ` +
+    `(${dati.n_come_primo} come 1° arbitro, ${dati.n_come_secondo} come 2°). ` +
+    `Tutor avuti finora: ${elencoTutor}. ` +
+    partiTesto.join("; ") + ".";
+  banner.style.display = "";
 }
 
 // ---------- FILTRI AVANZATI CANDIDATI (testo / numero / data con operatori) ----------
@@ -544,18 +598,22 @@ function renderCandidati() {
 
   candidati.forEach(c => {
     const tr = document.createElement("tr");
-    if (!c.disponibile) tr.classList.add("riga-non-disponibile");
+    if (!c.disponibile || c.certificato_scaduto) tr.classList.add("riga-non-disponibile");
     else if (c.designato_oggi) tr.classList.add("riga-designato-oggi");
     else if (c.inibito) tr.classList.add("riga-inibito");
     const dalle = c.indisp_dal_data ? `${formattaData(c.indisp_dal_data)}${c.indisp_dal_ora ? " " + c.indisp_dal_ora : ""}` : "";
     const alle = c.indisp_al_data ? `${formattaData(c.indisp_al_data)}${c.indisp_al_ora ? " " + c.indisp_al_ora : ""}` : "";
     const designatoOggi = c.designato_oggi ? `Designato per: ${c.designato_info}` : "";
     const andataRitorno = c.ha_arbitrato_andata ? `<span class="tag tag-rosso" title="${c.andata_info}">Ha arbitrato andata</span>` : "";
+    const certificato = c.certificato_scaduto
+      ? `<span class="tag tag-rosso" title="Scadenza: ${formattaData(c.scadenza_certificato_medico)}">Certificato scaduto</span>`
+      : (c.scadenza_certificato_medico ? formattaData(c.scadenza_certificato_medico) : "");
     tr.innerHTML = `
-      <td class="cella-nome-candidato">${c.nome} <button class="btn-storico-icona" title="Storico ${c.nome}" onclick="apriStoricoArbitroId(${c.id})"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></button></td>
+      <td class="cella-nome-candidato">${c.nome} ${c.tutoraggio ? '<span class="tag tag-giallo">Tutoraggio</span>' : ""} <button class="btn-storico-icona" title="Storico ${c.nome}" onclick="apriStoricoArbitroId(${c.id})"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></button></td>
       <td>${c.ruolo}</td>
       <td>${c.comune}</td>
       <td>${c.distanza_km != null ? c.distanza_km + " km" : "-"}</td>
+      <td>${certificato}</td>
       <td>${designatoOggi}</td>
       <td>${andataRitorno}</td>
       <td>${cellaConteggio(c.n_casa_codice, c.id, "casa_cod")}</td>
@@ -741,13 +799,14 @@ async function designaArbitro(arbitroId) {
   partita.rimborso_km_modalita = "";
   partita.rimborso_km_manuale_arbitro = "";
   partita.rimborso_km_manuale_assistente1 = "";
-  await apiSend(`/api/partite/${partita.id}`, "PUT", partita);
+  const risposta = await apiSend(`/api/partite/${partita.id}`, "PUT", partita);
   closeOverlay("modale-designazione");
   await caricaPartiteDesignazioni();
   // Se con questa designazione la gara ha ora sia arbitro che 2° arbitro, chiede subito come
-  // gestire il rimborso km (auto separate, viaggio insieme, o km inseriti a mano).
+  // gestire il rimborso km (auto separate, viaggio insieme, tutoraggio, o km inseriti a mano);
+  // se uno dei due è in tutoraggio il backend ha già calcolato la modalità da preselezionare.
   if (partita.arbitro && partita.assistente1) {
-    apriPopupRimborsoKm(partita);
+    apriPopupRimborsoKm(partita, risposta?.rimborso_km_suggerito || null);
   }
 }
 

@@ -14,6 +14,60 @@ function _cellaScostamentoSoglia(c, fase) {
   return `<span class="tag ${classe} riga-cliccabile" onclick="event.stopPropagation(); apriGareSopraMedia(${arg})" title="Clic per l'elenco delle gare sopra la media">${testo}</span>`;
 }
 
+function _cellaGareTutoraggio(chiave, nGareTutoraggio, fase, nDaDisputare) {
+  const totale = (nGareTutoraggio || 0) + (nDaDisputare || 0);
+  if (!totale) return "0";
+  const arg = fase ? `'${chiave}', '${fase}'` : `'${chiave}'`;
+  const suffisso = nDaDisputare ? ` <span class="hint">(+${nDaDisputare} da disputare)</span>` : "";
+  return `<span class="tag tag-giallo riga-cliccabile" onclick="event.stopPropagation(); apriGareTutoraggioCampionato(${arg})" title="Clic per l'elenco delle gare in tutoraggio">${nGareTutoraggio || 0}</span>${suffisso}`;
+}
+
+// Elenco gare in tutoraggio di un campionato: quelle già giocate (dato ufficiale) insieme a
+// quelle già designate ma non ancora disputate (proposta o conferma sulla gara), evidenziate
+// in giallo con lo stesso stile "riga-data-futura" usato altrove nel sito per il non ancora
+// giocato — così si vede in anteprima anche quello che deve ancora succedere.
+function apriGareTutoraggioCampionato(chiave, fase) {
+  const campionato = _reportCampionatiCache.find(c => c.chiave === chiave);
+  if (!campionato) return;
+
+  const gareContesto = fase ? campionato.gare.filter(g => g.tipo_fase === fase) : campionato.gare;
+  const righeGiocate = gareContesto
+    .filter(g => g.rimborso_km_modalita === "tutoraggio_primo" || g.rimborso_km_modalita === "tutoraggio_secondo")
+    .map(g => ({ ...g, daDisputare: false }));
+
+  const daDisputareContesto = fase
+    ? (campionato.gare_da_disputare_tutoraggio || []).filter(g => g.tipo_fase === fase)
+    : (campionato.gare_da_disputare_tutoraggio || []);
+  const righeDaDisputare = daDisputareContesto.map(g => ({ ...g, daDisputare: true }));
+
+  const righe = [...righeGiocate, ...righeDaDisputare];
+  righe.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
+
+  const etichettaFase = fase ? " · " + (ETICHETTE_FASE_JS[fase] || fase) : "";
+  document.getElementById("titolo-gare-tutoraggio-campionato").textContent = `Gare in tutoraggio — ${campionato.nome}${etichettaFase}`;
+  document.getElementById("tabella-gare-tutoraggio-campionato").innerHTML = righe.length
+    ? righe.map(g => `
+      <tr${g.daDisputare ? ' class="riga-data-futura"' : ""}>
+        <td>${formattaData(g.data)}${g.daDisputare ? ' <span class="tag tag-giallo">Da disputare</span>' : ""}</td>
+        <td>${g.numero_gara || "-"}</td>
+        <td>${g.squadra_casa} vs ${g.squadra_ospite}</td>
+        <td>${g.arbitro}${g.rimborso_km_modalita === "tutoraggio_primo" ? ' <span class="tag tag-verde">tutor</span>' : ' <span class="tag tag-giallo">tutorato</span>'}</td>
+        <td>${g.assistente1}${g.rimborso_km_modalita === "tutoraggio_secondo" ? ' <span class="tag tag-verde">tutor</span>' : ' <span class="tag tag-giallo">tutorato</span>'}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="5" style="text-align:center;color:var(--testo-tenue)">Nessuna gara</td></tr>`;
+
+  openOverlay("modale-gare-tutoraggio-campionato");
+}
+
+function _cellaScostamentoSemplice(soglia_km, scostamento) {
+  if (soglia_km == null) return "-";
+  if (scostamento == null) return `<span class="hint">${soglia_km} km — nessun dato</span>`;
+  const testo = scostamento > 0 ? `+${scostamento} km` : `${scostamento} km`;
+  const classe = scostamento > 0 ? "tag-rosso" : (scostamento < 0 ? "tag-verde" : "tag-arancione");
+  return `<span class="tag ${classe}">${testo}</span>`;
+}
+
 function _righeDettaglioFasi(c) {
   if (!c.dettaglio_fasi || !c.dettaglio_fasi.length) return "";
   return c.dettaglio_fasi.map(f => `
@@ -22,11 +76,15 @@ function _righeDettaglioFasi(c) {
       <td>${f.n_gare}</td>
       <td>${f.n_federali} (${f.pct_federali}%)</td>
       <td>${f.n_associato} (${f.pct_associato}%)</td>
+      <td>${f.n_gare_doppio_federale}</td>
+      <td>${_cellaGareTutoraggio(c.chiave, f.n_gare_tutoraggio, f.fase)}</td>
       <td>${f.km_totali} km</td>
       <td>${f.media_km_gara} km</td>
       <td>${f.media_km_solo_federali} km</td>
+      <td>${f.media_km_no_tutoraggio} km</td>
       <td>${f.soglia_km != null ? f.soglia_km + " km" : "-"}</td>
       <td>${_cellaScostamentoSoglia(f, f.fase)}</td>
+      <td>${_cellaScostamentoSemplice(f.soglia_km, f.scostamento_soglia_no_tutoraggio)}</td>
     </tr>
   `).join("");
 }
@@ -42,14 +100,18 @@ function renderTabellaReportCampionati() {
           <td>${c.n_gare}</td>
           <td>${c.n_federali} <span style="color:var(--testo-tenue)">(${c.pct_federali}%)</span></td>
           <td>${c.n_associato} <span style="color:var(--testo-tenue)">(${c.pct_associato}%)</span></td>
+          <td>${c.n_gare_doppio_federale}</td>
+          <td>${_cellaGareTutoraggio(c.chiave, c.n_gare_tutoraggio, null, (c.gare_da_disputare_tutoraggio || []).length)}</td>
           <td>${c.km_totali} km</td>
           <td>${c.media_km_gara} km</td>
           <td>${c.media_km_solo_federali} km</td>
+          <td>${c.media_km_no_tutoraggio} km</td>
           <td>${c.soglia_km != null ? c.soglia_km + " km" : "-"}</td>
           <td>${_cellaScostamentoSoglia(c)}</td>
+          <td>${_cellaScostamentoSemplice(c.soglia_km, c.scostamento_soglia_no_tutoraggio)}</td>
         </tr>
       ` + _righeDettaglioFasi(c)).join("") + _rigaTotaleReportCampionati(righe)
-    : `<tr><td colspan="9" style="text-align:center;color:var(--testo-tenue)">Nessun campionato trovato</td></tr>`;
+    : `<tr><td colspan="13" style="text-align:center;color:var(--testo-tenue)">Nessun campionato trovato</td></tr>`;
 
   tbody.querySelectorAll("tr[data-chiave]").forEach(tr => {
     tr.addEventListener("click", () => apriDettaglioCampionato(tr.dataset.chiave));
@@ -102,21 +164,30 @@ function _rigaTotaleReportCampionati(righe) {
   const nGare = righe.reduce((s, c) => s + c.n_gare, 0);
   const nFederali = righe.reduce((s, c) => s + c.n_federali, 0);
   const nAssociato = righe.reduce((s, c) => s + c.n_associato, 0);
+  const nDoppioFederale = righe.reduce((s, c) => s + c.n_gare_doppio_federale, 0);
+  const nTutoraggio = righe.reduce((s, c) => s + c.n_gare_tutoraggio, 0);
   const kmTotali = Math.round(righe.reduce((s, c) => s + c.km_totali, 0) * 10) / 10;
+  const nFederaliNoTutoraggio = righe.reduce((s, c) => s + c.n_federali_no_tutoraggio, 0);
+  const kmTotaliNoTutoraggio = Math.round(righe.reduce((s, c) => s + c.km_totali_no_tutoraggio, 0) * 10) / 10;
   const totaleDesignazioni = nFederali + nAssociato;
   const pctFederali = totaleDesignazioni ? Math.round(nFederali / totaleDesignazioni * 1000) / 10 : 0;
   const pctAssociato = totaleDesignazioni ? Math.round(nAssociato / totaleDesignazioni * 1000) / 10 : 0;
   const mediaKmGara = nGare ? Math.round(kmTotali / nGare * 10) / 10 : 0;
   const mediaKmFederali = nFederali ? Math.round(kmTotali / nFederali * 10) / 10 : 0;
+  const mediaKmNoTutoraggio = nFederaliNoTutoraggio ? Math.round(kmTotaliNoTutoraggio / nFederaliNoTutoraggio * 10) / 10 : 0;
   return `
     <tr style="font-weight:600; border-top:2px solid var(--bordo)">
       <td>Totale</td>
       <td>${nGare}</td>
       <td>${nFederali} <span style="color:var(--testo-tenue)">(${pctFederali}%)</span></td>
       <td>${nAssociato} <span style="color:var(--testo-tenue)">(${pctAssociato}%)</span></td>
+      <td>${nDoppioFederale}</td>
+      <td>${nTutoraggio}</td>
       <td>${kmTotali} km</td>
       <td>${mediaKmGara} km</td>
       <td>${mediaKmFederali} km</td>
+      <td>${mediaKmNoTutoraggio} km</td>
+      <td></td>
       <td></td>
       <td></td>
     </tr>

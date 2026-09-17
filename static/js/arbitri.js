@@ -31,6 +31,7 @@ function renderTabellaArbitri() {
       <td>${a.comune}</td>
       <td>${a.ruolo}</td>
       <td>${attivo ? '<span class="tag tag-verde">In attività</span>' : '<span class="tag tag-rosso">Non in attività</span>'}</td>
+      <td>${Number(a.tutoraggio) ? '<span class="tag tag-giallo">Tutoraggio</span>' : ""}</td>
       <td>${_testoScadenzaCertificato(a.scadenza_certificato_medico)}</td>
       <td>${a.cellulare}</td>
       <td>${a.email}</td>
@@ -99,6 +100,7 @@ function apriModaleArbitro() {
     document.getElementById(`f-${campo}`).value = "";
   });
   document.getElementById("f-attivo").value = "1";
+  document.getElementById("f-tutoraggio").checked = false;
   openOverlay("modale-arbitro");
 }
 
@@ -111,6 +113,7 @@ function modificaArbitro(id) {
     document.getElementById(`f-${campo}`).value = a[campo] || "";
   });
   document.getElementById("f-attivo").value = Number(a.attivo) === 0 ? "0" : "1";
+  document.getElementById("f-tutoraggio").checked = Number(a.tutoraggio) === 1;
   openOverlay("modale-arbitro");
 }
 
@@ -121,6 +124,7 @@ async function salvaArbitro() {
     payload[campo] = document.getElementById(`f-${campo}`).value;
   });
   payload.attivo = document.getElementById("f-attivo").value;
+  payload.tutoraggio = document.getElementById("f-tutoraggio").checked ? 1 : 0;
   if (id) {
     await apiSend(`/api/arbitri/${id}`, "PUT", payload);
   } else {

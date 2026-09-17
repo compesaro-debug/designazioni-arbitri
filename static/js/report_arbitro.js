@@ -115,6 +115,7 @@ async function apriReportArbitro(id) {
 
   const garePrimo = gare.filter(g => g.ruolo_designazione === "Arbitro");
   const gareSecondo = gare.filter(g => g.ruolo_designazione === "2° Arbitro");
+  const gareTutor = gare.filter(g => g.e_tutor);
 
   document.getElementById("report-gare-totali-btn").textContent = gare.length;
   document.getElementById("report-gare-totali-btn").onclick = () => mostraDettaglioReport(`Gare dirette da ${dati.arbitro}`, gare);
@@ -122,6 +123,8 @@ async function apriReportArbitro(id) {
   document.getElementById("report-gare-primo-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come Primo Arbitro`, garePrimo);
   document.getElementById("report-gare-secondo-btn").textContent = gareSecondo.length;
   document.getElementById("report-gare-secondo-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come 2° Arbitro`, gareSecondo);
+  document.getElementById("report-gare-tutor-btn").textContent = gareTutor.length;
+  document.getElementById("report-gare-tutor-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come tutor`, gareTutor);
 
   // gare per fase (sotto-alias campionato/coppa/playoff/fasi finali impostato in Alias campionati)
   [

@@ -141,7 +141,7 @@
 
 <div class="card" id="card-report-campionato" style="padding:20px; display:none;">
   <p class="riepilogo-label" style="margin:0 0 4px;">Report campionato</p>
-  <p class="hint" style="margin-top:0;">Per ogni campionato (i gironi/fasi collegati nella pagina Alias campionati vengono uniti): quante designazioni sono di arbitri federali rispetto a "Arbitro Associato", e km percorsi. Clic su una riga per il dettaglio squadra/arbitro.</p>
+  <p class="hint" style="margin-top:0;">Per ogni campionato (i gironi/fasi collegati nella pagina Alias campionati vengono uniti): quante designazioni sono di arbitri federali rispetto a "Arbitro Associato", quante gare hanno avuto due arbitri federali, quante sono state gestite in tutoraggio (dato registrato sulla gara: resta tale anche se in seguito togli il flag "Tutoraggio" all'arbitro), e km percorsi. Clic su una riga per il dettaglio squadra/arbitro.</p>
   <input type="text" id="filtro-report-campionati" placeholder="Cerca campionato..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
   <div class="table-scroll" style="max-height:65vh;">
     <table>
@@ -151,11 +151,15 @@
           <th>N. gare</th>
           <th>Federali</th>
           <th>Associato</th>
+          <th>Gare con 2 arbitri</th>
+          <th>Gare in tutoraggio</th>
           <th>Km totali</th>
           <th>Media km/gara (con Associato = 0)</th>
           <th>Media km/gara (solo federali)</th>
+          <th>Media km/gara (federali, no tutoraggio)</th>
           <th>Km da rispettare</th>
           <th>Scostamento (solo federali)</th>
+          <th>Scostamento (no tutoraggio)</th>
         </tr>
       </thead>
       <tbody id="tabella-report-campionati-lista"></tbody>
@@ -207,27 +211,43 @@
 
 <div class="card" id="card-report-tutoraggi" style="padding:20px; display:none;">
   <p class="riepilogo-label" style="margin:0 0 4px;">Tutoraggi</p>
-  <p class="hint" style="margin-top:0;">Solo stagione corrente (il tutoraggio si dichiara in Rimborsi km, che esiste solo per la stagione live). Chi era il tutor (km rimborsati) e chi il tutorato (km azzerati — indicato anche quanti sarebbero stati senza tutoraggio), con luogo gara e comune di residenza di entrambi.</p>
+  <p class="hint" style="margin-top:0;">Solo stagione corrente (il tutoraggio si dichiara in Rimborsi km, che esiste solo per la stagione live). Km del tutor = quelli effettivamente rimborsati. Raggruppato per campionato, clic su una riga per l'elenco gare. Filtrando per arbitro tutorato, riepilogo e conteggi considerano solo le sue gare.</p>
   <div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:14px;">
     <div class="form-field" style="margin:0;"><label>Da</label><input type="date" id="tutoraggi-data-da"></div>
     <div class="form-field" style="margin:0;"><label>A</label><input type="date" id="tutoraggi-data-a"></div>
     <button class="btn-testo" onclick="azzeraFiltroDataTutoraggi()">Azzera date</button>
+    <div class="form-field" style="margin:0;">
+      <label>Arbitro tutorato</label>
+      <select id="tutoraggi-filtro-tutorato" style="min-width:220px;" onchange="renderTutoraggi()">
+        <option value="">Tutti</option>
+      </select>
+    </div>
   </div>
-  <input type="text" id="filtro-tutoraggi" placeholder="Cerca tutor, tutorato, campionato o squadra..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
+
+  <div class="riepilogo-storico" style="margin:0 0 20px;">
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="tutoraggi-n-gare">--</div>
+      <div class="riepilogo-label">Gare in tutoraggio</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="tutoraggi-media-km">--</div>
+      <div class="riepilogo-label">Media km tutor (rimborsati)</div>
+    </div>
+    <div class="riepilogo-tile">
+      <div class="riepilogo-valore" id="tutoraggi-km-tutor-totali">--</div>
+      <div class="riepilogo-label">Km tutor totali (rimborsati)</div>
+    </div>
+  </div>
+
+  <input type="text" id="filtro-tutoraggi" placeholder="Cerca campionato..." style="width:100%; max-width:360px; padding:9px 10px; border:1px solid var(--bordo); border-radius:6px; font-family:inherit; font-size:14px; background:var(--sfondo); margin-bottom:14px;">
   <div class="table-scroll" style="max-height:65vh;">
     <table>
       <thead>
         <tr>
-          <th>Data</th>
           <th>Campionato</th>
-          <th>Squadre</th>
-          <th>Luogo gara</th>
-          <th>Tutor</th>
-          <th>Residenza tutor</th>
-          <th>Km tutor (rimborsati)</th>
-          <th>Tutorato</th>
-          <th>Residenza tutorato</th>
-          <th>Km tutorato (azzerati, sarebbero stati)</th>
+          <th>N. gare</th>
+          <th>Media km tutor</th>
+          <th>Km tutor totali</th>
         </tr>
       </thead>
       <tbody id="tabella-tutoraggi"></tbody>
@@ -236,6 +256,34 @@
   <div id="stato-vuoto-tutoraggi" class="empty-state" style="display:none">
     <strong>Nessuna gara con tutoraggio in questo periodo</strong>
     Dichiara il tutoraggio nella pagina Rimborsi km, scegliendo "Tutoraggio" nella modalità trasferta.
+  </div>
+</div>
+
+<!-- Modale dettaglio tutoraggi: elenco gare di un campionato -->
+<div class="overlay" id="modale-dettaglio-tutoraggi">
+  <div class="modal modal-xlarge">
+    <h2 id="titolo-modale-dettaglio-tutoraggi">Tutoraggi</h2>
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>N° gara</th>
+            <th>Squadre</th>
+            <th>Luogo gara</th>
+            <th>Tutor</th>
+            <th>Residenza tutor</th>
+            <th>Km tutor (rimborsati)</th>
+            <th>Tutorato</th>
+            <th>Residenza tutorato</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-dettaglio-tutoraggi"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-dettaglio-tutoraggi')">Chiudi</button>
+    </div>
   </div>
 </div>
 
@@ -280,6 +328,30 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-gare-sopra-media')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale gare in tutoraggio di un campionato: elenco gare con chi era 1° e chi 2° arbitro. -->
+<div class="overlay" id="modale-gare-tutoraggio-campionato">
+  <div class="modal modal-large">
+    <h2 id="titolo-gare-tutoraggio-campionato">Gare in tutoraggio</h2>
+    <div class="table-scroll" style="max-height:60vh;">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>N. Gara</th>
+            <th>Squadre</th>
+            <th>1° Arbitro</th>
+            <th>2° Arbitro</th>
+          </tr>
+        </thead>
+        <tbody id="tabella-gare-tutoraggio-campionato"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-gare-tutoraggio-campionato')">Chiudi</button>
     </div>
   </div>
 </div>

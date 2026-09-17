@@ -80,12 +80,25 @@ def _migra_se_necessario(conn):
         colonne_arbitri = {r[1] for r in cur.execute("PRAGMA table_info(arbitri)").fetchall()}
         if "attivo" not in colonne_arbitri:
             cur.execute("ALTER TABLE arbitri ADD COLUMN attivo INTEGER NOT NULL DEFAULT 1")
+        # "tutoraggio": flag intero (1/0), indipendente da "attivo" — un arbitro in tutoraggio
+        # è a tutti gli effetti "in attività" (statistiche, designabilità invariate), il flag
+        # serve solo per proporre in automatico il rimborso km a favore del collega/tutor.
+        if "tutoraggio" not in colonne_arbitri:
+            cur.execute("ALTER TABLE arbitri ADD COLUMN tutoraggio INTEGER NOT NULL DEFAULT 0")
+            if "stato_anagrafica" in colonne_arbitri:
+                cur.execute("UPDATE arbitri SET tutoraggio=1 WHERE stato_anagrafica='Nuovo corso'")
 
     # "arbitrabile_da_associato": flag intero (1/0) sull'alias campionato, stesso discorso.
     if "campionati" in tabelle_esistenti:
         colonne_campionati = {r[1] for r in cur.execute("PRAGMA table_info(campionati)").fetchall()}
         if "arbitrabile_da_associato" not in colonne_campionati:
             cur.execute("ALTER TABLE campionati ADD COLUMN arbitrabile_da_associato INTEGER NOT NULL DEFAULT 1")
+
+    # "confermato": flag intero (1/0) sulla proposta di rimborso km, stesso discorso.
+    if "rimborso_km_proposte" in tabelle_esistenti:
+        colonne_proposte = {r[1] for r in cur.execute("PRAGMA table_info(rimborso_km_proposte)").fetchall()}
+        if "confermato" not in colonne_proposte:
+            cur.execute("ALTER TABLE rimborso_km_proposte ADD COLUMN confermato INTEGER NOT NULL DEFAULT 0")
 
     conn.commit()
 
@@ -106,7 +119,8 @@ def init_db():
             scadenza_certificato_medico TEXT DEFAULT '',
             cellulare TEXT DEFAULT '',
             email TEXT DEFAULT '',
-            attivo INTEGER NOT NULL DEFAULT 1
+            attivo INTEGER NOT NULL DEFAULT 1,
+            tutoraggio INTEGER NOT NULL DEFAULT 0
         )
     """)
 
@@ -161,7 +175,8 @@ def init_db():
             assistente1 TEXT DEFAULT '',
             rimborso_km_modalita TEXT DEFAULT '',
             rimborso_km_manuale_arbitro TEXT DEFAULT '',
-            rimborso_km_manuale_assistente1 TEXT DEFAULT ''
+            rimborso_km_manuale_assistente1 TEXT DEFAULT '',
+            confermato INTEGER NOT NULL DEFAULT 0
         )
     """)
 
@@ -335,6 +350,22 @@ def init_db():
 
     conn.commit()
     _migra_se_necessario(conn)
+
+    # Indici sulle colonne usate nelle WHERE/ORDER BY più frequenti: non cambiano nessun
+    # risultato, servono solo a evitare la scansione completa della tabella man mano che i
+    # dati crescono (stagioni intere di storico). Vanno dopo _migra_se_necessario perché
+    # alcune colonne referenziate (es. arbitri.attivo su un database molto vecchio) potrebbero
+    # non esistere ancora finché la migrazione non le aggiunge. CREATE INDEX IF NOT EXISTS è
+    # sicuro da rieseguire ad ogni avvio, anche su un database già esistente.
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_partite_disputata ON partite(disputata)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_partite_campionato ON partite(campionato)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_partite_data ON partite(data)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_partite_campionato_disputata ON partite(campionato, disputata)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_arbitri_cognome_nome ON arbitri(cognome_nome)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_arbitri_attivo ON arbitri(attivo)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_indisponibilita_periodo ON indisponibilita(data_inizio, data_fine)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_rimborso_proposte_gara ON rimborso_km_proposte(campionato, numero_gara)")
+    conn.commit()
 
     # garantisce che esista sempre esattamente una stagione "corrente" (dati_live=1),
     # creata automaticamente al primo avvio.

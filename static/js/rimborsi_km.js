@@ -77,7 +77,6 @@ function renderTabellaRimborsi() {
     vuoto.style.display = "none";
     tbody.innerHTML = righe.map(_rigaRimborso).join("");
   }
-  _renderTotaliRimborsi(righe);
 }
 
 // Etichette compatte delle modalità, riusate per mostrare la proposta di rimborso km
@@ -95,6 +94,7 @@ async function confermaPropostaRimborso(id, modalita, kmManualeArbitro, kmManual
     rimborso_km_modalita: modalita,
     rimborso_km_manuale_arbitro: modalita === "manuale" ? (kmManualeArbitro || "") : "",
     rimborso_km_manuale_assistente1: modalita === "manuale" ? (kmManualeAssistente1 || "") : "",
+    conferma: true,
   });
   caricaRimborsiKm();
 }
@@ -120,8 +120,11 @@ function _rigaRimborso(r) {
       <td style="white-space:nowrap">${formattaData(r.data)} ${r.ora || ""}</td>
       <td>${r.campionato}${r.numero_gara ? " · n° " + r.numero_gara : ""}</td>
       <td>${r.squadra_casa} vs ${r.squadra_ospite}</td>
+      <td>${r.localita || "-"}</td>
       <td>${r.arbitro}</td>
+      <td>${r.comune_arbitro || "-"}</td>
       <td>${r.assistente1}</td>
+      <td>${r.comune_assistente1 || "-"}</td>
       <td>
         <select class="rimborso-modalita" onchange="salvaRigaRimborso(${r.id})">
           <option value="" ${r.rimborso_km_modalita === "" ? "selected" : ""}>Ognuno la propria auto</option>
@@ -140,19 +143,6 @@ function _rigaRimborso(r) {
   `;
 }
 
-function _renderTotaliRimborsi(righe) {
-  const totali = {};
-  righe.forEach(r => {
-    if (r.km_arbitro != null && r.arbitro) totali[r.arbitro] = (totali[r.arbitro] || 0) + r.km_arbitro;
-    if (r.km_assistente1 != null && r.assistente1) totali[r.assistente1] = (totali[r.assistente1] || 0) + r.km_assistente1;
-  });
-  const tbody = document.getElementById("tabella-totali-rimborsi");
-  const nomi = Object.keys(totali).sort();
-  tbody.innerHTML = nomi.length
-    ? nomi.map(n => `<tr><td>${n}</td><td>${Math.round(totali[n] * 10) / 10} km</td></tr>`).join("")
-    : `<tr><td colspan="2" style="text-align:center;color:var(--testo-tenue)">Nessun dato</td></tr>`;
-}
-
 async function salvaRigaRimborso(id) {
   const riga = document.getElementById(`riga-rimborso-${id}`);
   const modalita = riga.querySelector(".rimborso-modalita").value;
@@ -162,6 +152,7 @@ async function salvaRigaRimborso(id) {
     rimborso_km_modalita: modalita,
     rimborso_km_manuale_arbitro: modalita === "manuale" ? kmArbManuale.trim() : "",
     rimborso_km_manuale_assistente1: modalita === "manuale" ? kmAssManuale.trim() : "",
+    conferma: true,
   });
   caricaRimborsiKm();
 }

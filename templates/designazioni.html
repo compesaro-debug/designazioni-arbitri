@@ -138,11 +138,13 @@
   <div class="modal modal-xlarge">
     <h2 id="titolo-modale-designazione">Designa arbitro</h2>
     <p id="info-squadre-modale" class="hint"></p>
+    <div id="banner-tutoraggio-designazione" class="hint" style="display:none; background:var(--ambra-tinta); color:var(--accento-scuro); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:10px; font-weight:600;"></div>
     <p class="hint">
       <span class="tag tag-rosso">Rosso</span> = non disponibile in quel giorno/orario (in fondo alla lista, con dettaglio dell'indisponibilità) &nbsp;
       <span class="tag tag-arancione">Arancione</span> = già designato oggi su un'altra gara (resta selezionabile) &nbsp;
       <span class="tag tag-giallo">Giallo</span> = inibizione per la società di casa o ospite &nbsp;
       <span class="tag tag-rosso">Ha arbitrato andata</span> = ha già diretto la gara di andata/ritorno tra queste due squadre (stesso girone, casa/ospite invertite) &nbsp;
+      <span class="tag tag-rosso">Certificato scaduto</span> = il certificato medico risulterà scaduto alla data di questa gara (in fondo alla lista) &nbsp;
       <button class="btn-testo" style="margin-left:10px" onclick="azzeraFiltriCandidati()">Azzera filtri</button>
       <span id="colonne-candidati" style="margin-left:6px"></span>
     </p>
@@ -155,6 +157,7 @@
             <th class="sortable" data-campo="ruolo">Ruolo</th>
             <th class="sortable" data-campo="comune">Comune</th>
             <th class="sortable" data-campo="distanza_km">Distanza (km)</th>
+            <th class="sortable" data-campo="scadenza_certificato_medico">Certificato medico</th>
             <th class="sortable" data-campo="designato_info">Designato oggi</th>
             <th class="sortable" data-campo="andata_info">Andata/ritorno</th>
             <th class="sortable" data-campo="n_casa_codice">P. dirette casa (cod.)</th>
@@ -175,6 +178,7 @@
             <th><input class="filtro-input" data-campo="ruolo" data-tipo="testo" placeholder="Filtra..."></th>
             <th><input class="filtro-input" data-campo="comune" data-tipo="testo" placeholder="Filtra..."></th>
             <th>{{ filtro_numero("distanza_km") }}</th>
+            <th><input class="filtro-input" data-campo="scadenza_certificato_medico" data-tipo="testo" placeholder="Filtra..."></th>
             <th><input class="filtro-input" data-campo="designato_info" data-tipo="testo" placeholder="Filtra..."></th>
             <th><input class="filtro-input" data-campo="andata_info" data-tipo="testo" placeholder="Filtra..."></th>
             <th>{{ filtro_numero("n_casa_codice") }}</th>
@@ -249,6 +253,7 @@
   <div class="modal">
     <h2>Rimborso km</h2>
     <p class="hint" id="info-gara-rimborso-km"></p>
+    <p class="hint" id="nota-suggerimento-rimborso" style="display:none; color:var(--accento-scuro); font-weight:600;"></p>
     <div class="form-grid">
       <div class="form-field full">
         <label><input type="radio" name="rimborso-km-modalita" value="" checked> Ognuno la propria auto <span class="hint" id="rif-km-separato"></span></label>
@@ -258,6 +263,12 @@
       </div>
       <div class="form-field full">
         <label><input type="radio" name="rimborso-km-modalita" value="secondo"> Ha guidato il 2° arbitro (auto unica) <span class="hint" id="rif-km-secondo"></span></label>
+      </div>
+      <div class="form-field full">
+        <label><input type="radio" name="rimborso-km-modalita" value="tutoraggio_primo"> Tutoraggio — guida ed è rimborsato il 1° (il 2° è in tutoraggio) <span class="hint" id="rif-km-tutoraggio-primo"></span></label>
+      </div>
+      <div class="form-field full">
+        <label><input type="radio" name="rimborso-km-modalita" value="tutoraggio_secondo"> Tutoraggio — guida ed è rimborsato il 2° (il 1° è in tutoraggio) <span class="hint" id="rif-km-tutoraggio-secondo"></span></label>
       </div>
       <div class="form-field full">
         <label><input type="radio" name="rimborso-km-modalita" value="manuale"> Dichiaro io i km a mano</label>

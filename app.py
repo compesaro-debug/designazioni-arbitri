@@ -175,10 +175,11 @@ def add_arbitro():
     data = request.json
     conn = db.get_db()
     conn.execute(
-        "INSERT INTO arbitri (codice_fiscale, cognome_nome, matricola, comune, ruolo, scadenza_certificato_medico, cellulare, email, attivo) VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO arbitri (codice_fiscale, cognome_nome, matricola, comune, ruolo, scadenza_certificato_medico, cellulare, email, attivo, tutoraggio) VALUES (?,?,?,?,?,?,?,?,?,?)",
         (data.get("codice_fiscale", ""), data.get("cognome_nome", ""), data.get("matricola", ""),
          data.get("comune", ""), data.get("ruolo", ""), data.get("scadenza_certificato_medico", ""),
-         data.get("cellulare", ""), data.get("email", ""), int(data.get("attivo", 1))),
+         data.get("cellulare", ""), data.get("email", ""), int(data.get("attivo", 1)),
+         int(data.get("tutoraggio", 0))),
     )
     conn.commit()
     conn.close()
@@ -190,10 +191,11 @@ def update_arbitro(id):
     data = request.json
     conn = db.get_db()
     conn.execute(
-        "UPDATE arbitri SET codice_fiscale=?, cognome_nome=?, matricola=?, comune=?, ruolo=?, scadenza_certificato_medico=?, cellulare=?, email=?, attivo=? WHERE id=?",
+        "UPDATE arbitri SET codice_fiscale=?, cognome_nome=?, matricola=?, comune=?, ruolo=?, scadenza_certificato_medico=?, cellulare=?, email=?, attivo=?, tutoraggio=? WHERE id=?",
         (data.get("codice_fiscale", ""), data.get("cognome_nome", ""), data.get("matricola", ""),
          data.get("comune", ""), data.get("ruolo", ""), data.get("scadenza_certificato_medico", ""),
-         data.get("cellulare", ""), data.get("email", ""), int(data.get("attivo", 1)), id),
+         data.get("cellulare", ""), data.get("email", ""), int(data.get("attivo", 1)),
+         int(data.get("tutoraggio", 0)), id),
     )
     conn.commit()
     conn.close()
@@ -267,6 +269,26 @@ def add_partita():
     return jsonify({"ok": True})
 
 
+def _suggerimento_tutoraggio(conn, nome_arbitro, nome_assistente1):
+    """Se uno dei due ruoli appena designati è un arbitro in tutoraggio e l'altro no,
+    suggerisce di azzerargli il rimborso km e attribuirlo per intero al collega/tutor: è il
+    tutor che guida, l'arbitro tutorato non risulta in trasferta con l'auto propria. Nessun
+    suggerimento se sono entrambi (o nessuno dei due) in tutoraggio, o se manca un ruolo."""
+    if not nome_arbitro or not nome_assistente1:
+        return None
+    flag_tutoraggio = {
+        _norm_nome(r["cognome_nome"]): bool(r["tutoraggio"])
+        for r in conn.execute("SELECT cognome_nome, tutoraggio FROM arbitri").fetchall()
+    }
+    arbitro_tutorato = flag_tutoraggio.get(_norm_nome(nome_arbitro), False)
+    assistente_tutorato = flag_tutoraggio.get(_norm_nome(nome_assistente1), False)
+    if arbitro_tutorato and not assistente_tutorato:
+        return "tutoraggio_secondo"
+    if assistente_tutorato and not arbitro_tutorato:
+        return "tutoraggio_primo"
+    return None
+
+
 @app.route("/api/partite/<int:id>", methods=["PUT"])
 def update_partita(id):
     data = request.json
@@ -275,18 +297,21 @@ def update_partita(id):
     assegnazioni_sql = ",".join(f"{c}=?" for c in colonne + ["disputata"])
     conn = db.get_db()
     conn.execute(f"UPDATE partite SET {assegnazioni_sql} WHERE id=?", valori)
+    suggerimento = _suggerimento_tutoraggio(conn, data.get("arbitro", ""), data.get("assistente1", ""))
     conn.commit()
     conn.close()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "rimborso_km_suggerito": suggerimento})
 
 
-def _salva_proposta_rimborso(conn, partita_id, modalita, km_manuale_arbitro, km_manuale_assistente1):
+def _salva_proposta_rimborso(conn, partita_id, modalita, km_manuale_arbitro, km_manuale_assistente1, confermato):
     """Salva la scelta di rimborso km appena fatta per questa gara in una tabella indipendente
     dalla riga 'partite' (indicizzata per campionato+numero gara, non per id di riga): così
     sopravvive anche se la gara viene cancellata e reimportata (es. import 'sostituisci' di
     da-disputare/disputate), e si può riproporre come suggerimento invece di andare persa.
     Se la gara viene ridesignata (cambia l'arbitro o il 2° arbitro), la voce qui viene
-    sovrascritta con la scelta più recente: non resta mai un dato vecchio."""
+    sovrascritta con la scelta più recente: non resta mai un dato vecchio.
+    'confermato' distingue la proposta inserita dal designante (0, in attesa di conferma) da
+    quella confermata dal responsabile (1, che verrà riapplicata da sola su un reimport)."""
     if not modalita:
         return
     riga = conn.execute("SELECT campionato, numero_gara, arbitro, assistente1 FROM partite WHERE id=?", (partita_id,)).fetchone()
@@ -299,37 +324,49 @@ def _salva_proposta_rimborso(conn, partita_id, modalita, km_manuale_arbitro, km_
         if _norm_confronto(r["campionato"]) == campionato_norm and _norm_confronto(r["numero_gara"]) == numero_norm:
             esistente = r["id"]
             break
-    valori = (riga["campionato"], riga["numero_gara"], riga["arbitro"], riga["assistente1"], modalita, km_manuale_arbitro, km_manuale_assistente1)
+    valori = (riga["campionato"], riga["numero_gara"], riga["arbitro"], riga["assistente1"], modalita, km_manuale_arbitro, km_manuale_assistente1, int(confermato))
     if esistente:
         conn.execute(
             "UPDATE rimborso_km_proposte SET campionato=?, numero_gara=?, arbitro=?, assistente1=?, "
-            "rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
+            "rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=?, confermato=? WHERE id=?",
             valori + (esistente,),
         )
     else:
         conn.execute(
             "INSERT INTO rimborso_km_proposte (campionato, numero_gara, arbitro, assistente1, "
-            "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1) VALUES (?,?,?,?,?,?,?)",
+            "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1, confermato) VALUES (?,?,?,?,?,?,?,?)",
             valori,
         )
 
 
 @app.route("/api/partite/<int:id>/rimborso-km", methods=["PUT"])
 def update_rimborso_km(id):
-    """Aggiorna solo l'accordo di trasferta/rimborso km di una gara, senza toccare nessun
-    altro campo: a differenza della PUT generica su /api/partite/<id> (che richiede l'intero
-    oggetto partita), questa è pensata per essere chiamata con un payload minimo dal popup di
-    designazione e dalla scheda 'Rimborsi km', senza rischiare di svuotare altri campi."""
+    """Aggiorna l'accordo di trasferta/rimborso km di una gara. Il payload include 'conferma'
+    (default True): quando la chiamata arriva dal popup di designazione (subito dopo aver
+    completato la designazione), il designante sta solo proponendo una modalità — si salva
+    come proposta in attesa SENZA attivarla sulla gara (il valore ufficiale resta vuoto finché
+    il responsabile non la conferma da Rimborsi km). Quando invece la chiamata arriva dalla
+    pagina Rimborsi km (scelta diretta o clic su 'Conferma'), è il responsabile che approva:
+    il valore diventa effettivo sulla gara e la proposta viene marcata come confermata, così
+    un futuro reimport la riapplica da sola senza richiedere una nuova conferma."""
     data = request.json
     modalita = data.get("rimborso_km_modalita", "")
     km_manuale_arbitro = data.get("rimborso_km_manuale_arbitro", "")
     km_manuale_assistente1 = data.get("rimborso_km_manuale_assistente1", "")
+    conferma = bool(data.get("conferma", True))
     conn = db.get_db()
-    conn.execute(
-        "UPDATE partite SET rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
-        (modalita, km_manuale_arbitro, km_manuale_assistente1, id),
-    )
-    _salva_proposta_rimborso(conn, id, modalita, km_manuale_arbitro, km_manuale_assistente1)
+    if conferma:
+        conn.execute(
+            "UPDATE partite SET rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
+            (modalita, km_manuale_arbitro, km_manuale_assistente1, id),
+        )
+    else:
+        # solo proposta: la gara resta senza rimborso ufficiale finché non viene confermata
+        conn.execute(
+            "UPDATE partite SET rimborso_km_modalita='', rimborso_km_manuale_arbitro='', rimborso_km_manuale_assistente1='' WHERE id=?",
+            (id,),
+        )
+    _salva_proposta_rimborso(conn, id, modalita, km_manuale_arbitro, km_manuale_assistente1, confermato=conferma)
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -1301,6 +1338,11 @@ def get_candidati_designazione(partita_id):
         else:
             distanza_km = mappa_distanze.get(comune_arbitro_norm)
 
+        # non guarda la data odierna ma quella della gara: un certificato ancora valido oggi
+        # ma che scade prima del giorno della partita va comunque segnalato come scaduto.
+        scadenza_certificato = (a["scadenza_certificato_medico"] or "").strip()
+        certificato_scaduto = bool(scadenza_certificato) and scadenza_certificato <= partita["data"]
+
         disponibile = True
         indisp_dal_data = indisp_dal_ora = indisp_al_data = indisp_al_ora = indisp_motivo = ""
         for ind in indisponibilita:
@@ -1385,6 +1427,7 @@ def get_candidati_designazione(partita_id):
             "id": a["id"],
             "nome": a["cognome_nome"],
             "ruolo": a["ruolo"],
+            "tutoraggio": bool(a["tutoraggio"]),
             "comune": a["comune"],
             "distanza_km": distanza_km,
             "disponibile": disponibile,
@@ -1408,9 +1451,11 @@ def get_candidati_designazione(partita_id):
             "designato_info": " / ".join(designazioni_oggi),
             "ha_arbitrato_andata": gara_andata is not None,
             "andata_info": f"gara n° {gara_andata['numero_gara']} del {gara_andata['data']}" if gara_andata else "",
+            "certificato_scaduto": certificato_scaduto,
+            "scadenza_certificato_medico": scadenza_certificato,
         })
 
-    candidati.sort(key=lambda c: (not c["disponibile"], c["nome"].lower()))
+    candidati.sort(key=lambda c: (not c["disponibile"] or c["certificato_scaduto"], c["nome"].lower()))
     return jsonify(candidati)
 
 
@@ -1451,6 +1496,57 @@ def storico_squadra():
         storico.append(r)
     storico.sort(key=lambda r: r["data"], reverse=True)
     return jsonify(storico[:10])
+
+
+@app.route("/api/designazioni/tutoraggio-storico", methods=["GET"])
+def tutoraggio_storico_arbitro():
+    """Storico tutoraggio di un arbitro (come tutorato): quante volte finora, quante come 1°
+    e quante come 2° arbitro, e chi sono stati i tutor (serve almeno 3 tutor diversi). Guarda
+    solo il dato ufficiale sulla gara (rimborso_km_modalita confermato), sia già disputata sia
+    solo designata — non le proposte non ancora confermate."""
+    nome = request.args.get("nome", "")
+    if not nome:
+        return jsonify({"ok": False, "errore": "Parametro nome mancante"}), 400
+    nome_norm = _norm_nome(nome)
+    conn = db.get_db()
+    arbitro = None
+    for a in conn.execute("SELECT cognome_nome, tutoraggio FROM arbitri").fetchall():
+        if _norm_nome(a["cognome_nome"]) == nome_norm:
+            arbitro = a
+            break
+    righe = conn.execute(
+        "SELECT arbitro, assistente1, rimborso_km_modalita, campionato, numero_gara, data, disputata "
+        "FROM partite WHERE rimborso_km_modalita IN ('tutoraggio_primo','tutoraggio_secondo')"
+    ).fetchall()
+    conn.close()
+
+    n_primo = n_secondo = 0
+    tutor_set = set()
+    gare = []
+    for r in righe:
+        modalita = r["rimborso_km_modalita"]
+        # tutorato = chi prende 0 km in quella modalità; il tutor e' l'altro ruolo.
+        if modalita == "tutoraggio_secondo" and _norm_nome(r["arbitro"]) == nome_norm:
+            n_primo += 1
+            tutor_set.add(r["assistente1"])
+            gare.append({"data": r["data"], "campionato": r["campionato"], "numero_gara": r["numero_gara"],
+                         "tutor": r["assistente1"], "ruolo": "1° Arbitro", "disputata": bool(r["disputata"])})
+        elif modalita == "tutoraggio_primo" and _norm_nome(r["assistente1"]) == nome_norm:
+            n_secondo += 1
+            tutor_set.add(r["arbitro"])
+            gare.append({"data": r["data"], "campionato": r["campionato"], "numero_gara": r["numero_gara"],
+                         "tutor": r["arbitro"], "ruolo": "2° Arbitro", "disputata": bool(r["disputata"])})
+
+    return jsonify({
+        "ok": True,
+        "tutoraggio_attivo": bool(arbitro["tutoraggio"]) if arbitro else False,
+        "n_totale": n_primo + n_secondo,
+        "n_come_primo": n_primo,
+        "n_come_secondo": n_secondo,
+        "tutor": sorted(tutor_set),
+        "n_tutor_distinti": len(tutor_set),
+        "gare": sorted(gare, key=lambda g: g["data"]),
+    })
 
 
 @app.route("/api/designazioni/riepilogo-associati", methods=["GET"])
@@ -1709,7 +1805,16 @@ def report_arbitro(id):
             # (auto unica: chi non ha guidato prende 0 km) invece del calcolo sempre separato.
             km_arbitro, km_assistente1 = _calcola_km_coppia(r, arbitri_comuni_km, distanza_km)
             km = km_arbitro if ruolo_designazione == "Arbitro" else km_assistente1
+            # "tutor" in questa gara: il rimborso km e' confermato in tutoraggio E il ruolo di
+            # questo arbitro e' quello che nella modalita' prende i km (non quello azzerato).
+            # Non calcolabile sulle stagioni storiche (rimborso_km_modalita non presente li').
+            modalita_rimborso = (r["rimborso_km_modalita"] or "").strip()
+            g["e_tutor"] = (
+                (ruolo_designazione == "Arbitro" and modalita_rimborso == "tutoraggio_primo")
+                or (ruolo_designazione == "2° Arbitro" and modalita_rimborso == "tutoraggio_secondo")
+            )
         else:
+            g["e_tutor"] = False
             localita_norm = _norm_comune(g["localita"])
             if not comune_arbitro_norm or not localita_norm:
                 km = None
@@ -2468,12 +2573,26 @@ def report_campionati():
             "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
             "FROM partite WHERE disputata=1 AND campionato!=''"
         ).fetchall()
+        # gare non ancora disputate ma già designate con un tutoraggio proposto o confermato:
+        # non contano nelle statistiche (km/federali riguardano solo gare giocate), ma vengono
+        # mostrate come anteprima nel drill-down "gare in tutoraggio" del campionato.
+        partite_da_disputare = conn.execute(
+            "SELECT data, campionato, girone, numero_gara, squadra_casa, squadra_ospite, "
+            "arbitro, assistente1, rimborso_km_modalita FROM partite "
+            "WHERE disputata=0 AND campionato!='' AND arbitro!='' AND assistente1!=''"
+        ).fetchall()
+        proposte_rimborso = {
+            (_norm_confronto(r["campionato"]), _norm_confronto(r["numero_gara"])): r["rimborso_km_modalita"]
+            for r in conn.execute("SELECT campionato, numero_gara, rimborso_km_modalita FROM rimborso_km_proposte").fetchall()
+        }
     else:
         partite = conn.execute(
             "SELECT data, campionato, girone, numero_gara, localita, squadra_casa, squadra_ospite, "
             "risultato, arbitro, assistente1 FROM partite_storiche WHERE stagione_id=? AND campionato!=''",
             (stagione_storica_id,),
         ).fetchall()
+        partite_da_disputare = []
+        proposte_rimborso = {}
     mappa_km = {
         (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
         for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
@@ -2524,6 +2643,24 @@ def report_campionati():
         riga["tipo_fase"] = mappa_tipo_fase.get(_norm_nome(riga["campionato"]), "campionato")
         g["gare"].append(riga)
 
+    for p in partite_da_disputare:
+        modalita = (p["rimborso_km_modalita"] or "").strip()
+        if not modalita:
+            modalita = (proposte_rimborso.get((_norm_confronto(p["campionato"]), _norm_confronto(p["numero_gara"])), "") or "").strip()
+        if modalita not in ("tutoraggio_primo", "tutoraggio_secondo"):
+            continue
+        campionato_id = mappa_codici.get(_norm_nome(p["campionato"]))
+        chiave = f"c{campionato_id}" if campionato_id is not None else f"raw:{p['campionato']}"
+        g = gruppi.get(chiave)
+        if g is None:
+            # nessuna gara disputata per questo campionato: non compare comunque in questo
+            # report, quindi non c'è dove agganciare l'anteprima.
+            continue
+        riga = dict(p)
+        riga["rimborso_km_modalita"] = modalita
+        riga["tipo_fase"] = mappa_tipo_fase.get(_norm_nome(riga["campionato"]), "campionato")
+        g.setdefault("gare_da_disputare_tutoraggio", []).append(riga)
+
     def _km_persona_storico(nome_persona, localita):
         if not nome_persona:
             return None
@@ -2535,6 +2672,12 @@ def report_campionati():
             return None
         return distanza(comune, localita)
 
+    def _e_federale(nome_persona):
+        if not nome_persona:
+            return False
+        nome_norm = _norm_nome(nome_persona)
+        return nome_norm not in nomi_associato_norm and nome_norm in arbitri_comuni
+
     def _calcola_stats(gare_sottoinsieme, soglia_testo):
         """Stesso calcolo aggregato (federali/associato/km) applicato a un sottoinsieme di
         gare: usato sia per il totale del gruppo sia per il dettaglio per fase (sotto-alias
@@ -2542,7 +2685,21 @@ def report_campionati():
         n_federali = 0
         n_associato = 0
         km_totali = 0.0
+        n_gare_doppio_federale = 0
+        n_gare_tutoraggio = 0
+        n_federali_no_tutoraggio = 0
+        km_totali_no_tutoraggio = 0.0
         for p in gare_sottoinsieme:
+            if _e_federale(p["arbitro"]) and _e_federale(p["assistente1"]):
+                n_gare_doppio_federale += 1
+            # il rimborso "tutoraggio" e' un dato per-gara confermato al momento della
+            # designazione (vedi rimborso_km_modalita): resta valido anche se in seguito il
+            # flag "tutoraggio" viene tolto dall'arbitro in anagrafica, perche' non lo rilegge
+            # da li' ma dallo storico gia' registrato sulla gara stessa. Non disponibile sulle
+            # stagioni storiche (colonne rimborso non presenti su partite_storiche).
+            e_tutoraggio = (p.get("rimborso_km_modalita") or "") in ("tutoraggio_primo", "tutoraggio_secondo")
+            if e_tutoraggio:
+                n_gare_tutoraggio += 1
             for campo_ruolo, km_ruolo in (("arbitro", p["km_arbitro"]), ("assistente1", p["km_assistente1"])):
                 nome_persona = p[campo_ruolo]
                 if not nome_persona:
@@ -2554,21 +2711,38 @@ def report_campionati():
                     n_federali += 1
                     if km_ruolo is not None:
                         km_totali += km_ruolo
+                    # media "pulita": esclude, oltre all'Arbitro Associato, anche le gare in
+                    # tutoraggio (dove uno dei due km e' azzerato ad arte, non rappresenta una
+                    # vera distanza percorsa e falserebbe la media verso il basso).
+                    if not e_tutoraggio:
+                        n_federali_no_tutoraggio += 1
+                        if km_ruolo is not None:
+                            km_totali_no_tutoraggio += km_ruolo
         totale_designazioni = n_federali + n_associato
         media_km_solo_federali = round(km_totali / n_federali, 1) if n_federali else 0
+        media_km_no_tutoraggio = round(km_totali_no_tutoraggio / n_federali_no_tutoraggio, 1) if n_federali_no_tutoraggio else 0
         soglia_km = _estrai_km_soglia(soglia_testo)
         scostamento_soglia = round(media_km_solo_federali - soglia_km, 1) if soglia_km is not None and n_federali else None
+        scostamento_soglia_no_tutoraggio = (
+            round(media_km_no_tutoraggio - soglia_km, 1) if soglia_km is not None and n_federali_no_tutoraggio else None
+        )
         return {
             "n_gare": len(gare_sottoinsieme),
             "n_federali": n_federali,
             "pct_federali": round(n_federali / totale_designazioni * 100, 1) if totale_designazioni else 0,
             "n_associato": n_associato,
             "pct_associato": round(n_associato / totale_designazioni * 100, 1) if totale_designazioni else 0,
+            "n_gare_doppio_federale": n_gare_doppio_federale,
+            "n_gare_tutoraggio": n_gare_tutoraggio,
             "km_totali": round(km_totali, 1),
             "media_km_gara": round(km_totali / totale_designazioni, 1) if totale_designazioni else 0,
             "media_km_solo_federali": media_km_solo_federali,
+            "media_km_no_tutoraggio": media_km_no_tutoraggio,
+            "n_federali_no_tutoraggio": n_federali_no_tutoraggio,
+            "km_totali_no_tutoraggio": round(km_totali_no_tutoraggio, 1),
             "soglia_km": soglia_km,
             "scostamento_soglia": scostamento_soglia,
+            "scostamento_soglia_no_tutoraggio": scostamento_soglia_no_tutoraggio,
         }
 
     ETICHETTE_FASE = {"campionato": "Campionato", "coppa": "Coppa", "playoff": "Playoff/Play out", "final_four": "Fasi finali"}
@@ -2613,6 +2787,7 @@ def report_campionati():
             "chiave": chiave,
             "nome": g["nome"],
             "gare": g["gare"],
+            "gare_da_disputare_tutoraggio": g.get("gare_da_disputare_tutoraggio", []),
             "dettaglio_fasi": dettaglio_fasi,
             **stats,
         })
@@ -2902,8 +3077,31 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
             esistenti[chiave] = cur.lastrowid
             inseriti += 1
 
+    _riapplica_proposte_confermate(conn)
     conn.commit()
     return {"ok": True, "inseriti": inseriti, "aggiornati": aggiornati, "rinviate": rinviate}
+
+
+def _riapplica_proposte_confermate(conn):
+    """Dopo un import, rimette da sola sulla gara corrispondente (campionato+numero gara)
+    l'eventuale rimborso km che il responsabile aveva già confermato in precedenza: solo le
+    proposte confermate vengono riapplicate in automatico, quelle ancora in attesa restano
+    da confermare e ricompariranno come proposta su Rimborsi km."""
+    proposte_confermate = conn.execute("SELECT * FROM rimborso_km_proposte WHERE confermato=1").fetchall()
+    if not proposte_confermate:
+        return
+    indice_proposte = {
+        (_norm_confronto(p["campionato"]), _norm_confronto(p["numero_gara"])): p
+        for p in proposte_confermate
+    }
+    righe_vuote = conn.execute("SELECT id, campionato, numero_gara FROM partite WHERE rimborso_km_modalita=''").fetchall()
+    for r in righe_vuote:
+        p = indice_proposte.get((_norm_confronto(r["campionato"]), _norm_confronto(r["numero_gara"])))
+        if p:
+            conn.execute(
+                "UPDATE partite SET rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
+                (p["rimborso_km_modalita"], p["rimborso_km_manuale_arbitro"], p["rimborso_km_manuale_assistente1"], r["id"]),
+            )
 
 
 def _import_generico(tabella, extra_fields=None):
@@ -2978,4 +3176,4 @@ def _import_generico(tabella, extra_fields=None):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=int(os.environ.get("PORT", 5000)))

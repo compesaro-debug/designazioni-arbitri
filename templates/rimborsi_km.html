@@ -14,7 +14,7 @@
   </div>
 </div>
 
-<p class="hint" style="margin-top:-8px; margin-bottom:16px;"><span class="tag tag-giallo">Proposto</span> = accordo di trasferta impostato in precedenza su questa gara, ritrovato dopo un reimport: resta solo un suggerimento, va confermato con il pulsante prima di diventare effettivo.</p>
+<p class="hint" style="margin-top:-8px; margin-bottom:16px;"><span class="tag tag-giallo">Proposto</span> = accordo di trasferta indicato dal designante al momento della designazione (o ritrovato dopo un reimport): resta solo un suggerimento finché non lo confermi tu con il pulsante — una volta confermato, resta valido anche attraverso futuri reimport.</p>
 
 <div style="display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
   <div class="form-field" style="margin:0;">
@@ -43,8 +43,11 @@
           <th class="sortable" data-campo="data">Data</th>
           <th class="sortable" data-campo="campionato_display">Campionato</th>
           <th class="sortable" data-campo="squadre">Squadre</th>
+          <th class="sortable" data-campo="localita">Comune gara</th>
           <th class="sortable" data-campo="arbitro">1° Arbitro</th>
+          <th class="sortable" data-campo="comune_arbitro">Res. 1° Arbitro</th>
           <th class="sortable" data-campo="assistente1">2° Arbitro</th>
+          <th class="sortable" data-campo="comune_assistente1">Res. 2° Arbitro</th>
           <th>Modalità trasferta</th>
           <th class="sortable" data-campo="km_arbitro">Km 1°</th>
           <th class="sortable" data-campo="km_assistente1">Km 2°</th>
@@ -54,8 +57,11 @@
           <th></th>
           <th><input class="filtro-input" data-campo="campionato_display" placeholder="Filtra..."></th>
           <th><input class="filtro-input" data-campo="squadre" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="localita" placeholder="Filtra..."></th>
           <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="comune_arbitro" placeholder="Filtra..."></th>
           <th><input class="filtro-input" data-campo="assistente1" placeholder="Filtra..."></th>
+          <th><input class="filtro-input" data-campo="comune_assistente1" placeholder="Filtra..."></th>
           <th>
             <select class="filtro-input" data-campo="rimborso_km_modalita" style="width:100%">
               <option value="">Tutte</option>
@@ -79,16 +85,6 @@
     <strong>Nessuna gara disputata con designazione completa in questo periodo</strong>
     Le gare compaiono qui solo quando sono state disputate e hanno sia il 1° che il 2° arbitro assegnati.
   </div>
-</div>
-
-<div class="card" style="margin-top:16px;">
-  <h2 style="margin-top:0">Totale km rimborso per arbitro (nel periodo)</h2>
-  <table>
-    <thead>
-      <tr><th>Arbitro</th><th>Km totali</th></tr>
-    </thead>
-    <tbody id="tabella-totali-rimborsi"></tbody>
-  </table>
 </div>
 
 {% endblock %}
