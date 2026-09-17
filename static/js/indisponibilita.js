@@ -6,8 +6,18 @@ const CAMPI_INDISPONIBILITA = [
   "data_fine", "ora_fine", "motivo", "data_richiesta",
 ];
 
+// Stato del periodo rispetto a oggi: usato sia per il cartellino colorato sia per il filtro
+// a tendina "Stato" (il valore testuale deve combaciare con le option del filtro).
+function _statoIndisponibilita(r) {
+  const oggi = new Date().toISOString().slice(0, 10);
+  if (r.data_inizio && r.data_inizio > oggi) return "Futura";
+  if (r.data_fine && r.data_fine < oggi) return "Passata";
+  return "In corso";
+}
+
 async function caricaIndisponibilita() {
   const righe = await apiGet("/api/indisponibilita");
+  righe.forEach(r => { r.stato_testo = _statoIndisponibilita(r); });
   window._indispCache = righe;
   renderTabellaIndisponibilita();
 }
@@ -24,8 +34,15 @@ function renderTabellaIndisponibilita() {
   }
   vuoto.style.display = "none";
 
+  const TAG_STATO = {
+    "In corso": '<span class="tag tag-rosso">In corso</span>',
+    "Futura": '<span class="tag tag-giallo">Futura</span>',
+    "Passata": '<span style="color:var(--testo-tenue)">Passata</span>',
+  };
   righe.forEach(r => {
     const tr = document.createElement("tr");
+    if (r.stato_testo === "In corso") tr.classList.add("riga-non-disponibile");
+    else if (r.stato_testo === "Futura") tr.classList.add("riga-data-futura");
     const dal = `${formattaData(r.data_inizio)}${r.ora_inizio ? " " + r.ora_inizio : ""}`;
     const al = `${formattaData(r.data_fine)}${r.ora_fine ? " " + r.ora_fine : ""}`;
     tr.innerHTML = `
@@ -34,6 +51,7 @@ function renderTabellaIndisponibilita() {
       <td>${r.ruolo}</td>
       <td>${dal}</td>
       <td>${al}</td>
+      <td>${TAG_STATO[r.stato_testo] || ""}</td>
       <td>${r.motivo}</td>
       <td>${r.data_richiesta}</td>
       <td style="white-space:nowrap">

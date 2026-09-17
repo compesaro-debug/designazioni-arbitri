@@ -84,6 +84,14 @@ async function caricaPartite() {
   renderTabellaPartite();
 }
 
+// Sulla scheda Disputate, una gara senza risultato è ancora da omologare ("gara gialla"):
+// un cartellino la rende visibile a colpo d'occhio invece di una cella vuota indistinguibile.
+function _cellaRisultato(risultato) {
+  return risultato
+    ? `<span class="tag tag-verde">${risultato}</span>`
+    : `<span class="tag tag-giallo">Da omologare</span>`;
+}
+
 function renderTabellaPartite() {
   let partite = applicaFiltriOrdinamento(window._partiteCache || [], filtriPartite, ordinamentoPartite, "#tabella-head-partite");
   if (_codiciAliasSelezionato) {
@@ -116,7 +124,7 @@ function renderTabellaPartite() {
       <td>${p.squadra_casa}</td>
       <td>${p.aff_b}</td>
       <td>${p.squadra_ospite}</td>
-      <td class="col-risultato">${p.risultato}</td>
+      <td class="col-risultato">${tabCorrente === "disputate" ? _cellaRisultato(p.risultato) : p.risultato}</td>
       <td class="col-risultato">${p.parziali}</td>
       <td>${p.numero_ufficiali}</td>
       <td>${p.arbitro}</td>

@@ -39,6 +39,9 @@
       <div class="riepilogo-label">Campionati (alias)</div>
     </div>
   </div>
+  <div class="actions" style="justify-content:flex-end; margin-top:6px;">
+    <button class="btn btn-secondary" onclick="apriModaleChiudiStagione()">Chiudi stagione e archiviala nello storico</button>
+  </div>
 </div>
 
 <div id="sezioni-stagione-storica" style="display:none;">
@@ -112,6 +115,23 @@
 
   <div class="actions" style="margin-top:20px; justify-content:flex-end;">
     <button class="btn-danger-text" onclick="eliminaStagioneCorrente()">Elimina questa stagione</button>
+  </div>
+</div>
+
+<div class="overlay" id="modale-chiudi-stagione">
+  <div class="modal">
+    <h2>Chiudi la stagione corrente</h2>
+    <p class="hint" style="color:var(--rosso-scuro); font-weight:600;">
+      Le partite disputate, le indisponibilità e gli alias campionati di questa stagione verranno copiati nella nuova stagione storica qui sotto. Subito dopo, le tabelle della stagione corrente vengono svuotate: partite (comprese quelle ancora da disputare), indisponibilità e alias campionati. Anagrafica arbitri, Società e le distanze tra comuni non vengono toccate.
+    </p>
+    <p class="hint">Viene fatto automaticamente un backup del database prima di procedere, ma l'operazione non si può annullare dall'interfaccia.</p>
+    <div class="form-grid">
+      <div class="form-field full"><label>Nome della nuova stagione storica</label><input id="f-chiudi-stagione-nome" placeholder="es. 2025/2026"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeOverlay('modale-chiudi-stagione')">Annulla</button>
+      <button class="btn btn-primary" style="background:var(--rosso); border-color:var(--rosso);" onclick="confermaChiudiStagione()">Chiudi stagione e svuota</button>
+    </div>
   </div>
 </div>
 

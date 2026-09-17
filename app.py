@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 import secrets
+import shutil
 import db
 import importer
 
@@ -730,6 +731,88 @@ def add_stagione():
     nuovo_id = cur.lastrowid
     conn.close()
     return jsonify({"ok": True, "id": nuovo_id})
+
+
+@app.route("/api/stagioni/chiudi-corrente", methods=["POST"])
+def chiudi_stagione_corrente():
+    """Archivia tutta la stagione corrente (partite disputate, indisponibilità, alias
+    campionati) in una nuova stagione storica con il nome dato, poi svuota le tabelle live
+    per far ripartire la stagione corrente da zero. Le gare 'da disputare' non hanno un
+    posto nello storico (che rappresenta solo il già giocato) e vengono eliminate insieme
+    al resto. Anagrafica arbitri, Società e le distanze tra comuni NON vengono toccate:
+    non sono legate a una singola stagione. Operazione irreversibile dall'interfaccia,
+    per questo viene sempre preceduta da un backup automatico del file del database."""
+    data = request.json
+    nome = (data.get("nome") or "").strip()
+    if not nome:
+        return jsonify({"ok": False, "errore": "Il nome della nuova stagione storica è obbligatorio."}), 400
+
+    cartella_backup = os.path.dirname(db.DB_PATH)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    percorso_backup = os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_chiusura_stagione.db")
+    shutil.copy2(db.DB_PATH, percorso_backup)
+
+    conn = db.get_db()
+    cur = conn.execute("INSERT INTO stagioni (nome, dati_live) VALUES (?, 0)", (nome,))
+    stagione_id = cur.lastrowid
+
+    mappa_campionati = {}
+    for c in conn.execute("SELECT * FROM campionati").fetchall():
+        cur = conn.execute(
+            "INSERT INTO campionati_storici (stagione_id, nome, km_per_partita) VALUES (?,?,?)",
+            (stagione_id, c["nome"], c["km_per_partita"]),
+        )
+        mappa_campionati[c["id"]] = cur.lastrowid
+    for s in conn.execute("SELECT * FROM squadre").fetchall():
+        nuovo_campionato_id = mappa_campionati.get(s["campionato_id"])
+        if nuovo_campionato_id is not None:
+            conn.execute(
+                "INSERT INTO squadre_storiche (campionato_storico_id, nome) VALUES (?,?)",
+                (nuovo_campionato_id, s["nome"]),
+            )
+    for cc in conn.execute("SELECT * FROM campionati_codici").fetchall():
+        nuovo_campionato_id = mappa_campionati.get(cc["campionato_id"])
+        if nuovo_campionato_id is not None:
+            conn.execute(
+                "INSERT INTO campionati_storici_codici (campionato_storico_id, codice, tipo_fase) VALUES (?,?,?)",
+                (nuovo_campionato_id, cc["codice"], cc["tipo_fase"]),
+            )
+
+    colonne_partite_sql = ",".join(db.PARTITE_COLONNE)
+    n_partite_disputate = conn.execute("SELECT COUNT(*) FROM partite WHERE disputata=1").fetchone()[0]
+    n_partite_da_disputare = conn.execute("SELECT COUNT(*) FROM partite WHERE disputata=0").fetchone()[0]
+    conn.execute(
+        f"INSERT INTO partite_storiche (stagione_id, {colonne_partite_sql}) "
+        f"SELECT ?, {colonne_partite_sql} FROM partite WHERE disputata=1",
+        (stagione_id,),
+    )
+
+    colonne_indisp_sql = ",".join(db.INDISPONIBILITA_COLONNE)
+    n_indisponibilita = conn.execute("SELECT COUNT(*) FROM indisponibilita").fetchone()[0]
+    conn.execute(
+        f"INSERT INTO indisponibilita_storiche (stagione_id, {colonne_indisp_sql}) "
+        f"SELECT ?, {colonne_indisp_sql} FROM indisponibilita",
+        (stagione_id,),
+    )
+
+    conn.execute("DELETE FROM partite")
+    conn.execute("DELETE FROM indisponibilita")
+    conn.execute("DELETE FROM rimborso_km_proposte")
+    conn.execute("DELETE FROM campionati_codici")
+    conn.execute("DELETE FROM squadre")
+    conn.execute("DELETE FROM campionati")
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "ok": True,
+        "stagione_id": stagione_id,
+        "backup": os.path.basename(percorso_backup),
+        "n_partite_archiviate": n_partite_disputate,
+        "n_partite_eliminate": n_partite_da_disputare,
+        "n_indisponibilita_archiviate": n_indisponibilita,
+        "n_campionati_archiviati": len(mappa_campionati),
+    })
 
 
 @app.route("/api/stagioni/<int:id>", methods=["DELETE"])

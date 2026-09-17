@@ -33,6 +33,33 @@ async function selezionaStagione() {
 
 document.getElementById("selettore-stagione-dati").addEventListener("change", selezionaStagione);
 
+function apriModaleChiudiStagione() {
+  document.getElementById("f-chiudi-stagione-nome").value = "";
+  openOverlay("modale-chiudi-stagione");
+}
+
+async function confermaChiudiStagione() {
+  const nome = document.getElementById("f-chiudi-stagione-nome").value.trim();
+  if (!nome) return;
+  if (!confirm(`Confermi? La stagione corrente verrà archiviata come "${nome}" e le tabelle della stagione corrente (partite, indisponibilità, alias campionati) verranno svuotate.`)) return;
+  const risultato = await apiSend("/api/stagioni/chiudi-corrente", "POST", { nome });
+  if (!risultato.ok) {
+    alert(risultato.errore || "Errore durante la chiusura della stagione.");
+    return;
+  }
+  closeOverlay("modale-chiudi-stagione");
+  alert(
+    `Stagione archiviata come "${nome}".\n\n` +
+    `${risultato.n_partite_archiviate} partite disputate archiviate\n` +
+    `${risultato.n_indisponibilita_archiviate} indisponibilità archiviate\n` +
+    `${risultato.n_campionati_archiviati} alias campionati archiviati\n` +
+    `${risultato.n_partite_eliminate} partite da disputare eliminate (non archiviabili)\n\n` +
+    `Backup del database salvato come ${risultato.backup}.`
+  );
+  _stagioneSelezionataId = null;
+  await caricaStagioni();
+}
+
 function apriModaleStagione() {
   document.getElementById("f-stagione-nome").value = "";
   openOverlay("modale-stagione");

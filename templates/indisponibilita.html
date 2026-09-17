@@ -30,6 +30,7 @@
         <th class="sortable" data-campo="ruolo">Ruolo</th>
         <th class="sortable" data-campo="data_inizio">Dal</th>
         <th class="sortable" data-campo="data_fine">Al</th>
+        <th class="sortable" data-campo="stato_testo">Stato</th>
         <th class="sortable" data-campo="motivo">Motivazione</th>
         <th class="sortable" data-campo="data_richiesta">Data richiesta</th>
         <th></th>
@@ -40,6 +41,14 @@
         <th><input class="filtro-input" data-campo="ruolo" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="data_inizio" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="data_fine" placeholder="Filtra..."></th>
+        <th>
+          <select class="filtro-input" data-campo="stato_testo" style="width:100%">
+            <option value="">Tutte</option>
+            <option value="In corso">In corso</option>
+            <option value="Futura">Futura</option>
+            <option value="Passata">Passata</option>
+          </select>
+        </th>
         <th><input class="filtro-input" data-campo="motivo" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="data_richiesta" placeholder="Filtra..."></th>
         <th></th>
