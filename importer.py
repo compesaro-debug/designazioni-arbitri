@@ -115,11 +115,16 @@ def leggi_excel(file_stream, tabella):
     return df_mappato.to_dict(orient="records")
 
 
-# Formato di export "filtro gare" (usato ad es. dai portali federali di pallavolo per le
-# partite disputate): ha due colonne di intestazione chiamate entrambe "Data" (la seconda,
-# che pandas rinomina in "Data.1" per evitare il duplicato, contiene in realtà l'orario), quindi
-# non può essere riconosciuto dalla mappatura generica basata sul nome delle intestazioni.
-_FILTRO_GARE_RICHIESTE = {"cod", "affa", "squadraa", "affb", "squadrab", "ris", "iarbitro"}
+# Formato di export "filtro gare" (usato ad es. dai portali federali di pallavolo): ha due
+# colonne di intestazione chiamate entrambe "Data" (la seconda, che pandas rinomina in "Data.1"
+# per evitare il duplicato, contiene in realtà l'orario), quindi non può essere riconosciuto
+# dalla mappatura generica basata sul nome delle intestazioni. Le colonne degli ufficiali di
+# gara (I Arbitro, II Arbitro...) NON vengono richieste per il riconoscimento: sull'export delle
+# gare "da disputare" non ci sono affatto (la gara non è ancora stata giocata/designata), quindi
+# richiederle escludeva proprio quel caso e faceva ricadere il file sulla mappatura generica,
+# che non riconosce "COD."/"G."/"N."/"Data.1" e lasciava campionato/girone/numero_gara/ora
+# vuoti per ogni riga (e quindi tutte le righe sembravano duplicate tra loro).
+_FILTRO_GARE_RICHIESTE = {"cod", "g", "n", "affa", "squadraa", "affb", "squadrab", "ris"}
 
 
 def _is_formato_filtro_gare(df):
