@@ -88,13 +88,31 @@ def map_columns(df, tabella):
     return df
 
 
+def _trova_riga_intestazione(file_stream, max_righe=15):
+    """Alcuni export (es. 'elenco indisponibilità' dei portali federali) hanno un titolo in
+    cima (tipo 'Elenco indisponibilità dal... al...') e/o una riga vuota prima della vera riga
+    di intestazione, invece di averla come prima riga del foglio. Cerca tra le prime righe
+    quella che contiene i nomi di colonna attesi da uno dei formati speciali riconosciuti, e ne
+    restituisce l'indice (0-based) da usare come header. Se non trova nulla, ritorna 0 (prima
+    riga), cioè il comportamento di sempre per i file che hanno già l'intestazione in cima."""
+    file_stream.seek(0)
+    grezzo = pd.read_excel(file_stream, dtype=str, header=None, nrows=max_righe)
+    for i in range(len(grezzo)):
+        valori_normalizzati = {_normalize(v) for v in grezzo.iloc[i] if pd.notna(v) and str(v).strip()}
+        if _FILTRO_GARE_RICHIESTE.issubset(valori_normalizzati) or _ELENCO_INDISPO_RICHIESTE.issubset(valori_normalizzati):
+            return i
+    return 0
+
+
 def leggi_excel(file_stream, tabella):
     """Legge un file Excel e restituisce una lista di dict pronti per l'inserimento nel DB."""
     # le tabelle storiche (import per una stagione passata) hanno lo stesso formato Excel
     # delle corrispondenti live: usiamo la stessa logica di riconoscimento/mappatura colonne.
     tabella_formato = {"partite_storiche": "partite", "indisponibilita_storiche": "indisponibilita"}.get(tabella, tabella)
 
-    df = pd.read_excel(file_stream, dtype=str)
+    riga_intestazione = _trova_riga_intestazione(file_stream)
+    file_stream.seek(0)
+    df = pd.read_excel(file_stream, dtype=str, header=riga_intestazione)
     df = df.fillna("")
 
     if tabella_formato == "partite" and _is_formato_filtro_gare(df):
