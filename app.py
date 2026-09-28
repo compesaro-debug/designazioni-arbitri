@@ -1504,17 +1504,25 @@ def get_candidati_designazione(partita_id):
         n_casa_nome = 0
         n_osp_cod = 0
         n_osp_nome = 0
+        # come sopra ma per i conteggi "P. dirette": True se ALMENO UNA delle gare contate è
+        # ancora da disputare, per segnalare che quel numero non è (solo) storico.
+        n_casa_cod_futura = False
+        n_casa_nome_futura = False
+        n_osp_cod_futura = False
+        n_osp_nome_futura = False
         for p in disputate:
             if not _riga_ha_arbitro(p, nome_norm):
                 continue
             non_giocata = not p["disputata"]
             if aff_casa and (p["aff_a"] == aff_casa or p["aff_b"] == aff_casa):
                 n_casa_cod += 1
+                n_casa_cod_futura = n_casa_cod_futura or non_giocata
                 if p["data"] > ultima_casa_cod:
                     ultima_casa_cod = p["data"]
                     ultima_casa_cod_futura = non_giocata
             if aff_osp and (p["aff_a"] == aff_osp or p["aff_b"] == aff_osp):
                 n_osp_cod += 1
+                n_osp_cod_futura = n_osp_cod_futura or non_giocata
                 if p["data"] > ultima_osp_cod:
                     ultima_osp_cod = p["data"]
                     ultima_osp_cod_futura = non_giocata
@@ -1529,6 +1537,7 @@ def get_candidati_designazione(partita_id):
                 )
             if casa_nome_match:
                 n_casa_nome += 1
+                n_casa_nome_futura = n_casa_nome_futura or non_giocata
                 if p["data"] > ultima_casa_nome:
                     ultima_casa_nome = p["data"]
                     ultima_casa_nome_futura = non_giocata
@@ -1541,6 +1550,7 @@ def get_candidati_designazione(partita_id):
                 )
             if osp_nome_match:
                 n_osp_nome += 1
+                n_osp_nome_futura = n_osp_nome_futura or non_giocata
                 if p["data"] > ultima_osp_nome:
                     ultima_osp_nome = p["data"]
                     ultima_osp_nome_futura = non_giocata
@@ -1577,9 +1587,13 @@ def get_candidati_designazione(partita_id):
             "ultima_designazione_ospite_nome": ultima_osp_nome,
             "ultima_designazione_ospite_nome_futura": ultima_osp_nome_futura,
             "n_casa_codice": n_casa_cod,
+            "n_casa_codice_futura": n_casa_cod_futura,
             "n_casa_nome": n_casa_nome,
+            "n_casa_nome_futura": n_casa_nome_futura,
             "n_osp_codice": n_osp_cod,
+            "n_osp_codice_futura": n_osp_cod_futura,
             "n_osp_nome": n_osp_nome,
+            "n_osp_nome_futura": n_osp_nome_futura,
             "designato_oggi": bool(designazioni_oggi),
             "designato_info": " / ".join(designazioni_oggi),
             "ha_arbitrato_andata": gara_andata is not None,

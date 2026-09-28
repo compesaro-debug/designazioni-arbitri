@@ -564,9 +564,10 @@ function azzeraFiltriCandidati() {
   renderCandidati();
 }
 
-function cellaConteggio(valore, arbitroId, tipo) {
+function cellaConteggio(valore, arbitroId, tipo, futura) {
   if (!valore) return valore || "";
-  return `<button class="btn-storico-inline" onclick="apriDettaglioConteggio(${arbitroId}, '${tipo}')">${valore}</button>`;
+  const contenuto = futura ? `<span class="tag tag-giallo" title="Include almeno una gara non ancora disputata">${valore}</span>` : valore;
+  return `<button class="btn-storico-inline" onclick="apriDettaglioConteggio(${arbitroId}, '${tipo}')">${contenuto}</button>`;
 }
 
 // Come cellaConteggio, ma per le date "ultima designazione": se quella più recente è ancora
@@ -626,10 +627,10 @@ function renderCandidati() {
       <td>${certificato}</td>
       <td>${designatoOggi}</td>
       <td>${andataRitorno}</td>
-      <td>${cellaConteggio(c.n_casa_codice, c.id, "casa_cod")}</td>
-      <td>${cellaConteggio(c.n_casa_nome, c.id, "casa_nome")}</td>
-      <td>${cellaConteggio(c.n_osp_codice, c.id, "osp_cod")}</td>
-      <td>${cellaConteggio(c.n_osp_nome, c.id, "osp_nome")}</td>
+      <td>${cellaConteggio(c.n_casa_codice, c.id, "casa_cod", c.n_casa_codice_futura)}</td>
+      <td>${cellaConteggio(c.n_casa_nome, c.id, "casa_nome", c.n_casa_nome_futura)}</td>
+      <td>${cellaConteggio(c.n_osp_codice, c.id, "osp_cod", c.n_osp_codice_futura)}</td>
+      <td>${cellaConteggio(c.n_osp_nome, c.id, "osp_nome", c.n_osp_nome_futura)}</td>
       <td>${_cellaUltimaDesignazione(c.ultima_designazione_casa, c.ultima_designazione_casa_futura, c.id, "casa_cod")}</td>
       <td>${_cellaUltimaDesignazione(c.ultima_designazione_ospite, c.ultima_designazione_ospite_futura, c.id, "osp_cod")}</td>
       <td>${dalle}</td>
