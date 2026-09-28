@@ -98,20 +98,21 @@ def leggi_excel(file_stream, tabella):
     df = df.fillna("")
 
     if tabella_formato == "partite" and _is_formato_filtro_gare(df):
-        record = _mappa_filtro_gare(df)
+        df_mappato = _mappa_filtro_gare(df)
     elif tabella_formato == "indisponibilita" and _is_formato_elenco_indispo(df):
-        record = _mappa_elenco_indispo(df)
+        df_mappato = _mappa_elenco_indispo(df)
     else:
-        df = map_columns(df, tabella_formato)
-        record = df.to_dict(orient="records")
+        df_mappato = map_columns(df, tabella_formato)
 
-    # normalizzo il campo 'data'/'data_inizio'/'data_fine' se sono datetime letti come stringa strana
-    for riga in record:
-        for col in ("data", "data_inizio", "data_fine"):
-            if col in riga:
-                riga[col] = _format_possible_date(riga[col])
+    # normalizzo il campo 'data'/'data_inizio'/'data_fine' se sono datetime letti come stringa
+    # strana: sull'intera colonna in un colpo solo (vettoriale), non riga per riga, perché su
+    # file con molte righe (es. il calendario di un'intera stagione) farlo valore per valore
+    # con pandas è molto più lento e si sente parecchio in fase di import.
+    for col in ("data", "data_inizio", "data_fine"):
+        if col in df_mappato.columns:
+            df_mappato[col] = _formatta_colonna_data(df_mappato[col])
 
-    return record
+    return df_mappato.to_dict(orient="records")
 
 
 # Formato di export "filtro gare" (usato ad es. dai portali federali di pallavolo per le
@@ -127,50 +128,51 @@ def _is_formato_filtro_gare(df):
 
 
 def _mappa_filtro_gare(df):
+    """Come _is_formato_filtro_gare: rimappa le colonne di questo formato sui campi canonici
+    di 'partite'. Lavora su colonne intere (Series) invece che riga per riga, così anche un
+    file con migliaia di gare (es. il calendario di una stagione) si legge in un istante."""
     norm = {_normalize(c): c for c in df.columns}
+    vuota = pd.Series([""] * len(df), index=df.index)
 
-    def val(chiave_norm, riga):
-        col = norm.get(chiave_norm)
-        return str(riga.get(col, "")).strip() if col else ""
+    def col(chiave_norm):
+        c = norm.get(chiave_norm)
+        return df[c].astype(str).str.strip() if c is not None else vuota.copy()
 
-    righe = []
-    for _, r in df.iterrows():
-        risultato = val("ris", r)
-        arbitro = val("iarbitro", r)
-        if not arbitro and risultato:
-            # partita disputata ma senza un I Arbitro nominativo nel file: la federazione
-            # in questi casi assegna un "Arbitro Associato" senza registrarne il nome.
-            arbitro = "Arbitro Associato"
-        righe.append({
-            "data": val("data", r),
-            "ora": val("data1", r).replace(".", ":"),
-            "campionato": val("cod", r),
-            "categoria": "",
-            "girone": val("g", r),
-            "numero_gara": val("n", r),
-            "localita": val("localita", r),
-            "campo": val("impianto", r),
-            "aff_a": val("affa", r),
-            "squadra_casa": val("squadraa", r),
-            "aff_b": val("affb", r),
-            "squadra_ospite": val("squadrab", r),
-            "risultato": risultato,
-            "parziali": " ".join(val("parziali", r).split()),
-            "numero_ufficiali": val("ufficiale", r),
-            "arbitro": arbitro,
-            "residenza_arbitro": val("residenza", r),
-            "assistente1": val("iiarbitro", r),
-            "residenza_assistente1": val("residenza1", r),
-            "osservatore_associato": val("osservatoreassociat", r),
-            "residenza_osservatore_associato": val("residenza2", r),
-            "segnapunti": val("segnapunti", r),
-            "residenza_segnapunti": val("residenza3", r),
-            "assistente2": val("arbitroassociato", r),
-            "residenza_assistente2": val("residenza4", r),
-            "osservatore": val("osservatore", r),
-            "residenza_osservatore": val("residenza5", r),
-        })
-    return righe
+    risultato = col("ris")
+    arbitro = col("iarbitro")
+    # partita disputata ma senza un I Arbitro nominativo nel file: la federazione in questi
+    # casi assegna un "Arbitro Associato" senza registrarne il nome.
+    arbitro = arbitro.mask((arbitro == "") & (risultato != ""), "Arbitro Associato")
+
+    return pd.DataFrame({
+        "data": col("data"),
+        "ora": col("data1").str.replace(".", ":", regex=False),
+        "campionato": col("cod"),
+        "categoria": vuota.copy(),
+        "girone": col("g"),
+        "numero_gara": col("n"),
+        "localita": col("localita"),
+        "campo": col("impianto"),
+        "aff_a": col("affa"),
+        "squadra_casa": col("squadraa"),
+        "aff_b": col("affb"),
+        "squadra_ospite": col("squadrab"),
+        "risultato": risultato,
+        "parziali": col("parziali").str.split().str.join(" "),
+        "numero_ufficiali": col("ufficiale"),
+        "arbitro": arbitro,
+        "residenza_arbitro": col("residenza"),
+        "assistente1": col("iiarbitro"),
+        "residenza_assistente1": col("residenza1"),
+        "osservatore_associato": col("osservatoreassociat"),
+        "residenza_osservatore_associato": col("residenza2"),
+        "segnapunti": col("segnapunti"),
+        "residenza_segnapunti": col("residenza3"),
+        "assistente2": col("arbitroassociato"),
+        "residenza_assistente2": col("residenza4"),
+        "osservatore": col("osservatore"),
+        "residenza_osservatore": col("residenza5"),
+    })
 
 
 # Formato di export "elenco indisponibilità" (portali federali): le colonne "Da" e "A"
@@ -184,50 +186,52 @@ def _is_formato_elenco_indispo(df):
     return _ELENCO_INDISPO_RICHIESTE.issubset(colonne_normalizzate)
 
 
-def _spezza_data_ora(testo):
-    """Divide una stringa 'gg/mm/aaaa hh.mm' nelle sue componenti data e ora (hh:mm)."""
-    parti = str(testo).strip().split()
-    data = parti[0] if len(parti) >= 1 else ""
-    ora = parti[1].replace(".", ":") if len(parti) >= 2 else ""
+def _spezza_colonna_data_ora(colonna):
+    """Versione vettoriale di 'divide ogni cella gg/mm/aaaa hh.mm nelle sue due componenti':
+    un'unica operazione sull'intera colonna invece di una per riga."""
+    parti = colonna.str.split(n=1, expand=True)
+    data = parti[0].fillna("") if 0 in parti.columns else pd.Series([""] * len(colonna), index=colonna.index)
+    if 1 in parti.columns:
+        ora = parti[1].fillna("").str.replace(".", ":", regex=False)
+    else:
+        ora = pd.Series([""] * len(colonna), index=colonna.index)
     return data, ora
 
 
 def _mappa_elenco_indispo(df):
     norm = {_normalize(c): c for c in df.columns}
+    vuota = pd.Series([""] * len(df), index=df.index)
 
-    def val(chiave_norm, riga):
-        col = norm.get(chiave_norm)
-        return str(riga.get(col, "")).strip() if col else ""
+    def col(chiave_norm):
+        c = norm.get(chiave_norm)
+        return df[c].astype(str).str.strip() if c is not None else vuota.copy()
 
-    righe = []
-    for _, r in df.iterrows():
-        data_inizio, ora_inizio = _spezza_data_ora(val("da", r))
-        data_fine, ora_fine = _spezza_data_ora(val("a", r))
-        data_richiesta_data, data_richiesta_ora = _spezza_data_ora(val("datarichiesta", r))
-        data_richiesta_data = _format_possible_date(data_richiesta_data)
-        data_richiesta = f"{data_richiesta_data} {data_richiesta_ora}".strip()
+    data_inizio, ora_inizio = _spezza_colonna_data_ora(col("da"))
+    data_fine, ora_fine = _spezza_colonna_data_ora(col("a"))
+    dr_data, dr_ora = _spezza_colonna_data_ora(col("datarichiesta"))
+    dr_data = _formatta_colonna_data(dr_data)
+    data_richiesta = (dr_data + " " + dr_ora).str.strip()
 
-        righe.append({
-            "arbitro": val("cognomeenome", r),
-            "codice_fiscale": val("codicefiscale", r),
-            "ruolo": val("ruolo", r),
-            "data_inizio": data_inizio,
-            "ora_inizio": ora_inizio,
-            "data_fine": data_fine,
-            "ora_fine": ora_fine,
-            "motivo": val("motivo", r),
-            "data_richiesta": data_richiesta,
-        })
-    return righe
+    return pd.DataFrame({
+        "arbitro": col("cognomeenome"),
+        "codice_fiscale": col("codicefiscale"),
+        "ruolo": col("ruolo"),
+        "data_inizio": data_inizio,
+        "ora_inizio": ora_inizio,
+        "data_fine": data_fine,
+        "ora_fine": ora_fine,
+        "motivo": col("motivo"),
+        "data_richiesta": data_richiesta,
+    })
 
 
-def _format_possible_date(val):
-    val = str(val).strip()
-    if not val:
-        return val
-    # prova a interpretare come data pandas (gestisce anche datetime di Excel)
-    try:
-        dt = pd.to_datetime(val, dayfirst=True, errors="raise")
-        return dt.strftime("%Y-%m-%d")
-    except Exception:
-        return val
+def _formatta_colonna_data(colonna):
+    """Versione vettoriale di 'interpreta come data e riformatta in ISO': prova a leggere
+    l'intera colonna come date in un colpo solo (gestisce anche datetime di Excel), lasciando
+    il testo originale dove non è una data riconoscibile. Riga per riga con pandas è molto più
+    lento su file con tante righe, ed è la causa principale della lentezza sui file di import
+    grandi (es. il calendario di un'intera stagione per le gare 'da disputare')."""
+    testo = colonna.astype(str).str.strip()
+    interpretata = pd.to_datetime(testo, dayfirst=True, errors="coerce")
+    formattata = interpretata.dt.strftime("%Y-%m-%d")
+    return formattata.where(interpretata.notna(), testo)
