@@ -393,10 +393,18 @@ def delete_partita(id):
 def elimina_tutte_partite():
     """Cancella in blocco tutte le partite di una sola scheda (solo 'da disputare' oppure
     solo 'disputate'), su richiesta esplicita dal pulsante dedicato in Partite. Stesso effetto
-    del DELETE fatto da un import in modalità 'sostituisci' senza però reimportare nulla."""
+    del DELETE fatto da un import in modalità 'sostituisci' senza però reimportare nulla. Prima
+    di cancellare fa comunque un backup automatico del database, come "Chiudi stagione": è
+    un'operazione irreversibile dall'interfaccia, meglio avere sempre una via di recupero."""
     disputata = request.args.get("disputata", "0")
     conn = db.get_db()
     eliminate = conn.execute("SELECT COUNT(*) FROM partite WHERE disputata=?", (disputata,)).fetchone()[0]
+    if eliminate:
+        cartella_backup = os.path.dirname(db.DB_PATH)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        etichetta = "disputate" if disputata == "1" else "da_disputare"
+        percorso_backup = os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_elimina_tutte_{etichetta}.db")
+        shutil.copy2(db.DB_PATH, percorso_backup)
     conn.execute("DELETE FROM partite WHERE disputata=?", (disputata,))
     conn.commit()
     conn.close()
@@ -1374,9 +1382,14 @@ def get_candidati_designazione(partita_id):
     ]
     indisponibilita = conn.execute("SELECT * FROM indisponibilita").fetchall()
     note = conn.execute("SELECT * FROM note_inibizioni").fetchall()
+    # per i conteggi "P. dirette casa/ospite" e "ultima designazione" sotto: non solo le gare
+    # già giocate, ma anche quelle "da disputare" già designate (arbitro o 2° arbitro assegnati).
+    # Così se un arbitro è già stato messo su una gara futura della stessa squadra/società, la
+    # designazione compare subito nei conteggi invece di essere invisibile finché non si gioca.
     disputate = [dict(r) for r in conn.execute(
         "SELECT arbitro, assistente1, data, aff_a, aff_b, campionato, squadra_casa, squadra_ospite "
-        "FROM partite WHERE disputata=1 AND (arbitro != '' OR assistente1 != '')"
+        "FROM partite WHERE id!=? AND (arbitro != '' OR assistente1 != '')",
+        (partita_id,),
     ).fetchall()]
     altre_gare_oggi = conn.execute(
         "SELECT campionato, numero_gara, arbitro, assistente1 FROM partite "
