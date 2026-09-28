@@ -1387,7 +1387,7 @@ def get_candidati_designazione(partita_id):
     # Così se un arbitro è già stato messo su una gara futura della stessa squadra/società, la
     # designazione compare subito nei conteggi invece di essere invisibile finché non si gioca.
     disputate = [dict(r) for r in conn.execute(
-        "SELECT arbitro, assistente1, data, aff_a, aff_b, campionato, squadra_casa, squadra_ospite "
+        "SELECT arbitro, assistente1, data, aff_a, aff_b, campionato, squadra_casa, squadra_ospite, disputata "
         "FROM partite WHERE id!=? AND (arbitro != '' OR assistente1 != '')",
         (partita_id,),
     ).fetchall()]
@@ -1493,6 +1493,13 @@ def get_candidati_designazione(partita_id):
         ultima_osp_cod = ""
         ultima_casa_nome = ""
         ultima_osp_nome = ""
+        # per ciascuna delle 4 date sopra: True se la gara più recente trovata è ancora "da
+        # disputare" (non ancora giocata per davvero) — usato in Designazioni per mostrarla in
+        # giallo, così si distingue a colpo d'occhio da una designazione già realmente avvenuta.
+        ultima_casa_cod_futura = False
+        ultima_osp_cod_futura = False
+        ultima_casa_nome_futura = False
+        ultima_osp_nome_futura = False
         n_casa_cod = 0
         n_casa_nome = 0
         n_osp_cod = 0
@@ -1500,14 +1507,17 @@ def get_candidati_designazione(partita_id):
         for p in disputate:
             if not _riga_ha_arbitro(p, nome_norm):
                 continue
+            non_giocata = not p["disputata"]
             if aff_casa and (p["aff_a"] == aff_casa or p["aff_b"] == aff_casa):
                 n_casa_cod += 1
                 if p["data"] > ultima_casa_cod:
                     ultima_casa_cod = p["data"]
+                    ultima_casa_cod_futura = non_giocata
             if aff_osp and (p["aff_a"] == aff_osp or p["aff_b"] == aff_osp):
                 n_osp_cod += 1
                 if p["data"] > ultima_osp_cod:
                     ultima_osp_cod = p["data"]
+                    ultima_osp_cod_futura = non_giocata
             # "per nome": se la squadra è collegata nella pagina Campionati usa l'id squadra
             # (valido su tutti i codici campionato collegati); altrimenti ricade sul vecchio
             # confronto testuale campionato+nome, come prima di avere questa funzionalità.
@@ -1521,6 +1531,7 @@ def get_candidati_designazione(partita_id):
                 n_casa_nome += 1
                 if p["data"] > ultima_casa_nome:
                     ultima_casa_nome = p["data"]
+                    ultima_casa_nome_futura = non_giocata
 
             if squadra_id_osp is not None:
                 osp_nome_match = squadra_id_osp in (p["_sq_casa_id"], p["_sq_osp_id"])
@@ -1532,6 +1543,7 @@ def get_candidati_designazione(partita_id):
                 n_osp_nome += 1
                 if p["data"] > ultima_osp_nome:
                     ultima_osp_nome = p["data"]
+                    ultima_osp_nome_futura = non_giocata
 
         designazioni_oggi = [
             f"{g['campionato']}, gara n° {g['numero_gara']}"
@@ -1557,9 +1569,13 @@ def get_candidati_designazione(partita_id):
             "inibito": inibito,
             "inibizione": " / ".join(inibizione_testo),
             "ultima_designazione_casa": ultima_casa_cod,
+            "ultima_designazione_casa_futura": ultima_casa_cod_futura,
             "ultima_designazione_casa_nome": ultima_casa_nome,
+            "ultima_designazione_casa_nome_futura": ultima_casa_nome_futura,
             "ultima_designazione_ospite": ultima_osp_cod,
+            "ultima_designazione_ospite_futura": ultima_osp_cod_futura,
             "ultima_designazione_ospite_nome": ultima_osp_nome,
+            "ultima_designazione_ospite_nome_futura": ultima_osp_nome_futura,
             "n_casa_codice": n_casa_cod,
             "n_casa_nome": n_casa_nome,
             "n_osp_codice": n_osp_cod,
@@ -2927,9 +2943,13 @@ def dettaglio_conteggio():
     if not partita:
         conn.close()
         return jsonify([])
+    # come in get_candidati_designazione: anche le gare "da disputare" già designate entrano
+    # nel conteggio, non solo quelle già giocate, quindi l'elenco dietro al numero deve mostrare
+    # le stesse gare (escludendo quella che si sta designando ora).
     rows = [dict(r) for r in conn.execute(
         "SELECT data, campionato, girone, numero_gara, squadra_casa, squadra_ospite, risultato, "
-        "arbitro, assistente1, aff_a, aff_b FROM partite WHERE disputata=1 AND (arbitro != '' OR assistente1 != '')"
+        "arbitro, assistente1, aff_a, aff_b, disputata FROM partite WHERE id!=? AND (arbitro != '' OR assistente1 != '')",
+        (partita_id,),
     ).fetchall()]
     mappa_codici, mappa_squadre = _carica_mappa_campionati(conn)
     conn.close()

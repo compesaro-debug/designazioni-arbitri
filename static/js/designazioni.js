@@ -569,6 +569,16 @@ function cellaConteggio(valore, arbitroId, tipo) {
   return `<button class="btn-storico-inline" onclick="apriDettaglioConteggio(${arbitroId}, '${tipo}')">${valore}</button>`;
 }
 
+// Come cellaConteggio, ma per le date "ultima designazione": se quella più recente è ancora
+// una gara da disputare (non giocata per davvero), la marca in giallo per distinguerla da una
+// designazione già effettivamente avvenuta.
+function _cellaUltimaDesignazione(valoreIso, futura, arbitroId, tipo) {
+  const valore = formattaData(valoreIso);
+  if (!valore) return "";
+  const contenuto = futura ? `<span class="tag tag-giallo" title="Gara non ancora disputata">${valore}</span>` : valore;
+  return `<button class="btn-storico-inline" onclick="apriDettaglioConteggio(${arbitroId}, '${tipo}')">${contenuto}</button>`;
+}
+
 const ETICHETTE_DETTAGLIO_CONTEGGIO = {
   casa_cod: "gare dirette per la squadra di casa (per codice affiliazione)",
   casa_nome: "gare dirette per la squadra di casa (per campionato + nome squadra)",
@@ -620,8 +630,8 @@ function renderCandidati() {
       <td>${cellaConteggio(c.n_casa_nome, c.id, "casa_nome")}</td>
       <td>${cellaConteggio(c.n_osp_codice, c.id, "osp_cod")}</td>
       <td>${cellaConteggio(c.n_osp_nome, c.id, "osp_nome")}</td>
-      <td>${cellaConteggio(formattaData(c.ultima_designazione_casa), c.id, "casa_cod")}</td>
-      <td>${cellaConteggio(formattaData(c.ultima_designazione_ospite), c.id, "osp_cod")}</td>
+      <td>${_cellaUltimaDesignazione(c.ultima_designazione_casa, c.ultima_designazione_casa_futura, c.id, "casa_cod")}</td>
+      <td>${_cellaUltimaDesignazione(c.ultima_designazione_ospite, c.ultima_designazione_ospite_futura, c.id, "osp_cod")}</td>
       <td>${dalle}</td>
       <td>${alle}</td>
       <td><div class="due-righe-interno">${c.indisp_motivo}</div></td>
