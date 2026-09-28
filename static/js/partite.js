@@ -46,6 +46,9 @@ function cambiaTab(tab) {
   document.getElementById("btn-azzera-filtri-omologazione").style.display = isOmologazione ? "" : "none";
   document.getElementById("btn-importa-partite").style.display = isOmologazione ? "none" : "";
   document.getElementById("btn-nuova-partita").style.display = isOmologazione ? "none" : "";
+  document.getElementById("btn-elimina-tutte-partite").style.display = isOmologazione ? "none" : "";
+  document.getElementById("btn-elimina-tutte-partite").textContent =
+    tab === "disputate" ? "Elimina tutte le disputate" : "Elimina tutte le da disputare";
   document.getElementById("hint-data-futura").style.display = (tab === "disputate" || isOmologazione) ? "" : "none";
 
   if (isOmologazione) {
@@ -191,6 +194,16 @@ async function eliminaPartita(id) {
   if (!confirm("Eliminare questa partita?")) return;
   await apiDelete(`/api/partite/${id}`);
   caricaPartite();
+}
+
+async function eliminaTutteLePartite() {
+  const etichetta = tabCorrente === "disputate" ? "disputate" : "da disputare";
+  const n = (window._partiteCache || []).length;
+  if (!confirm(`Eliminare TUTTE le ${n} partite "${etichetta}"? L'operazione non si può annullare.`)) return;
+  if (!confirm(`Sei sicuro? Stai per cancellare in blocco tutte le partite "${etichetta}" (le altre schede non vengono toccate).`)) return;
+  const risultato = await apiDelete(`/api/partite/elimina-tutte?disputata=${tabCorrente === "disputate" ? "1" : "0"}`);
+  caricaPartite();
+  alert(`Eliminate ${risultato.eliminate} partite.`);
 }
 
 abilitaOrdinamento("#tabella-head-partite", ordinamentoPartite, renderTabellaPartite);

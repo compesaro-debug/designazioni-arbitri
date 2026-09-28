@@ -389,6 +389,20 @@ def delete_partita(id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/partite/elimina-tutte", methods=["DELETE"])
+def elimina_tutte_partite():
+    """Cancella in blocco tutte le partite di una sola scheda (solo 'da disputare' oppure
+    solo 'disputate'), su richiesta esplicita dal pulsante dedicato in Partite. Stesso effetto
+    del DELETE fatto da un import in modalità 'sostituisci' senza però reimportare nulla."""
+    disputata = request.args.get("disputata", "0")
+    conn = db.get_db()
+    eliminate = conn.execute("SELECT COUNT(*) FROM partite WHERE disputata=?", (disputata,)).fetchone()[0]
+    conn.execute("DELETE FROM partite WHERE disputata=?", (disputata,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "eliminate": eliminate})
+
+
 @app.route("/api/partite/import", methods=["POST"])
 def import_partite():
     # tipo = "disputate" oppure "da_disputare", determina il valore del campo 'disputata'
