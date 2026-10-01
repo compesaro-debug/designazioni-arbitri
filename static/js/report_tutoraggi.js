@@ -65,8 +65,8 @@ function renderTutoraggi() {
   // riepilogo generale sul periodo + tutorato selezionato (non sul filtro testo campionato).
   const rGen = _riepilogoTutoraggi(tutte);
   document.getElementById("tutoraggi-n-gare").textContent = rGen.n;
-  document.getElementById("tutoraggi-media-km").textContent = rGen.n ? rGen.mediaKmTutor + " km" : "-";
-  document.getElementById("tutoraggi-km-tutor-totali").textContent = rGen.kmTutorTotali + " km";
+  document.getElementById("tutoraggi-media-km").textContent = rGen.n ? `${formattaNumero(rGen.mediaKmTutor)} km` : "-";
+  document.getElementById("tutoraggi-km-tutor-totali").textContent = `${formattaNumero(rGen.kmTutorTotali)} km`;
 
   const gruppi = {};
   tutte.forEach(r => {
@@ -77,6 +77,7 @@ function renderTutoraggi() {
   if (filtro) campionati = campionati.filter(c => c.nome.toLowerCase().includes(filtro));
   campionati.sort((a, b) => b.n - a.n);
   window._tutoraggiPerCampionato = campionati;
+  _renderGraficiTutoraggi(tutte, campionati);
 
   const tbody = document.getElementById("tabella-tutoraggi");
   const vuoto = document.getElementById("stato-vuoto-tutoraggi");
@@ -94,6 +95,63 @@ function renderTutoraggi() {
       <td>${c.kmTutorTotali} km</td>
     </tr>
   `).join("");
+}
+
+// stesso requisito del banner in Designazioni: il tutoraggio è concluso con almeno 5 gare
+// e almeno 3 tutor diversi
+const GARE_TUTORAGGIO_RICHIESTE = 5;
+const TUTOR_DIVERSI_RICHIESTI_REPORT = 3;
+
+function _renderGraficiTutoraggi(righe, campionati) {
+  const perTutorato = {};
+  righe.forEach(r => {
+    const { tutor, tutorato } = _ruoliTutoraggio(r);
+    if (!tutorato) return;
+    const t = perTutorato[tutorato] = perTutorato[tutorato] || { n: 0, tutor: new Set() };
+    t.n++;
+    if (tutor) t.tutor.add(tutor);
+  });
+  const tutorati = Object.entries(perTutorato).map(([nome, t]) => ({
+    nome, n: t.n, tutor: [...t.tutor].sort(),
+    completato: t.n >= GARE_TUTORAGGIO_RICHIESTE && t.tutor.size >= TUTOR_DIVERSI_RICHIESTI_REPORT,
+  })).sort((a, b) => (a.completato - b.completato) || (b.n - a.n));
+
+  const nCompletati = tutorati.filter(t => t.completato).length;
+  document.getElementById("tutoraggi-n-tutorati").textContent = formattaNumero(tutorati.length);
+  document.getElementById("tutoraggi-n-completati").textContent = tutorati.length
+    ? `${nCompletati} con tutoraggio completato`
+    : "";
+
+  const select = document.getElementById("tutoraggi-filtro-tutorato");
+  graficoBarre(document.getElementById("grafico-tutoraggi-tutorati"), tutorati.map(t => {
+    const mancanoGare = Math.max(0, GARE_TUTORAGGIO_RICHIESTE - t.n);
+    const mancanoTutor = Math.max(0, TUTOR_DIVERSI_RICHIESTI_REPORT - t.tutor.length);
+    const stato = t.completato
+      ? "Tutoraggio completato"
+      : `Mancano ${[mancanoGare ? `${mancanoGare} gare` : "", mancanoTutor ? `${mancanoTutor} tutor diversi` : ""].filter(Boolean).join(" e ")}`;
+    return {
+      etichetta: t.nome,
+      valore: t.n,
+      testo: `${t.n} gare · ${t.tutor.length} tutor`,
+      tenue: t.completato,
+      colore: t.completato ? "var(--serie-1-tenue)" : undefined,
+      dettaglio: `Tutor: ${t.tutor.join(", ") || "-"}\n${stato}`,
+      onClick: () => { select.value = select.value === t.nome ? "" : t.nome; renderTutoraggi(); },
+    };
+  }), {
+    spazioValore: 104,
+    massimoRighe: 15,
+    riferimento: { valore: GARE_TUTORAGGIO_RICHIESTE, etichetta: "Obiettivo gare" },
+    vuoto: "Nessun arbitro tutorato nel periodo",
+  });
+
+  graficoBarre(document.getElementById("grafico-tutoraggi-campionati"), campionati.map((c, i) => ({
+    etichetta: c.nome,
+    valore: c.n,
+    testo: `${c.n} gare`,
+    dettaglio: `Media km tutor: ${formattaNumero(c.mediaKmTutor)} km\nKm tutor totali: ${formattaNumero(c.kmTutorTotali)} km`,
+    onClick: () => apriDettaglioTutoraggiCampionato(i),
+  })), { spazioValore: 72, massimoRighe: 12, vuoto: "Nessuna gara in tutoraggio nel periodo" });
 }
 
 function apriDettaglioTutoraggiCampionato(indice) {

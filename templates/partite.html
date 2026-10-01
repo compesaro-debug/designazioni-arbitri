@@ -69,7 +69,7 @@
         <th class="sortable" data-campo="residenza_assistente2">Res. Ass. 2</th>
         <th class="sortable" data-campo="osservatore">Osservatore</th>
         <th class="sortable" data-campo="residenza_osservatore">Res. Osservatore</th>
-        <th></th>
+        <th class="cella-azioni"></th>
       </tr>
       <tr class="filtri-row">
         <th><input class="filtro-input" data-campo="data" placeholder="Filtra..."></th>
@@ -108,7 +108,7 @@
         <th><input class="filtro-input" data-campo="residenza_assistente2" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="osservatore" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="residenza_osservatore" placeholder="Filtra..."></th>
-        <th></th>
+        <th class="cella-azioni"></th>
       </tr>
     </thead>
     <tbody id="tabella-partite"></tbody>
@@ -118,6 +118,7 @@
     <strong>Nessuna partita qui</strong>
     Aggiungi una partita manualmente oppure importa un file Excel.
   </div>
+  {% include "_suggerimento_azioni.html" %}
 </div>
 
 <div class="card" id="card-omologazione" style="display:none">

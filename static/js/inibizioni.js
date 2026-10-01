@@ -36,9 +36,9 @@ function renderTabellaInibizioni() {
       <td><span class="tag ${tagClasse}">${tagTesto}</span></td>
       <td>${r.descrizione}</td>
       <td>${r.codice_affiliazione}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="modificaInibizione(${r.id})">Modifica</button>
-        <button class="btn-danger-text" onclick="eliminaInibizione(${r.id})">Elimina</button>
+      <td class="cella-azioni" data-azioni>
+        ${btnAzione("modifica", `modificaInibizione(${r.id})`, "Modifica")}
+        ${btnAzione("elimina", `eliminaInibizione(${r.id})`, "Elimina")}
       </td>
     `;
     tbody.appendChild(tr);
@@ -85,13 +85,16 @@ async function salvaInibizione() {
     await apiSend("/api/inibizioni", "POST", payload);
   }
   closeOverlay("modale-inibizione");
-  caricaInibizioni();
+  await caricaInibizioni();
+  avviso(id ? "Modifiche salvate." : "Nota/inibizione aggiunta.");
 }
 
 async function eliminaInibizione(id) {
-  if (!confirm("Eliminare questa nota/inibizione?")) return;
+  const r = (window._inibizioniCache || []).find(x => x.id === id);
+  if (!await conferma(`Eliminare questa ${r && r.tipo === "inibizione" ? "inibizione" : "nota"}${r ? " di " + r.arbitro : ""}?`, { titolo: "Elimina nota/inibizione", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/inibizioni/${id}`);
-  caricaInibizioni();
+  await caricaInibizioni();
+  avviso("Eliminata.");
 }
 
 abilitaOrdinamento("#tabella-head-inibizioni", ordinamentoInibizioni, renderTabellaInibizioni);

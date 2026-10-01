@@ -217,6 +217,23 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
   <p>Il sito gestisce in un unico posto tutta l'attività della sezione arbitri: anagrafica, indisponibilità, calendario gare, designazioni, rimborsi km e le statistiche della stagione. L'accesso è protetto da utente e password: chi entra vede sempre <strong>lo stesso database condiviso</strong>, quindi le modifiche fatte da un utente sono visibili subito a chiunque altro apra il sito.</p>
   <p>Il menu a sinistra è diviso in quattro gruppi — <strong>Arbitri, Gare, Campionati, Report</strong> — più la Home. Il manuale segue lo stesso ordine.</p>
   <div class="callout info">Tutte le pagine di elenco (Arbitri, Partite, Indisponibilità...) hanno filtri per colonna sotto l'intestazione, colonne nascondibili dal pulsante "Colonne", e intestazioni cliccabili per ordinare — funzionano allo stesso modo ovunque nel sito.</div>
+
+  <h3>Modificare ed eliminare velocemente</h3>
+  <p>Gli elenchi non hanno più una colonna di pulsanti: tutte le azioni di una riga si fanno col mouse direttamente sulla riga. L'unica eccezione è il pulsante <strong>Designa</strong> nella finestra "Designa arbitro", che resta sempre visibile sul bordo destro della griglia dei candidati.</p>
+  <ul>
+    <li><strong>Clic destro</strong> su una riga (o su un riquadro gara in Designazioni) apre un menu con tutte le azioni disponibili per quella riga: modifica, elimina, report, gestisci, designa, storico, rimuovi arbitro...</li>
+    <li><strong>Doppio clic</strong> su una riga esegue l'azione principale: apre la modifica, oppure il report nell'elenco del Report arbitro, oppure <strong>designa</strong> l'arbitro nella finestra "Designa arbitro".</li>
+    <li>Prima di ogni eliminazione compare una finestra di conferma che dice esattamente cosa stai per cancellare (es. il nome dell'arbitro o la gara con le squadre). <em>Annulla</em> o il tasto Esc non cancellano nulla.</li>
+    <li>Dopo ogni salvataggio o eliminazione compare in basso a destra una breve notifica di conferma, che sparisce da sola.</li>
+  </ul>
+
+  <h3>Configurare le colonne</h3>
+  <p>Il pulsante <strong>Colonne</strong> sopra ogni tabella (anche nella griglia dei candidati in "Designa arbitro") apre un pannello dove, per ogni colonna, scegli:</p>
+  <ul>
+    <li>se è <strong>visibile</strong> (casella a sinistra);</li>
+    <li>se è <strong>fissa</strong> (icona a puntina a destra): le colonne fisse restano agganciate al bordo sinistro mentre il resto della tabella scorre in orizzontale — ad esempio in Partite puoi fissare Campionato e Fase e far scorrere tutto il resto.</li>
+  </ul>
+  <p>La <strong>larghezza</strong> di una colonna si cambia trascinando il bordo destro della sua intestazione. Colonne visibili, colonne fisse e larghezze vengono ricordate per ogni tabella: riaprendo la pagina la ritrovi come l'avevi lasciata (su quel computer e browser). "Nessuna fissa" e "Larghezze originali", in fondo al pannello, riportano la tabella allo stato iniziale.</p>
 </section>
 
 <section id="home">
@@ -502,13 +519,14 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
     <div class="mock-tile"><b>1 230</b><span>Km totali</span></div>
   </div>
   <p>Ogni numero è cliccabile e apre l'elenco esatto delle gare dietro al conteggio. Il tile <strong>Come tutor</strong> conta le gare in cui questo arbitro ha fatto da tutor (rimborso km a suo favore, collega azzerato) — vedi <a href="#calcoli">Come sono calcolati i numeri</a> per il dettaglio.</p>
-  <p>Più sotto: distribuzione per fase (Campionato/Coppa/Playoff/Fasi finali), per campionato, per società affrontata, un calendario di disponibilità/indisponibilità giorno per giorno dalla prima all'ultima gara mai disputata nel sistema, e un grafico mensile gare/disponibilità.</p>
+  <p>Più sotto una serie di grafici: <strong>gare dirette per mese</strong> (clic su una colonna per l'elenco gare di quel mese), gare per fase (Campionato/Coppa/Playoff/Fasi finali), per campionato e per società affrontata (clic su una barra per l'elenco). Nella sezione <strong>Disponibilità</strong> ci sono i giorni disponibili / disponibili in parte / indisponibili mese per mese e per giorno della settimana, calcolati dalla prima all'ultima gara mai disputata nel sistema; le stesse cifre in forma di tabella sono nella sezione apribile "Tabelle di disponibilità".</p>
+  <div class="callout info">In tutte le schede del Report: passando il mouse su una barra o una colonna compare il dettaglio con i numeri esatti; le barre cliccabili si evidenziano al passaggio. Le tabelle complete, con tutti i valori, restano sempre disponibili nelle sezioni apribili sotto ai grafici.</div>
 </section>
 
 <section id="report-sezione">
   <h2>Report di sezione</h2>
   <p class="sotto">Report &rarr; Report di sezione</p>
-  <p>Vista d'insieme su tutti gli arbitri: carico di lavoro, km, confronto con la media, per qualifica (Nazionale/Regionale/Territoriale). Ogni arbitro ha il proprio <strong>scostamento</strong> dalla media gare della sezione, per individuare subito chi ha lavorato molto più o molto meno degli altri.</p>
+  <p>Vista d'insieme su tutti gli arbitri: carico di lavoro, km, confronto con la media, per qualifica (Nazionale/Regionale/Territoriale). In alto i numeri principali della stagione; sotto i grafici <strong>gare per qualifica</strong>, <strong>quota 1°/2° arbitro</strong> (per tutta la sezione e per qualifica), <strong>carico di lavoro per arbitro</strong> con la linea della media della sezione, e <strong>km percorsi per arbitro</strong>. Clic su un nome nei grafici apre il report di quell'arbitro. La classifica completa con lo <strong>scostamento</strong> di ognuno dalla media è nella sezione apribile in fondo.</p>
 </section>
 
 <section id="report-campionato">
@@ -528,19 +546,20 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
   </div>
 
   <p>Clic su una riga apre il dettaglio squadra/arbitro (quante volte ognuno ha diretto ogni squadra). Clic sul numero <strong>Gare in tutoraggio</strong> apre l'elenco delle gare con chi era 1° e chi 2° arbitro, marcati tutor/tutorato — comprese le gare <strong>già designate ma non ancora disputate</strong>, evidenziate in giallo, mostrate come anteprima (non entrano nelle statistiche, che restano basate solo sul realmente giocato).</p>
+  <p>Sopra la tabella due grafici: <strong>designazioni federali e Arbitro Associato</strong> per campionato, e <strong>media km per designazione</strong> (solo federali) con una tacca verticale sul limite "km da rispettare": le barre rosse sono i campionati oltre il limite, e il numero tra parentesi è lo scostamento. Clic su una barra rossa apre l'elenco delle gare sopra la media.</p>
   <p>Le formule esatte di ogni colonna (federali/associato %, doppio arbitro, medie km con e senza tutoraggio, scostamento dalla soglia) sono nell'appendice finale.</p>
 </section>
 
 <section id="copertura">
   <h2>Copertura territoriale</h2>
   <p class="sotto">Report &rarr; Copertura territoriale</p>
-  <p>Per ogni comune dove si sono giocate gare: quanti arbitri risiedono lì o entro 15&nbsp;km di distanza, per individuare le zone con tante gare ma pochi arbitri vicini disponibili — quelle più onerose da coprire in trasferta. Le righe rosse sono comuni <strong>senza nessun arbitro</strong> nella zona.</p>
+  <p>Per ogni comune dove si sono giocate gare: quanti arbitri risiedono lì o entro 15&nbsp;km di distanza, per individuare le zone con tante gare ma pochi arbitri vicini disponibili — quelle più onerose da coprire in trasferta. Il grafico <strong>Comuni più sotto pressione</strong> ordina i comuni per gare per ogni arbitro in zona (più è alto, più è difficile coprirli), con la linea della media; il grafico <strong>Zone scoperte</strong> elenca in rosso i comuni senza nessun arbitro nella zona, per numero di gare.</p>
 </section>
 
 <section id="confronto">
   <h2>Confronto stagioni</h2>
   <p class="sotto">Report &rarr; Confronto stagioni</p>
-  <p>Gli stessi numeri di sintesi del Report di sezione (n. arbitri, gare, media gare/arbitro, km totali, % di copertura per qualifica), affiancati stagione per stagione — richiede di aver archiviato le stagioni passate in <a href="#dati">Dati</a>. Le caselle in alto permettono di includere o escludere singole stagioni dal confronto.</p>
+  <p>Gli stessi numeri di sintesi del Report di sezione (n. arbitri, gare, media gare/arbitro, km totali, % di copertura per qualifica), affiancati stagione per stagione — richiede di aver archiviato le stagioni passate in <a href="#dati">Dati</a>. Le caselle in alto permettono di includere o escludere singole stagioni dal confronto. Quattro grafici a colonne (gare, arbitri attivi, media gare per arbitro, km totali) mettono le stagioni in ordine cronologico, con la corrente evidenziata quando ha già dei dati.</p>
 </section>
 
 <section id="tutoraggi-report">
@@ -552,7 +571,8 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
     <div class="mock-tile"><b>61.6 km</b><span>Media km tutor</span></div>
     <div class="mock-tile"><b>1 232 km</b><span>Km tutor totali</span></div>
   </div>
-  <p>Un filtro <strong>Arbitro tutorato</strong> in alto restringe riepilogo e tabella a un solo arbitro (utile per controllare a che punto è il suo percorso: quante gare, con quali tutor). La tabella è divisa per campionato; clic su una riga apre l'elenco gare con tutor, tutorato e relative residenze e km.</p>
+  <p>Il grafico <strong>Percorso dei tutorati</strong> mostra per ogni arbitro tutorato quante gare in tutoraggio ha fatto e con quanti tutor diversi, con la linea dell'obiettivo di 5 gare (servono anche 3 tutor diversi); chi ha già completato il percorso compare in grigio in fondo. Clic su un nome per filtrare tutta la pagina su di lui (di nuovo clic per togliere il filtro). Il grafico per campionato apre, al clic, l'elenco gare con tutor, tutorato e relative residenze e km.</p>
+  <p>Lo stesso filtro <strong>Arbitro tutorato</strong> è disponibile anche dal menu a tendina in alto, insieme al periodo Da/A e alla ricerca per campionato.</p>
 </section>
 
 <section id="calcoli">

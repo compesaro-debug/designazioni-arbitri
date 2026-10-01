@@ -49,10 +49,10 @@ function renderTabellaCampionati() {
       <td>${c.n_codici}</td>
       <td>${arbitrabile ? '<span class="tag tag-verde">Sì</span>' : '<span class="tag tag-rosso">No</span>'}</td>
       <td>${c.km_per_partita || "-"}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="apriGestioneCampionato(${c.id})">Gestisci</button>
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="apriModaleCampionato(${c.id})">Modifica</button>
-        <button class="btn-danger-text" onclick="eliminaCampionato(${c.id})">Elimina</button>
+      <td class="cella-azioni" data-azioni>
+        ${btnAzione("gestisci", `apriGestioneCampionato(${c.id})`, "Gestisci")}
+        ${btnAzione("modifica", `apriModaleCampionato(${c.id})`, "Modifica")}
+        ${btnAzione("elimina", `eliminaCampionato(${c.id})`, "Elimina")}
       </td>
     `;
     tbody.appendChild(tr);
@@ -92,13 +92,15 @@ async function salvaCampionato() {
     await apiSend("/api/campionati", "POST", payload);
   }
   closeOverlay("modale-campionato");
-  caricaCampionati();
+  await caricaCampionati();
+  avviso(id ? "Modifiche salvate." : "Campionato aggiunto.");
 }
 
 async function eliminaCampionato(id) {
-  if (!confirm("Eliminare questo campionato? Vengono rimossi anche le squadre e i codici collegati (le partite non vengono toccate).")) return;
+  if (!await conferma("Vengono rimossi anche le squadre e i codici collegati. Le partite non vengono toccate.", { titolo: "Elimina campionato", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/campionati/${id}`);
-  caricaCampionati();
+  await caricaCampionati();
+  avviso("Campionato eliminato.");
 }
 
 async function apriGestioneCampionato(id) {
@@ -118,7 +120,7 @@ async function ricaricaDettaglioCampionato() {
 
   const listaSquadre = document.getElementById("lista-squadre");
   listaSquadre.innerHTML = dettaglio.squadre.length
-    ? dettaglio.squadre.map(s => `<li>${s.nome} <button class="btn-danger-text" onclick="rimuoviSquadra(${s.id})">Rimuovi</button></li>`).join("")
+    ? dettaglio.squadre.map(s => `<li>${s.nome} ${btnAzione("elimina", `rimuoviSquadra(${s.id})`, "Rimuovi")}</li>`).join("")
     : `<li style="color:var(--testo-tenue)">Nessuna squadra aggiunta</li>`;
 
   const listaCodici = document.getElementById("lista-codici");
@@ -132,7 +134,7 @@ async function ricaricaDettaglioCampionato() {
             <option value="playoff" ${c.tipo_fase === "playoff" ? "selected" : ""}>Playoff/Play out</option>
             <option value="final_four" ${c.tipo_fase === "final_four" ? "selected" : ""}>Fasi finali</option>
           </select>
-          <button class="btn-danger-text" onclick="rimuoviCodice(${c.id})">Rimuovi</button>
+          ${btnAzione("elimina", `rimuoviCodice(${c.id})`, "Rimuovi")}
         </li>
       `).join("")
     : `<li style="color:var(--testo-tenue)">Nessun codice collegato</li>`;

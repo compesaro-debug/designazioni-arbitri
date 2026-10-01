@@ -23,9 +23,9 @@ function renderTabellaSocieta() {
         <tr>
           <td>${s.codice_affiliazione}</td>
           <td>${s.ragione_sociale}</td>
-          <td style="white-space:nowrap">
-            <button class="btn-danger-text" style="color:var(--primario)" onclick="apriModaleSocieta(${s.id})">Modifica</button>
-            <button class="btn-danger-text" onclick="eliminaSocieta(${s.id})">Elimina</button>
+          <td class="cella-azioni" data-azioni>
+            ${btnAzione("modifica", `apriModaleSocieta(${s.id})`, "Modifica")}
+            ${btnAzione("elimina", `eliminaSocieta(${s.id})`, "Elimina")}
           </td>
         </tr>
       `).join("")
@@ -54,19 +54,22 @@ async function salvaSocieta() {
     await apiSend("/api/societa", "POST", { codice_affiliazione, ragione_sociale });
   }
   closeOverlay("modale-societa");
-  caricaSocieta();
+  await caricaSocieta();
+  avviso(id ? "Modifiche salvate." : "Società aggiunta.");
 }
 
 async function eliminaSocieta(id) {
-  if (!confirm("Eliminare questa società dall'anagrafica?")) return;
+  const s = (window._societaCache || []).find(x => x.id === id);
+  if (!await conferma(`Eliminare ${s ? s.ragione_sociale : "questa società"} dall'anagrafica?`, { titolo: "Elimina società", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/societa/${id}`);
-  caricaSocieta();
+  await caricaSocieta();
+  avviso("Società eliminata.");
 }
 
 async function importaSocieta() {
   const risultato = await apiSend("/api/societa/importa", "POST", {});
   await caricaSocieta();
-  alert(risultato.inserite > 0
+  avviso(risultato.inserite > 0
     ? `Importate ${risultato.inserite} nuove società. Controlla le ragioni sociali suggerite (viene scelto il nome squadra più frequente per quel codice) e correggile dove serve.`
     : "Nessuna nuova società da importare: i codici presenti nelle partite sono già tutti in anagrafica.");
 }

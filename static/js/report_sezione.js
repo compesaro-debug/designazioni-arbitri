@@ -54,14 +54,13 @@ async function caricaReportSezione() {
   const dati = await apiGet(`/api/report/sezione${_querySuffixStagione()}`);
   window._reportSezioneCache = dati.arbitri;
 
-  document.getElementById("sezione-n-arbitri").textContent = dati.n_arbitri;
-  document.getElementById("sezione-n-gare").textContent = dati.n_gare_sezione;
-  document.getElementById("sezione-media-gare").textContent = dati.media_gare;
-  document.getElementById("sezione-km-totali").textContent = `${dati.km_totali_sezione} km`;
-  document.getElementById("sezione-n-gare-doppia").textContent = dati.n_gare_doppia_designazione;
-  document.getElementById("sezione-pct-gare-doppia").textContent = `(${dati.pct_gare_doppia_designazione}% delle gare disputate)`;
-  document.getElementById("sezione-pct-primo").textContent = `${dati.pct_primo_totale}%`;
-  document.getElementById("sezione-pct-secondo").textContent = `${dati.pct_secondo_totale}%`;
+  document.getElementById("sezione-n-arbitri").textContent = formattaNumero(dati.n_arbitri);
+  document.getElementById("sezione-n-gare").textContent = formattaNumero(dati.n_gare_sezione);
+  document.getElementById("sezione-media-gare").textContent = formattaNumero(dati.media_gare);
+  document.getElementById("sezione-km-totali").textContent = `${formattaNumero(dati.km_totali_sezione)} km`;
+  document.getElementById("sezione-n-gare-doppia").textContent = formattaNumero(dati.n_gare_doppia_designazione);
+  document.getElementById("sezione-pct-gare-doppia").textContent = `${formattaNumero(dati.pct_gare_doppia_designazione)}% delle gare disputate`;
+  _renderGraficiSezione(dati);
 
   document.getElementById("tabella-sezione-ruolo").innerHTML = dati.distribuzione_ruolo.map(d => `
     <tr>
@@ -77,6 +76,59 @@ async function caricaReportSezione() {
   `).join("");
 
   renderTabellaSezione();
+}
+
+const NOMI_QUALIFICA = { NAZ: "Nazionale (NAZ)", REG: "Regionale (REG)", TER: "Territoriale (TER)" };
+
+function _renderGraficiSezione(dati) {
+  const arbitri = (dati.arbitri || []).filter(a => a.gare > 0);
+
+  graficoBarre(document.getElementById("grafico-sezione-qualifica"), dati.distribuzione_ruolo.map(d => ({
+    etichetta: NOMI_QUALIFICA[d.ruolo] || d.ruolo,
+    valore: d.gare,
+    dettaglio: d.arbitri != null
+      ? `${d.arbitri} arbitri · media ${formattaNumero(d.media_gare)} gare\n${formattaNumero(d.percentuale)}% delle gare`
+      : `${formattaNumero(d.percentuale)}% delle gare`,
+  })), { vuoto: "Nessuna gara disputata in questa stagione" });
+
+  // conteggi 1°/2° sommati dagli arbitri, per qualifica e per tutta la sezione
+  const perRuolo = {};
+  arbitri.forEach(a => {
+    const r = perRuolo[a.ruolo] = perRuolo[a.ruolo] || [0, 0];
+    r[0] += a.n_primo;
+    r[1] += a.n_secondo;
+  });
+  const totale = arbitri.reduce((t, a) => [t[0] + a.n_primo, t[1] + a.n_secondo], [0, 0]);
+  const ordine = ["NAZ", "REG", "TER"];
+  const ruoliOrdinati = Object.keys(perRuolo).sort((a, b) => (ordine.indexOf(a) + 1 || 99) - (ordine.indexOf(b) + 1 || 99));
+  const pctPrimo = (v) => v[0] + v[1] ? Math.round(v[0] / (v[0] + v[1]) * 100) : 0;
+  graficoImpilato(document.getElementById("grafico-sezione-ruoli"), [
+    { etichetta: "Tutta la sezione", valori: totale },
+    ...ruoliOrdinati.map(r => ({ etichetta: NOMI_QUALIFICA[r] || r, valori: perRuolo[r] })),
+  ], [
+    { nome: "1° arbitro", colore: "var(--serie-1)" },
+    { nome: "2° arbitro", colore: "var(--serie-2)" },
+  ], {
+    percentuale: true,
+    fine: (r) => `${pctPrimo(r.valori)}% · ${100 - pctPrimo(r.valori)}%`,
+    vuoto: "Nessuna designazione",
+  });
+
+  const perGare = [...arbitri].sort((a, b) => b.gare - a.gare);
+  graficoBarre(document.getElementById("grafico-sezione-carico"), perGare.map(a => ({
+    etichetta: a.nome,
+    valore: a.gare,
+    dettaglio: `${a.ruolo || "-"} · ${a.comune || "-"}\n1° arbitro ${a.n_primo} · 2° arbitro ${a.n_secondo}`,
+    onClick: () => apriReportArbitro(a.id),
+  })), { riferimento: { valore: dati.media_gare, etichetta: "Media della sezione" }, massimoRighe: 15 });
+
+  const perKm = [...arbitri].filter(a => a.km_totali > 0).sort((a, b) => b.km_totali - a.km_totali);
+  graficoBarre(document.getElementById("grafico-sezione-km"), perKm.map(a => ({
+    etichetta: a.nome,
+    valore: a.km_totali,
+    dettaglio: `${a.gare} gare · ${a.comune || "-"}`,
+    onClick: () => apriReportArbitro(a.id),
+  })), { unita: " km", massimoRighe: 15, vuoto: "Nessun km calcolato" });
 }
 
 function renderTabellaSezione() {

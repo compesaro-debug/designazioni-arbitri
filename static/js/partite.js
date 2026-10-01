@@ -142,9 +142,9 @@ function renderTabellaPartite() {
       <td>${p.residenza_assistente2}</td>
       <td>${p.osservatore}</td>
       <td>${p.residenza_osservatore}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="modificaPartita(${p.id})">Modifica</button>
-        <button class="btn-danger-text" onclick="eliminaPartita(${p.id})">Elimina</button>
+      <td class="cella-azioni" data-azioni>
+        ${btnAzione("modifica", `modificaPartita(${p.id})`, "Modifica")}
+        ${btnAzione("elimina", `eliminaPartita(${p.id})`, "Elimina")}
       </td>
     `;
     tbody.appendChild(tr);
@@ -187,23 +187,27 @@ async function salvaPartita() {
     await apiSend("/api/partite", "POST", payload);
   }
   closeOverlay("modale-partita");
-  caricaPartite();
+  await caricaPartite();
+  avviso(id ? "Modifiche salvate." : "Partita aggiunta.");
 }
 
 async function eliminaPartita(id) {
-  if (!confirm("Eliminare questa partita?")) return;
+  const p = (window._partiteCache || []).find(x => x.id === id);
+  const dettaglio = p ? `${p.campionato} n° ${p.numero_gara} — ${p.squadra_casa} vs ${p.squadra_ospite}` : "";
+  if (!await conferma(dettaglio ? `Eliminare la gara ${dettaglio}?` : "Eliminare questa partita?", { titolo: "Elimina partita", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/partite/${id}`);
-  caricaPartite();
+  await caricaPartite();
+  avviso("Partita eliminata.");
 }
 
 async function eliminaTutteLePartite() {
   const etichetta = tabCorrente === "disputate" ? "disputate" : "da disputare";
   const n = (window._partiteCache || []).length;
-  if (!confirm(`Eliminare TUTTE le ${n} partite "${etichetta}"? L'operazione non si può annullare.`)) return;
-  if (!confirm(`Sei sicuro? Stai per cancellare in blocco tutte le partite "${etichetta}" (le altre schede non vengono toccate).`)) return;
+  if (!await conferma(`Stai per eliminare tutte le ${n} partite "${etichetta}". Le altre schede non vengono toccate e prima viene fatto un backup automatico del database.`, { titolo: `Eliminare tutte le ${etichetta}?`, testoConferma: "Continua" })) return;
+  if (!await conferma(`Confermi la cancellazione in blocco di ${n} partite "${etichetta}"?`, { titolo: "Ultima conferma", testoConferma: `Elimina ${n} partite` })) return;
   const risultato = await apiDelete(`/api/partite/elimina-tutte?disputata=${tabCorrente === "disputate" ? "1" : "0"}`);
-  caricaPartite();
-  alert(`Eliminate ${risultato.eliminate} partite.`);
+  await caricaPartite();
+  avviso(`Eliminate ${risultato.eliminate} partite.`);
 }
 
 abilitaOrdinamento("#tabella-head-partite", ordinamentoPartite, renderTabellaPartite);

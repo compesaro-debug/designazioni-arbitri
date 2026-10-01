@@ -35,10 +35,10 @@ function renderTabellaArbitri() {
       <td>${_testoScadenzaCertificato(a.scadenza_certificato_medico)}</td>
       <td>${a.cellulare}</td>
       <td>${a.email}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-danger-text" onclick="apriReportArbitro(${a.id})" style="color:var(--primario)">Report</button>
-        <button class="btn-danger-text" onclick="modificaArbitro(${a.id})" style="color:var(--primario)">Modifica</button>
-        <button class="btn-danger-text" onclick="eliminaArbitro(${a.id})">Elimina</button>
+      <td class="cella-azioni" data-azioni>
+        ${btnAzione("report", `apriReportArbitro(${a.id})`, "Report")}
+        ${btnAzione("modifica", `modificaArbitro(${a.id})`, "Modifica")}
+        ${btnAzione("elimina", `eliminaArbitro(${a.id})`, "Elimina")}
       </td>
     `;
     tbody.appendChild(tr);
@@ -131,13 +131,16 @@ async function salvaArbitro() {
     await apiSend("/api/arbitri", "POST", payload);
   }
   closeOverlay("modale-arbitro");
-  caricaArbitri();
+  await caricaArbitri();
+  avviso(id ? "Modifiche salvate." : "Arbitro aggiunto.");
 }
 
 async function eliminaArbitro(id) {
-  if (!confirm("Eliminare questo arbitro dall'anagrafica?")) return;
+  const a = (window._arbitriCache || []).find(x => x.id === id);
+  if (!await conferma(`Eliminare ${a ? a.cognome_nome : "questo arbitro"} dall'anagrafica?`, { titolo: "Elimina arbitro", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/arbitri/${id}`);
-  caricaArbitri();
+  await caricaArbitri();
+  avviso("Arbitro eliminato.");
 }
 
 abilitaOrdinamento("#tabella-head-arbitri", ordinamentoArbitri, renderTabellaArbitri);

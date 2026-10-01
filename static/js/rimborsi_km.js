@@ -109,9 +109,9 @@ function _rigaRimborso(r) {
   // numero gara prima di un reimport): mostrata solo se non c'è già una modalità scelta ora,
   // e mai applicata da sola — serve un clic esplicito su "Conferma".
   const proposta = (!r.rimborso_km_modalita && r.proposta_modalita)
-    ? `<div class="hint" style="margin-top:4px;">
+    ? `<div class="hint" style="margin-top:4px;" data-azioni>
         <span class="tag tag-giallo">Proposto</span> ${ETICHETTE_MODALITA_RIMBORSO[r.proposta_modalita] || r.proposta_modalita}
-        <button class="btn-testo" style="padding:2px 8px;font-size:11px;" onclick="confermaPropostaRimborso(${r.id}, '${r.proposta_modalita}', '${r.proposta_km_manuale_arbitro || ""}', '${r.proposta_km_manuale_assistente1 || ""}')">Conferma</button>
+        <button class="btn-testo" style="padding:2px 8px;font-size:11px;" title="Conferma rimborso proposto" data-icona="conferma" onclick="confermaPropostaRimborso(${r.id}, '${r.proposta_modalita}', '${r.proposta_km_manuale_arbitro || ""}', '${r.proposta_km_manuale_assistente1 || ""}')">Conferma</button>
       </div>`
     : "";
 

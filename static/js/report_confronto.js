@@ -14,7 +14,7 @@ function renderCheckboxConfronto() {
   cont.innerHTML = _confrontoStagioniCache.map(s => `
     <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer;">
       <input type="checkbox" ${_confrontoStagioniVisibili.has(s.stagione_id) ? "checked" : ""} onchange="toggleStagioneConfronto(${s.stagione_id}, this.checked)">
-      ${s.stagione_nome}${s.dati_live ? " (corrente)" : ""}
+      ${s.stagione_nome}${s.dati_live && !/corrente/i.test(s.stagione_nome) ? " (corrente)" : ""}
     </label>
   `).join("");
 }
@@ -25,9 +25,31 @@ function toggleStagioneConfronto(id, checked) {
   renderTabellaConfronto();
 }
 
+function _renderGraficiConfronto(stagioni) {
+  // ordine cronologico: stagioni passate dalla più vecchia, poi la corrente (evidenziata)
+  const cronologiche = [...stagioni].sort((a, b) => (a.dati_live - b.dati_live) || (a.stagione_id - b.stagione_id));
+  const serie = [{ nome: "Stagione", colore: "var(--serie-1)", coloreTenue: "var(--serie-1-tenue)" }];
+  const disegna = (id, campo, unita = "") => {
+    // la corrente si evidenzia solo se ha già dati: altrimenti tutte le colonne restano piene
+    const correnteConDati = cronologiche.some(s => s.dati_live && s[campo] > 0);
+    graficoColonne(document.getElementById(id), cronologiche.map(s => ({
+      etichetta: s.stagione_nome,
+      sottoetichetta: s.dati_live && !/corrente/i.test(s.stagione_nome) ? "corrente" : "",
+      valori: [s[campo]],
+      evidenzia: correnteConDati ? s.dati_live : true,
+    })), serie, { unita, altezza: 160, vuoto: "Nessuna stagione selezionata" });
+  };
+
+  disegna("grafico-confronto-gare", "n_gare_sezione");
+  disegna("grafico-confronto-arbitri", "n_arbitri");
+  disegna("grafico-confronto-media", "media_gare");
+  disegna("grafico-confronto-km", "km_totali_sezione", " km");
+}
+
 function renderTabellaConfronto() {
   const tbody = document.getElementById("tabella-confronto-stagioni");
   const stagioni = _confrontoStagioniCache.filter(s => _confrontoStagioniVisibili.has(s.stagione_id));
+  _renderGraficiConfronto(stagioni);
   if (!stagioni.length) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--testo-tenue)">Nessuna stagione selezionata</td></tr>`;
     return;

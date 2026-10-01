@@ -45,7 +45,7 @@
         <th class="sortable" data-campo="scadenza_certificato_medico">Scad. certificato medico</th>
         <th class="sortable" data-campo="cellulare">Cellulare</th>
         <th class="sortable" data-campo="email">E-mail</th>
-        <th></th>
+        <th class="cella-azioni"></th>
       </tr>
       <tr class="filtri-row">
         <th></th>
@@ -71,7 +71,7 @@
         <th></th>
         <th><input class="filtro-input" data-campo="cellulare" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="email" placeholder="Filtra..."></th>
-        <th></th>
+        <th class="cella-azioni"></th>
       </tr>
     </thead>
     <tbody id="tabella-arbitri"></tbody>
@@ -81,6 +81,7 @@
     <strong>Nessun arbitro in anagrafica</strong>
     Aggiungi un arbitro manualmente oppure importa un file Excel.
   </div>
+  {% include "_suggerimento_azioni.html" %}
 </div>
 
 <!-- Modale aggiungi/modifica arbitro -->

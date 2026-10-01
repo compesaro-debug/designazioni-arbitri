@@ -41,14 +41,14 @@ function apriModaleChiudiStagione() {
 async function confermaChiudiStagione() {
   const nome = document.getElementById("f-chiudi-stagione-nome").value.trim();
   if (!nome) return;
-  if (!confirm(`Confermi? La stagione corrente verrà archiviata come "${nome}" e le tabelle della stagione corrente (partite, indisponibilità, alias campionati) verranno svuotate.`)) return;
+  if (!await conferma(`La stagione corrente verrà archiviata come "${nome}" e le tabelle della stagione corrente (partite, indisponibilità, alias campionati) verranno svuotate. Prima viene fatto un backup automatico.`, { titolo: "Chiudere la stagione?", testoConferma: "Chiudi e archivia" })) return;
   const risultato = await apiSend("/api/stagioni/chiudi-corrente", "POST", { nome });
   if (!risultato.ok) {
-    alert(risultato.errore || "Errore durante la chiusura della stagione.");
+    avviso(risultato.errore || "Errore durante la chiusura della stagione.", "errore");
     return;
   }
   closeOverlay("modale-chiudi-stagione");
-  alert(
+  avviso(
     `Stagione archiviata come "${nome}".\n\n` +
     `${risultato.n_partite_archiviate} partite disputate archiviate\n` +
     `${risultato.n_indisponibilita_archiviate} indisponibilità archiviate\n` +
@@ -77,14 +77,15 @@ async function salvaStagione() {
 async function eliminaStagioneCorrente() {
   if (!_stagioneSelezionataId) return;
   const stagione = (window._stagioniCache || []).find(s => s.id === _stagioneSelezionataId);
-  if (!confirm(`Eliminare la stagione "${stagione ? stagione.nome : ""}"? Vengono cancellate tutte le partite, indisponibilità e alias campionati importati per questa stagione.`)) return;
+  if (!await conferma(`Vengono cancellate tutte le partite, indisponibilità e alias campionati importati per la stagione "${stagione ? stagione.nome : ""}".`, { titolo: "Eliminare la stagione?", testoConferma: "Elimina stagione" })) return;
   const risultato = await apiDelete(`/api/stagioni/${_stagioneSelezionataId}`);
   if (!risultato.ok) {
-    alert(risultato.errore || "Errore durante l'eliminazione.");
+    avviso(risultato.errore || "Errore durante l'eliminazione.", "errore");
     return;
   }
   _stagioneSelezionataId = null;
   await caricaStagioni();
+  avviso("Stagione eliminata.");
 }
 
 // ---------- IMPORT PARTITE/INDISPONIBILITA STORICHE (riusa la modale import comune) ----------
@@ -160,10 +161,10 @@ function renderTabellaCampionatiStorici() {
       <td>${c.n_squadre}</td>
       <td>${c.n_codici}</td>
       <td>${c.km_per_partita || "-"}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="apriGestioneCampionatoStorico(${c.id})">Gestisci</button>
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="apriModaleCampionatoStorico(${c.id})">Modifica</button>
-        <button class="btn-danger-text" onclick="eliminaCampionatoStorico(${c.id})">Elimina</button>
+      <td class="cella-azioni" data-azioni>
+        ${btnAzione("gestisci", `apriGestioneCampionatoStorico(${c.id})`, "Gestisci")}
+        ${btnAzione("modifica", `apriModaleCampionatoStorico(${c.id})`, "Modifica")}
+        ${btnAzione("elimina", `eliminaCampionatoStorico(${c.id})`, "Elimina")}
       </td>
     `;
     tbody.appendChild(tr);
@@ -194,9 +195,10 @@ async function salvaCampionatoStorico() {
 }
 
 async function eliminaCampionatoStorico(id) {
-  if (!confirm("Eliminare questo campionato? Vengono rimossi anche le squadre e i codici collegati.")) return;
+  if (!await conferma("Vengono rimossi anche le squadre e i codici collegati.", { titolo: "Elimina campionato", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/campionati-storici/${id}`);
-  caricaCampionatiStorici();
+  await caricaCampionatiStorici();
+  avviso("Campionato eliminato.");
 }
 
 async function apriGestioneCampionatoStorico(id) {
@@ -216,7 +218,7 @@ async function ricaricaDettaglioCampionatoStorico() {
 
   const listaSquadre = document.getElementById("lista-squadre-storiche");
   listaSquadre.innerHTML = dettaglio.squadre.length
-    ? dettaglio.squadre.map(s => `<li>${s.nome} <button class="btn-danger-text" onclick="rimuoviSquadraStorica(${s.id})">Rimuovi</button></li>`).join("")
+    ? dettaglio.squadre.map(s => `<li>${s.nome} ${btnAzione("elimina", `rimuoviSquadraStorica(${s.id})`, "Rimuovi")}</li>`).join("")
     : `<li style="color:var(--testo-tenue)">Nessuna squadra aggiunta</li>`;
 
   const listaCodici = document.getElementById("lista-codici-storici");
@@ -230,7 +232,7 @@ async function ricaricaDettaglioCampionatoStorico() {
             <option value="playoff" ${c.tipo_fase === "playoff" ? "selected" : ""}>Playoff/Play out</option>
             <option value="final_four" ${c.tipo_fase === "final_four" ? "selected" : ""}>Fasi finali</option>
           </select>
-          <button class="btn-danger-text" onclick="rimuoviCodiceStorico(${c.id})">Rimuovi</button>
+          ${btnAzione("elimina", `rimuoviCodiceStorico(${c.id})`, "Rimuovi")}
         </li>
       `).join("")
     : `<li style="color:var(--testo-tenue)">Nessun codice collegato</li>`;

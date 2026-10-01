@@ -75,16 +75,16 @@ async function cercaDisponibilita() {
   const dal = document.getElementById("disp-dal").value;
   const al = document.getElementById("disp-al").value;
   if (!dal || !al) {
-    alert("Imposta sia la data Dal che la data Al.");
+    avviso("Imposta sia la data Dal che la data Al.", "errore");
     return;
   }
   if (dal > al) {
-    alert("La data Dal deve essere precedente o uguale alla data Al.");
+    avviso("La data Dal deve essere precedente o uguale alla data Al.", "errore");
     return;
   }
 
   const giorni = _elencoDateInIntervallo(dal, al);
-  if (giorni.length > 62 && !confirm(`L'intervallo scelto copre ${giorni.length} giorni: la tabella sarà molto larga. Continuare?`)) {
+  if (giorni.length > 62 && !await conferma(`L'intervallo scelto copre ${giorni.length} giorni: la tabella sarà molto larga.`, { titolo: "Continuare?", testoConferma: "Continua", pericolosa: false })) {
     return;
   }
 
@@ -107,7 +107,7 @@ function costruisciHeaderDisponibilita(giorni) {
   thead.appendChild(tr);
 
   document.getElementById("tabella-disponibilita-el").style.minWidth = `${320 + giorni.length * 64}px`;
-  abilitaRidimensionamentoColonne("#tabella-disponibilita-el");
+  abilitaRidimensionamentoColonne("#tabella-disponibilita-el", { persisti: false });
   rendiHeaderFisso("#tabella-head-disponibilita");
   abilitaSelettoreColonne("#tabella-disponibilita-el", document.getElementById("colonne-disponibilita"), { persisti: false });
 }

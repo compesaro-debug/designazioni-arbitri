@@ -36,6 +36,14 @@ function _querySuffixStagione() {
     : "";
 }
 
+const NOMI_MESI_REPORT = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+const NOMI_MESI_CORTI_REPORT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+const SERIE_DISPONIBILITA = [
+  { nome: "Disponibile", colore: "var(--stato-ok)" },
+  { nome: "Disponibile in parte", colore: "var(--stato-parziale)" },
+  { nome: "Indisponibile", colore: "var(--stato-ko)" },
+];
+
 async function apriReportArbitro(id) {
   const suffisso = _querySuffixStagione();
   const [dati, societa] = await Promise.all([
@@ -47,31 +55,104 @@ async function apriReportArbitro(id) {
   window._reportArbitroCorrente = dati;
   const gare = dati.gare;
 
+  // ogni arbitro riparte con i grafici compatti ("Mostra tutti" non resta aperto dal precedente)
+  document.querySelectorAll("#modale-report-arbitro [id^='grafico-arbitro-']").forEach(el => delete el.dataset.mostraTutte);
+
   document.getElementById("titolo-modale-report").textContent = `Report — ${dati.arbitro}`;
-  document.getElementById("report-km-totali").textContent = `${dati.km_totali} km`;
+  document.getElementById("report-km-totali").textContent = `${formattaNumero(dati.km_totali)} km`;
   document.getElementById("report-km-nota").textContent = dati.n_km_mancanti > 0
     ? `Km calcolati su ${dati.n_km_calcolate} gare; ${dati.n_km_mancanti} escluse perché la distanza comune-comune non è disponibile.`
     : `Km calcolati su tutte le ${dati.n_km_calcolate} gare disputate.`;
 
   document.getElementById("report-periodo-disponibilita").textContent = dati.primo_giorno_globale && dati.ultimo_giorno_globale
-    ? `Disponibilità (dalla prima all'ultima gara disputata nel sistema: ${formattaData(dati.primo_giorno_globale)} - ${formattaData(dati.ultimo_giorno_globale)})`
+    ? `Disponibilità · dal ${formattaData(dati.primo_giorno_globale)} al ${formattaData(dati.ultimo_giorno_globale)}`
     : "Disponibilità";
   document.getElementById("report-giorni-calendario").textContent = dati.giorni_calendario;
   document.getElementById("report-giorni-disponibili").textContent = dati.giorni_disponibili;
   document.getElementById("report-giorni-indisp-totali").textContent = dati.giorni_indisponibili_totali;
   document.getElementById("report-giorni-indisp-parziali").textContent = dati.giorni_indisponibili_parziali;
-  document.getElementById("report-media-disponibilita").textContent = `${dati.media_disponibilita}%`;
+  document.getElementById("report-media-disponibilita").textContent = `${formattaNumero(dati.media_disponibilita)}%`;
 
-  // gare designate per giorno della settimana, nello stesso ordine Lun..Dom usato dal
-  // backend per la disponibilità (JS: getDay() 0=domenica..6=sabato -> indice 0=lunedì..6=domenica)
+  // ---- gare: totali, ruolo, tutor ----
+  const garePrimo = gare.filter(g => g.ruolo_designazione === "Arbitro");
+  const gareSecondo = gare.filter(g => g.ruolo_designazione === "2° Arbitro");
+  const gareTutor = gare.filter(g => g.e_tutor);
+  [
+    ["report-gare-totali-btn", gare, `Gare dirette da ${dati.arbitro}`],
+    ["report-gare-primo-btn", garePrimo, `${dati.arbitro} come Primo Arbitro`],
+    ["report-gare-secondo-btn", gareSecondo, `${dati.arbitro} come 2° Arbitro`],
+    ["report-gare-tutor-btn", gareTutor, `${dati.arbitro} come tutor`],
+  ].forEach(([idBottone, elenco, titolo]) => {
+    const bottone = document.getElementById(idBottone);
+    bottone.textContent = elenco.length;
+    bottone.onclick = () => mostraDettaglioReport(titolo, elenco);
+  });
+
+  // ---- andamento mensile: tutti i mesi del periodo, anche senza gare ----
+  const gareXMese = {};
+  gare.forEach(g => {
+    const chiave = g.data.slice(0, 7);
+    (gareXMese[chiave] = gareXMese[chiave] || []).push(g);
+  });
+  const mensile = (dati.distribuzione_mensile || []).map(d => {
+    const [anno, mese] = d.mese.split("-");
+    return {
+      chiave: d.mese,
+      anno,
+      meseCorto: NOMI_MESI_CORTI_REPORT[Number(mese) - 1],
+      etichetta: `${NOMI_MESI_REPORT[Number(mese) - 1]} ${anno}`,
+      gare: gareXMese[d.mese] || [],
+      disponibili: d.disponibili,
+      parziali: d.parziali,
+      indisponibili: d.indisponibili,
+    };
+  });
+
+  graficoColonne(document.getElementById("grafico-arbitro-mesi"), mensile.map((m, i) => ({
+    etichetta: m.meseCorto,
+    sottoetichetta: i === 0 || m.meseCorto === "Gen" ? m.anno : "",
+    valori: [m.gare.length],
+    onClick: m.gare.length ? () => mostraDettaglioReport(`${dati.arbitro} — ${m.etichetta}`, m.gare) : null,
+  })), [{ nome: "Gare", colore: "var(--serie-1)" }], { vuoto: "Nessuna gara diretta nel periodo" });
+
+  graficoColonne(document.getElementById("grafico-arbitro-disp-mesi"), mensile.map((m, i) => ({
+    etichetta: m.meseCorto,
+    sottoetichetta: i === 0 || m.meseCorto === "Gen" ? m.anno : "",
+    valori: [m.disponibili, m.parziali, m.indisponibili],
+  })), SERIE_DISPONIBILITA, { unita: " giorni", etichetteValori: false, vuoto: "Nessun dato di disponibilità" });
+
+  document.getElementById("tabella-report-mesi").innerHTML = mensile.length
+    ? mensile.map(m => `
+        <tr>
+          <td>${m.etichetta}</td>
+          <td>${m.gare.length}</td>
+          <td>${m.disponibili}</td>
+          <td>${m.parziali}</td>
+          <td>${m.indisponibili}</td>
+        </tr>
+      `).join("")
+    : `<tr><td colspan="5" style="text-align:center;color:var(--testo-tenue)">Nessun dato</td></tr>`;
+
+  // ---- giorno della settimana: stesso ordine Lun..Dom del backend
+  // (JS: getDay() 0=domenica..6=sabato -> indice 0=lunedì..6=domenica) ----
   const gareSettimana = [0, 0, 0, 0, 0, 0, 0];
   gare.forEach(g => {
     const giornoJs = new Date(`${g.data}T00:00:00`).getDay();
     gareSettimana[(giornoJs + 6) % 7]++;
   });
 
-  const tbodySettimana = document.getElementById("tabella-report-settimana");
-  tbodySettimana.innerHTML = dati.distribuzione_settimana.map((d, i) => `
+  graficoImpilato(document.getElementById("grafico-arbitro-settimana"), dati.distribuzione_settimana.map((d, i) => ({
+    etichetta: d.giorno,
+    valori: [d.disponibili, d.parziali, d.indisponibili],
+    gare: gareSettimana[i],
+  })), SERIE_DISPONIBILITA, {
+    percentuale: true,
+    unita: " giorni",
+    fine: (r) => `${r.gare} gar${r.gare === 1 ? "a" : "e"}`,
+    vuoto: "Nessun dato di disponibilità",
+  });
+
+  document.getElementById("tabella-report-settimana").innerHTML = dati.distribuzione_settimana.map((d, i) => `
     <tr>
       <td>${d.giorno}</td>
       <td>${d.disponibili} / ${d.totale} <span style="color:var(--testo-tenue)">(${d.percentuale}%)</span></td>
@@ -81,83 +162,29 @@ async function apriReportArbitro(id) {
     </tr>
   `).join("");
 
-  // andamento mensile: uniamo TUTTI i mesi del periodo di disponibilità (anche quelli
-  // senza gare dirette) con il conteggio gare per mese, cosi la tabella e il grafico
-  // riflettono l'intero arco temporale e non solo i mesi in cui l'arbitro ha diretto.
-  const gareXMese = {};
-  gare.forEach(g => {
-    const chiave = g.data.slice(0, 7);
-    gareXMese[chiave] = (gareXMese[chiave] || 0) + 1;
-  });
-  const nomiMesi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
-  const mensile = (dati.distribuzione_mensile || []).map(d => ({
-    chiave: d.mese,
-    etichetta: `${nomiMesi[Number(d.mese.split("-")[1]) - 1]} ${d.mese.split("-")[0]}`,
-    gare: gareXMese[d.mese] || 0,
-    disponibili: d.disponibili,
-    parziali: d.parziali,
-    indisponibili: d.indisponibili,
-    totale: d.totale,
-  }));
-  window._reportMensileCorrente = mensile;
-
-  document.getElementById("tabella-report-mesi").innerHTML = mensile.length
-    ? mensile.map(m => `
-        <tr>
-          <td>${m.etichetta}</td>
-          <td>${m.gare}</td>
-          <td>${m.disponibili}</td>
-          <td>${m.parziali}</td>
-          <td>${m.indisponibili}</td>
-        </tr>
-      `).join("")
-    : `<tr><td colspan="5" style="text-align:center;color:var(--testo-tenue)">Nessun dato</td></tr>`;
-
-  const garePrimo = gare.filter(g => g.ruolo_designazione === "Arbitro");
-  const gareSecondo = gare.filter(g => g.ruolo_designazione === "2° Arbitro");
-  const gareTutor = gare.filter(g => g.e_tutor);
-
-  document.getElementById("report-gare-totali-btn").textContent = gare.length;
-  document.getElementById("report-gare-totali-btn").onclick = () => mostraDettaglioReport(`Gare dirette da ${dati.arbitro}`, gare);
-  document.getElementById("report-gare-primo-btn").textContent = garePrimo.length;
-  document.getElementById("report-gare-primo-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come Primo Arbitro`, garePrimo);
-  document.getElementById("report-gare-secondo-btn").textContent = gareSecondo.length;
-  document.getElementById("report-gare-secondo-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come 2° Arbitro`, gareSecondo);
-  document.getElementById("report-gare-tutor-btn").textContent = gareTutor.length;
-  document.getElementById("report-gare-tutor-btn").onclick = () => mostraDettaglioReport(`${dati.arbitro} come tutor`, gareTutor);
-
-  // gare per fase (sotto-alias campionato/coppa/playoff/fasi finali impostato in Alias campionati)
-  [
-    ["campionato", "report-gare-campionato-btn"],
-    ["coppa", "report-gare-coppa-btn"],
-    ["playoff", "report-gare-playoff-btn"],
-    ["final_four", "report-gare-fasifinali-btn"],
-  ].forEach(([fase, idBottone]) => {
+  // ---- gare per fase (sotto-alias impostato in Alias campionati) ----
+  graficoBarre(document.getElementById("grafico-arbitro-fasi"), ORDINE_FASI_JS.map(fase => {
     const gareFase = gare.filter(g => (g.tipo_fase || "campionato") === fase);
-    const bottone = document.getElementById(idBottone);
-    bottone.textContent = gareFase.length;
-    bottone.onclick = () => mostraDettaglioReport(`${dati.arbitro} — ${ETICHETTE_FASE_JS[fase]}`, gareFase);
-  });
+    return {
+      etichetta: ETICHETTE_FASE_JS[fase],
+      valore: gareFase.length,
+      onClick: gareFase.length ? () => mostraDettaglioReport(`${dati.arbitro} — ${ETICHETTE_FASE_JS[fase]}`, gareFase) : null,
+    };
+  }), { vuoto: "Nessuna gara" });
 
-  // distribuzione per campionato (alias-aware: i gironi collegati nella pagina Campionati
-  // vengono conteggiati insieme sotto il nome del torneo logico)
+  // ---- per campionato (alias-aware: i gironi collegati contano sotto il torneo logico) ----
   const perCampionato = {};
   gare.forEach(g => {
     (perCampionato[g.campionato_alias] = perCampionato[g.campionato_alias] || []).push(g);
   });
-  const listaCampionati = Object.entries(perCampionato).sort((a, b) => b[1].length - a[1].length);
-  const tbodyCampionati = document.getElementById("tabella-report-campionati");
-  tbodyCampionati.innerHTML = listaCampionati.length
-    ? listaCampionati.map(([nome, righe]) => `<tr><td>${nome}</td><td><button class="btn-storico-inline">${righe.length}</button></td></tr>`).join("")
-    : `<tr><td colspan="2" style="text-align:center;color:var(--testo-tenue)">Nessuna gara</td></tr>`;
-  tbodyCampionati.querySelectorAll("button").forEach((btn, i) => {
-    const [nome, righe] = listaCampionati[i];
-    btn.addEventListener("click", () => mostraDettaglioReport(`${dati.arbitro} — ${nome}`, righe));
-  });
+  graficoBarre(document.getElementById("grafico-arbitro-campionati"),
+    Object.entries(perCampionato).sort((a, b) => b[1].length - a[1].length).map(([nome, righe]) => ({
+      etichetta: nome,
+      valore: righe.length,
+      onClick: () => mostraDettaglioReport(`${dati.arbitro} — ${nome}`, righe),
+    })), { massimoRighe: 10, vuoto: "Nessuna gara" });
 
-  // distribuzione per società (per codice di affiliazione): ogni gara conta sia per la
-  // società di casa che per quella ospite, perché l'arbitro è comunque stato presente
-  // alla partita di entrambe.
+  // ---- per società (codice affiliazione): ogni gara conta per casa e ospite ----
   const perSocieta = {};
   gare.forEach(g => {
     [[g.aff_a, g.squadra_casa], [g.aff_b, g.squadra_ospite]].forEach(([cod, nome]) => {
@@ -166,84 +193,16 @@ async function apriReportArbitro(id) {
       perSocieta[cod].righe.push(g);
     });
   });
-  const listaSocieta = Object.entries(perSocieta).sort((a, b) => b[1].righe.length - a[1].righe.length);
-  const tbodySocieta = document.getElementById("tabella-report-societa");
-  tbodySocieta.innerHTML = listaSocieta.length
-    ? listaSocieta.map(([cod, info]) => `<tr><td>${mappaSocieta[cod] || info.nome} (${cod})</td><td><button class="btn-storico-inline">${info.righe.length}</button></td></tr>`).join("")
-    : `<tr><td colspan="2" style="text-align:center;color:var(--testo-tenue)">Nessuna gara</td></tr>`;
-  tbodySocieta.querySelectorAll("button").forEach((btn, i) => {
-    const [cod, info] = listaSocieta[i];
-    btn.addEventListener("click", () => mostraDettaglioReport(`${dati.arbitro} — ${mappaSocieta[cod] || info.nome} (${cod})`, info.righe));
-  });
+  graficoBarre(document.getElementById("grafico-arbitro-societa"),
+    Object.entries(perSocieta).sort((a, b) => b[1].righe.length - a[1].righe.length).map(([cod, info]) => {
+      const nome = mappaSocieta[cod] || info.nome;
+      return {
+        etichetta: nome,
+        valore: info.righe.length,
+        dettaglio: `Cod. affiliazione ${cod}`,
+        onClick: () => mostraDettaglioReport(`${dati.arbitro} — ${nome} (${cod})`, info.righe),
+      };
+    }), { massimoRighe: 10, vuoto: "Nessuna gara" });
 
   openOverlay("modale-report-arbitro");
-}
-
-function apriGraficoMensileReport() {
-  const mensile = window._reportMensileCorrente || [];
-  const cont = document.getElementById("grafico-mensile-report");
-
-  if (!mensile.length) {
-    cont.innerHTML = `<p style="text-align:center;color:var(--testo-tenue);padding:30px;">Nessun dato da visualizzare</p>`;
-    openOverlay("modale-grafico-mensile-report");
-    return;
-  }
-
-  const margin = { top: 20, right: 46, bottom: 46, left: 34 };
-  const slot = 70;
-  const plotWidth = mensile.length * slot;
-  const plotHeight = 260;
-  const width = plotWidth + margin.left + margin.right;
-  const height = plotHeight + margin.top + margin.bottom;
-  const barWidth = slot * 0.55;
-
-  const maxGiorni = Math.max(1, ...mensile.map(m => m.totale));
-  const maxGare = Math.max(1, ...mensile.map(m => m.gare));
-  const nomiMesiCorti = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
-
-  let barre = "";
-  const puntiLinea = [];
-  mensile.forEach(m => {
-    const i = mensile.indexOf(m);
-    const xSlot = margin.left + i * slot;
-    const xBar = xSlot + (slot - barWidth) / 2;
-    const yBase = margin.top + plotHeight;
-
-    const hDisp = (m.disponibili / maxGiorni) * plotHeight;
-    const hParz = (m.parziali / maxGiorni) * plotHeight;
-    const hIndisp = (m.indisponibili / maxGiorni) * plotHeight;
-
-    let yCursor = yBase;
-    if (hDisp > 0) { barre += `<rect x="${xBar}" y="${yCursor - hDisp}" width="${barWidth}" height="${hDisp}" fill="#16a34a"></rect>`; yCursor -= hDisp; }
-    if (hParz > 0) { barre += `<rect x="${xBar}" y="${yCursor - hParz}" width="${barWidth}" height="${hParz}" fill="#f59e0b"></rect>`; yCursor -= hParz; }
-    if (hIndisp > 0) { barre += `<rect x="${xBar}" y="${yCursor - hIndisp}" width="${barWidth}" height="${hIndisp}" fill="#dc2626"></rect>`; yCursor -= hIndisp; }
-
-    const [anno, mese] = m.chiave.split("-");
-    barre += `<text x="${xSlot + slot / 2}" y="${yBase + 16}" text-anchor="middle" font-size="11" fill="var(--testo-tenue)">${nomiMesiCorti[Number(mese) - 1]}</text>`;
-    barre += `<text x="${xSlot + slot / 2}" y="${yBase + 30}" text-anchor="middle" font-size="10" fill="var(--testo-tenue)">${anno}</text>`;
-
-    const cx = xSlot + slot / 2;
-    const cy = margin.top + plotHeight - (m.gare / maxGare) * plotHeight;
-    puntiLinea.push(`${cx},${cy}`);
-    barre += `<circle cx="${cx}" cy="${cy}" r="4" fill="#2563eb"></circle>`;
-    barre += `<text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="10" fill="#2563eb">${m.gare}</text>`;
-  });
-
-  let griglia = "";
-  for (let f = 0; f <= 4; f++) {
-    const frac = f / 4;
-    const y = margin.top + plotHeight - frac * plotHeight;
-    griglia += `<line x1="${margin.left}" y1="${y}" x2="${margin.left + plotWidth}" y2="${y}" stroke="var(--bordo)" stroke-width="1"></line>`;
-    griglia += `<text x="${margin.left - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--testo-tenue)">${Math.round(frac * maxGiorni)}</text>`;
-    griglia += `<text x="${margin.left + plotWidth + 8}" y="${y + 4}" text-anchor="start" font-size="10" fill="#2563eb">${Math.round(frac * maxGare)}</text>`;
-  }
-
-  cont.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" style="max-width:none;">
-      ${griglia}
-      <polyline points="${puntiLinea.join(" ")}" fill="none" stroke="#2563eb" stroke-width="2"></polyline>
-      ${barre}
-    </svg>
-  `;
-  openOverlay("modale-grafico-mensile-report");
 }

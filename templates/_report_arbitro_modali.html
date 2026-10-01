@@ -2,115 +2,116 @@
 <div class="overlay" id="modale-report-arbitro">
   <div class="modal modal-xlarge">
     <h2 id="titolo-modale-report">Report</h2>
-    <div class="riepilogo-storico" style="margin-bottom:16px">
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-totali-btn">--</button>
-        <div class="riepilogo-label">Gare dirette (clic per l'elenco)</div>
-      </div>
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-primo-btn">--</button>
-        <div class="riepilogo-label">Come Primo Arbitro</div>
-      </div>
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-secondo-btn">--</button>
-        <div class="riepilogo-label">Come 2° Arbitro</div>
-      </div>
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-tutor-btn">--</button>
-        <div class="riepilogo-label">Come tutor (rimborso km al collega)</div>
-      </div>
-      <div class="riepilogo-tile">
-        <div class="riepilogo-valore" id="report-km-totali">--</div>
-        <div class="riepilogo-label">Km totali percorsi</div>
-      </div>
-    </div>
-    <div class="riepilogo-storico" style="margin-bottom:16px">
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-campionato-btn">--</button>
-        <div class="riepilogo-label">Gare di Campionato</div>
-      </div>
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-coppa-btn">--</button>
-        <div class="riepilogo-label">Gare di Coppa</div>
-      </div>
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-playoff-btn">--</button>
-        <div class="riepilogo-label">Gare di Playoff/Play out</div>
-      </div>
-      <div class="riepilogo-tile">
-        <button class="riepilogo-valore-btn" id="report-gare-fasifinali-btn">--</button>
-        <div class="riepilogo-label">Gare di Fasi finali</div>
-      </div>
-    </div>
-    <p class="hint" id="report-km-nota"></p>
 
-    <p class="riepilogo-label" style="margin:16px 0 8px;" id="report-periodo-disponibilita">Disponibilità</p>
-    <div class="riepilogo-storico" style="margin-bottom:10px">
-      <div class="riepilogo-tile">
-        <div class="riepilogo-valore" id="report-giorni-calendario">--</div>
-        <div class="riepilogo-label">Giorni di calendario</div>
+    <div class="kpi-griglia">
+      <div class="kpi evidenza">
+        <div class="kpi-etichetta">Gare dirette</div>
+        <button class="kpi-valore kpi-valore-btn" id="report-gare-totali-btn" title="Clic per l'elenco">--</button>
       </div>
-      <div class="riepilogo-tile">
-        <div class="riepilogo-valore" id="report-giorni-disponibili">--</div>
-        <div class="riepilogo-label">Giorni disponibili</div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Come 1° arbitro</div>
+        <button class="kpi-valore kpi-valore-btn" id="report-gare-primo-btn" title="Clic per l'elenco">--</button>
       </div>
-      <div class="riepilogo-tile">
-        <div class="riepilogo-valore" id="report-giorni-indisp-totali">--</div>
-        <div class="riepilogo-label">Indisponibili (tutto il giorno)</div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Come 2° arbitro</div>
+        <button class="kpi-valore kpi-valore-btn" id="report-gare-secondo-btn" title="Clic per l'elenco">--</button>
       </div>
-      <div class="riepilogo-tile">
-        <div class="riepilogo-valore" id="report-giorni-indisp-parziali">--</div>
-        <div class="riepilogo-label">Indisponibili (parziali)</div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Come tutor</div>
+        <button class="kpi-valore kpi-valore-btn" id="report-gare-tutor-btn" title="Clic per l'elenco">--</button>
+        <div class="kpi-nota">rimborso km al collega</div>
       </div>
-      <div class="riepilogo-tile">
-        <div class="riepilogo-valore" id="report-media-disponibilita">--</div>
-        <div class="riepilogo-label">Media disponibilità nell'anno</div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Km totali percorsi</div>
+        <div class="kpi-valore" id="report-km-totali">--</div>
       </div>
     </div>
-    <div style="display:flex; gap:20px; margin-bottom:16px; flex-wrap:wrap;">
-      <div style="flex:1; min-width:420px;">
-        <p class="riepilogo-label" style="margin-bottom:8px;">Disponibilità e designazioni per giorno della settimana</p>
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Giorno</th><th>Disponibilità totale</th><th>Disponibilità parziale</th><th>Indisponibile tutto il giorno</th><th>Gare designate</th></tr></thead>
-            <tbody id="tabella-report-settimana"></tbody>
-          </table>
-        </div>
+    <p class="hint" id="report-km-nota" style="margin:-10px 0 18px;"></p>
+
+    <div class="griglia-grafici">
+      <section class="pannello-grafico">
+        <h3>Gare dirette per mese</h3>
+        <p class="pannello-sotto">Clic su un mese per l'elenco delle gare</p>
+        <div id="grafico-arbitro-mesi"></div>
+      </section>
+      <section class="pannello-grafico">
+        <h3>Gare per fase</h3>
+        <p class="pannello-sotto">Campionato, coppa, playoff e fasi finali (da Alias campionati)</p>
+        <div id="grafico-arbitro-fasi"></div>
+      </section>
+      <section class="pannello-grafico">
+        <h3>Gare per campionato</h3>
+        <p class="pannello-sotto">I gironi collegati in Alias campionati sono contati insieme</p>
+        <div id="grafico-arbitro-campionati"></div>
+      </section>
+      <section class="pannello-grafico">
+        <h3>Gare per società</h3>
+        <p class="pannello-sotto">Ogni gara conta sia per la società di casa sia per quella ospite</p>
+        <div id="grafico-arbitro-societa"></div>
+      </section>
+    </div>
+
+    <h3 class="titolo-sezione-report" id="report-periodo-disponibilita">Disponibilità</h3>
+    <div class="kpi-griglia">
+      <div class="kpi evidenza">
+        <div class="kpi-etichetta">Media disponibilità</div>
+        <div class="kpi-valore" id="report-media-disponibilita">--</div>
       </div>
-      <div style="flex:1; min-width:460px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <p class="riepilogo-label" style="margin:0;">Andamento mensile gare dirette</p>
-          <button class="btn-testo" onclick="apriGraficoMensileReport()">Visualizza grafico</button>
-        </div>
-        <div class="table-scroll" style="max-height:260px;">
-          <table>
-            <thead><tr><th>Mese</th><th>Gare</th><th>Disponibili</th><th>Parziali</th><th>Indisponibili</th></tr></thead>
-            <tbody id="tabella-report-mesi"></tbody>
-          </table>
-        </div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Giorni di calendario</div>
+        <div class="kpi-valore" id="report-giorni-calendario">--</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Giorni disponibili</div>
+        <div class="kpi-valore" id="report-giorni-disponibili">--</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Indisponibili tutto il giorno</div>
+        <div class="kpi-valore" id="report-giorni-indisp-totali">--</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-etichetta">Indisponibili in parte</div>
+        <div class="kpi-valore" id="report-giorni-indisp-parziali">--</div>
       </div>
     </div>
 
-    <div style="display:flex; gap:20px; margin-top:12px; flex-wrap:wrap;">
-      <div style="flex:1; min-width:260px;">
-        <p class="riepilogo-label" style="margin-bottom:8px;">Distribuzione per campionato</p>
-        <div class="table-scroll" style="max-height:340px;">
-          <table>
-            <thead><tr><th>Campionato</th><th>Gare</th></tr></thead>
-            <tbody id="tabella-report-campionati"></tbody>
-          </table>
-        </div>
-      </div>
-      <div style="flex:1; min-width:260px;">
-        <p class="riepilogo-label" style="margin-bottom:8px;">Distribuzione per società (cod. affiliazione)</p>
-        <div class="table-scroll" style="max-height:340px;">
-          <table>
-            <thead><tr><th>Società</th><th>Gare</th></tr></thead>
-            <tbody id="tabella-report-societa"></tbody>
-          </table>
-        </div>
-      </div>
+    <div class="griglia-grafici">
+      <section class="pannello-grafico">
+        <h3>Disponibilità per mese</h3>
+        <p class="pannello-sotto">Giorni di ogni mese per stato di disponibilità</p>
+        <div id="grafico-arbitro-disp-mesi"></div>
+      </section>
+      <section class="pannello-grafico">
+        <h3>Disponibilità per giorno della settimana</h3>
+        <p class="pannello-sotto">Quota di giorni per stato; in fondo alla barra le gare designate in quel giorno</p>
+        <div id="grafico-arbitro-settimana"></div>
+      </section>
     </div>
+
+    <details class="dettaglio-tabella">
+      <summary>Tabelle di disponibilità (settimana e mesi)</summary>
+      <div class="dettaglio-tabella-corpo" style="display:flex; gap:20px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:380px;">
+          <p class="riepilogo-label" style="margin:0 0 8px;">Per giorno della settimana</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Giorno</th><th>Disponibilità totale</th><th>Disponibilità parziale</th><th>Indisponibile tutto il giorno</th><th>Gare designate</th></tr></thead>
+              <tbody id="tabella-report-settimana"></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="flex:1; min-width:380px;">
+          <p class="riepilogo-label" style="margin:0 0 8px;">Per mese</p>
+          <div class="table-scroll" style="max-height:300px;">
+            <table>
+              <thead><tr><th>Mese</th><th>Gare</th><th>Disponibili</th><th>Parziali</th><th>Indisponibili</th></tr></thead>
+              <tbody id="tabella-report-mesi"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </details>
+
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-report-arbitro')">Chiudi</button>
     </div>
@@ -132,25 +133,6 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-dettaglio-report')">Chiudi</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modale grafico andamento mensile (gare dirette + disponibilità) -->
-<div class="overlay" id="modale-grafico-mensile-report">
-  <div class="modal modal-large">
-    <h2 id="titolo-modale-grafico-mensile">Andamento mensile</h2>
-    <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px; font-size:13px; color:var(--testo-tenue)">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2563eb;margin-right:5px;"></span>Gare dirette</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#16a34a;margin-right:5px;"></span>Giorni disponibili</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f59e0b;margin-right:5px;"></span>Giorni parziali</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dc2626;margin-right:5px;"></span>Giorni indisponibili</span>
-    </div>
-    <div class="table-scroll" style="max-height:65vh;">
-      <div id="grafico-mensile-report"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeOverlay('modale-grafico-mensile-report')">Chiudi</button>
     </div>
   </div>
 </div>

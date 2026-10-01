@@ -283,13 +283,13 @@ function _riquadroRuolo(p, campo, etichetta) {
       <div class="riquadro-designazione-ruolo assegnato">
         <span class="riquadro-designazione-ruolo-etichetta">${etichetta}</span>
         <span class="riquadro-designazione-ruolo-nome">${nome}</span>
-        <button class="btn-rimuovi-x" title="Rimuovi ${etichetta}" onclick="rimuoviArbitro(${p.id}, '${campo}')">&times;</button>
+        <button class="btn-rimuovi-x" title="Rimuovi ${etichetta.toLowerCase()}" data-icona="elimina" onclick="rimuoviArbitro(${p.id}, '${campo}')">&times;</button>
       </div>`;
   }
   return `
     <div class="riquadro-designazione-ruolo">
       <span class="riquadro-designazione-ruolo-etichetta">${etichetta}</span>
-      <button class="btn btn-primary" style="padding:4px 10px;font-size:12px" onclick="apriModaleDesignazione(${p.id}, '${campo}')">Designa</button>
+      <button class="btn btn-primary btn-designa" title="Designa ${etichetta.toLowerCase()}" data-icona="designa" onclick="apriModaleDesignazione(${p.id}, '${campo}')">${iconaAzione("designa", 13)}Designa</button>
     </div>`;
 }
 
@@ -350,7 +350,7 @@ function renderVistaGiornaliera() {
               </div>
               <div class="riquadro-designazione-squadre">${p.squadra_casa} <span class="riquadro-designazione-vs">vs</span> ${p.squadra_ospite}</div>
               <div class="riquadro-designazione-luogo">${p.localita || ""}${p.campo ? " — " + p.campo : ""}</div>
-              <div class="riquadro-designazione-ruoli">
+              <div class="riquadro-designazione-ruoli" data-azioni>
                 ${_riquadroRuolo(p, "arbitro", "Arbitro")}
                 ${_riquadroRuolo(p, "assistente1", "2° Arbitro")}
               </div>
@@ -366,9 +366,9 @@ document.getElementById("filtro-giornaliera-designazioni").addEventListener("inp
 
 function cellaArbitro(p, campo, etichetta) {
   const nome = p[campo];
-  const rimuovi = nome ? `<button class="btn-rimuovi-x" title="Rimuovi ${etichetta}" onclick="rimuoviArbitro(${p.id}, '${campo}')">&times;</button>` : "";
-  const designaBtn = `<button class="btn-storico-inline" onclick="apriModaleDesignazione(${p.id}, '${campo}')">designa</button>`;
-  return `<td style="white-space:nowrap">${nome || "-"}${rimuovi} ${designaBtn}</td>`;
+  const rimuovi = nome ? `<button class="btn-rimuovi-x" title="Rimuovi ${etichetta.toLowerCase()}" data-icona="elimina" onclick="rimuoviArbitro(${p.id}, '${campo}')">&times;</button>` : "";
+  const designaBtn = `<button class="btn-storico-inline" title="${nome ? "Cambia" : "Designa"} ${etichetta.toLowerCase()}" data-icona="designa" onclick="apriModaleDesignazione(${p.id}, '${campo}')">${nome ? "cambia" : "designa"}</button>`;
+  return `<td style="white-space:nowrap" data-azioni>${nome || "-"}${rimuovi} ${designaBtn}</td>`;
 }
 
 function renderTabellaDesignazioni() {
@@ -409,7 +409,8 @@ async function rimuoviArbitro(partitaId, campo) {
   if (!partita) return;
   const aggiornata = { ...partita, [campo]: "" };
   await apiSend(`/api/partite/${partitaId}`, "PUT", aggiornata);
-  caricaPartiteDesignazioni();
+  await caricaPartiteDesignazioni();
+  avviso(`${partita[campo]} rimosso dalla gara n° ${partita.numero_gara}.`);
 }
 
 async function apriModaleDesignazione(partitaId, ruolo) {
@@ -620,7 +621,7 @@ function renderCandidati() {
       ? `<span class="tag tag-rosso" title="Scadenza: ${formattaData(c.scadenza_certificato_medico)}">Certificato scaduto</span>`
       : (c.scadenza_certificato_medico ? formattaData(c.scadenza_certificato_medico) : "");
     tr.innerHTML = `
-      <td class="cella-nome-candidato">${c.nome} ${c.tutoraggio ? '<span class="tag tag-giallo">Tutoraggio</span>' : ""} <button class="btn-storico-icona" title="Storico ${c.nome}" onclick="apriStoricoArbitroId(${c.id})"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></button></td>
+      <td class="cella-nome-candidato" data-azioni>${c.nome} ${c.tutoraggio ? '<span class="tag tag-giallo">Tutoraggio</span>' : ""} <button class="btn-storico-icona" title="Storico di ${c.nome}" data-icona="storico" onclick="apriStoricoArbitroId(${c.id})"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></button></td>
       <td>${c.ruolo}</td>
       <td>${c.comune}</td>
       <td>${c.distanza_km != null ? c.distanza_km + " km" : "-"}</td>
@@ -638,7 +639,7 @@ function renderCandidati() {
       <td><div class="due-righe-interno">${c.indisp_motivo}</div></td>
       <td><div class="due-righe-interno">${c.note}</div></td>
       <td><div class="due-righe-interno">${c.inibizione}</div></td>
-      <td><button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick="designaArbitro(${c.id})">Designa</button></td>
+      <td class="cella-designa" data-azioni><button type="button" class="btn btn-primary btn-designa" title="Designa ${c.nome.replace(/"/g, "&quot;")}" data-icona="designa" data-azione-principale onclick="designaArbitro(${c.id})">${iconaAzione("designa", 13)}Designa</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -813,6 +814,7 @@ async function designaArbitro(arbitroId) {
   const risposta = await apiSend(`/api/partite/${partita.id}`, "PUT", partita);
   closeOverlay("modale-designazione");
   await caricaPartiteDesignazioni();
+  avviso(`${candidato.nome} designato come ${campo === "arbitro" ? "1° arbitro" : "2° arbitro"} — gara n° ${partita.numero_gara}`);
   // Se con questa designazione la gara ha ora sia arbitro che 2° arbitro, chiede subito come
   // gestire il rimborso km (auto separate, viaggio insieme, tutoraggio, o km inseriti a mano);
   // se uno dei due è in tutoraggio il backend ha già calcolato la modalità da preselezionare.

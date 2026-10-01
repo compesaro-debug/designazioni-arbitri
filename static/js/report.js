@@ -22,7 +22,7 @@ function renderListaArbitriReport() {
           <td>${a.comune}</td>
           <td>${a.ruolo}</td>
           <td>${Number(a.attivo) ? '<span class="tag tag-verde">In attività</span>' : '<span class="tag tag-rosso">Non in attività</span>'}</td>
-          <td><button class="btn btn-primary" style="padding:6px 12px;font-size:12.5px" onclick="apriReportArbitro(${a.id})">Apri report</button></td>
+          <td class="cella-azioni" data-azioni>${btnAzione("report", `apriReportArbitro(${a.id})`, "Apri report", true)}</td>
         </tr>
       `).join("")
     : `<tr><td colspan="5" style="text-align:center;color:var(--testo-tenue)">Nessun arbitro trovato</td></tr>`;
@@ -42,7 +42,7 @@ async function caricaSelettoreStagioneReport() {
   const stagioni = await apiGet("/api/stagioni");
   const select = document.getElementById("selettore-stagione-report");
   select.innerHTML = stagioni
-    .map(s => `<option value="${s.dati_live ? "" : s.id}">${s.nome}${s.dati_live ? " (corrente)" : ""}</option>`)
+    .map(s => `<option value="${s.dati_live ? "" : s.id}">${s.nome}${s.dati_live && !/corrente/i.test(s.nome) ? " (corrente)" : ""}</option>`)
     .join("");
   window._stagioneReportId = "";
 }

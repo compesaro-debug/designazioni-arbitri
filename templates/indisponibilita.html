@@ -33,7 +33,7 @@
         <th class="sortable" data-campo="stato_testo">Stato</th>
         <th class="sortable" data-campo="motivo">Motivazione</th>
         <th class="sortable" data-campo="data_richiesta">Data richiesta</th>
-        <th></th>
+        <th class="cella-azioni"></th>
       </tr>
       <tr class="filtri-row">
         <th><input class="filtro-input" data-campo="arbitro" placeholder="Filtra..."></th>
@@ -51,7 +51,7 @@
         </th>
         <th><input class="filtro-input" data-campo="motivo" placeholder="Filtra..."></th>
         <th><input class="filtro-input" data-campo="data_richiesta" placeholder="Filtra..."></th>
-        <th></th>
+        <th class="cella-azioni"></th>
       </tr>
     </thead>
     <tbody id="tabella-indisponibilita"></tbody>
@@ -61,6 +61,7 @@
     <strong>Nessuna indisponibilità registrata</strong>
     Aggiungi un periodo manualmente oppure importa un file Excel.
   </div>
+  {% include "_suggerimento_azioni.html" %}
 </div>
 
 <div class="overlay" id="modale-indisponibilita">

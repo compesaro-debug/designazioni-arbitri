@@ -54,9 +54,9 @@ function renderTabellaIndisponibilita() {
       <td>${TAG_STATO[r.stato_testo] || ""}</td>
       <td>${r.motivo}</td>
       <td>${r.data_richiesta}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-danger-text" style="color:var(--primario)" onclick="modificaIndisponibilita(${r.id})">Modifica</button>
-        <button class="btn-danger-text" onclick="eliminaIndisponibilita(${r.id})">Elimina</button>
+      <td class="cella-azioni" data-azioni>
+        ${btnAzione("modifica", `modificaIndisponibilita(${r.id})`, "Modifica")}
+        ${btnAzione("elimina", `eliminaIndisponibilita(${r.id})`, "Elimina")}
       </td>
     `;
     tbody.appendChild(tr);
@@ -95,13 +95,17 @@ async function salvaIndisponibilita() {
     await apiSend("/api/indisponibilita", "POST", payload);
   }
   closeOverlay("modale-indisponibilita");
-  caricaIndisponibilita();
+  await caricaIndisponibilita();
+  avviso(id ? "Modifiche salvate." : "Indisponibilità aggiunta.");
 }
 
 async function eliminaIndisponibilita(id) {
-  if (!confirm("Eliminare questa indisponibilità?")) return;
+  const r = (window._indispCache || []).find(x => x.id === id);
+  const dettaglio = r ? `${r.arbitro}, dal ${formattaData(r.data_inizio)} al ${formattaData(r.data_fine)}` : "";
+  if (!await conferma(`Eliminare l'indisponibilità${dettaglio ? " di " + dettaglio : ""}?`, { titolo: "Elimina indisponibilità", testoConferma: "Elimina" })) return;
   await apiDelete(`/api/indisponibilita/${id}`);
-  caricaIndisponibilita();
+  await caricaIndisponibilita();
+  avviso("Indisponibilità eliminata.");
 }
 
 abilitaOrdinamento("#tabella-head-indisponibilita", ordinamentoIndisponibilita, renderTabellaIndisponibilita);

@@ -89,9 +89,51 @@ function _righeDettaglioFasi(c) {
   `).join("");
 }
 
+function _renderKpiEGraficiCampionati(righe) {
+  const t = _totaliCampionati(righe);
+  document.getElementById("campionati-kpi-gare").textContent = formattaNumero(t.nGare);
+  document.getElementById("campionati-kpi-n").textContent = `${righe.length} campionat${righe.length === 1 ? "o" : "i"}`;
+  document.getElementById("campionati-kpi-federali").textContent = `${formattaNumero(t.pctFederali)}%`;
+  document.getElementById("campionati-kpi-associato").textContent = `${formattaNumero(t.nFederali)} federali · ${formattaNumero(t.nAssociato)} Associato`;
+  document.getElementById("campionati-kpi-doppio").textContent = formattaNumero(t.nDoppioFederale);
+  document.getElementById("campionati-kpi-tutoraggio").textContent = formattaNumero(t.nTutoraggio);
+  document.getElementById("campionati-kpi-km").textContent = `${formattaNumero(t.kmTotali)} km`;
+  document.getElementById("campionati-kpi-media-km").textContent = `media ${formattaNumero(t.mediaKmFederali)} km per designazione federale`;
+
+  const perGare = [...righe].sort((a, b) => (b.n_federali + b.n_associato) - (a.n_federali + a.n_associato));
+  graficoImpilato(document.getElementById("grafico-campionati-designazioni"), perGare.map(c => ({
+    etichetta: c.nome,
+    valori: [c.n_federali, c.n_associato],
+    dettaglio: `${c.n_gare} gare`,
+    onClick: () => apriDettaglioCampionato(c.chiave),
+  })), [
+    { nome: "Arbitri federali", colore: "var(--serie-1)" },
+    { nome: "Arbitro Associato", colore: "var(--serie-2)" },
+  ], { massimoRighe: 12, vuoto: "Nessun campionato" });
+
+  const conKm = righe.filter(c => c.n_federali > 0 && c.media_km_solo_federali != null)
+    .sort((a, b) => b.media_km_solo_federali - a.media_km_solo_federali);
+  graficoBarre(document.getElementById("grafico-campionati-km"), conKm.map(c => {
+    const oltre = c.soglia_km != null && c.scostamento_soglia > 0;
+    const scostamento = c.scostamento_soglia != null ? ` (${c.scostamento_soglia > 0 ? "+" : ""}${formattaNumero(c.scostamento_soglia)})` : "";
+    return {
+      etichetta: c.nome,
+      valore: c.media_km_solo_federali,
+      testo: `${formattaNumero(c.media_km_solo_federali)} km${scostamento}`,
+      segno: c.soglia_km,
+      colore: oltre ? "var(--stato-ko)" : undefined,
+      dettaglio: c.soglia_km != null
+        ? `Km da rispettare: ${formattaNumero(c.soglia_km)}${oltre ? " — oltre il limite" : " — entro il limite"}`
+        : "Nessun limite impostato",
+      onClick: c.soglia_km != null ? () => apriGareSopraMedia(c.chiave) : () => apriDettaglioCampionato(c.chiave),
+    };
+  }), { spazioValore: 104, massimoRighe: 12, notaSegno: "Km da rispettare · in rosso i campionati oltre il limite", vuoto: "Nessuna designazione federale con km calcolati" });
+}
+
 function renderTabellaReportCampionati() {
   const filtro = (document.getElementById("filtro-report-campionati").value || "").trim().toLowerCase();
   const righe = _reportCampionatiCache.filter(c => !filtro || c.nome.toLowerCase().includes(filtro));
+  _renderKpiEGraficiCampionati(righe);
   const tbody = document.getElementById("tabella-report-campionati-lista");
   tbody.innerHTML = righe.length
     ? righe.map(c => `
@@ -158,6 +200,21 @@ function apriGareSopraMedia(chiave, fase) {
     : `<tr><td colspan="7" style="text-align:center;color:var(--testo-tenue)">Nessuna gara sopra la media</td></tr>`;
 
   openOverlay("modale-gare-sopra-media");
+}
+
+function _totaliCampionati(righe) {
+  const nGare = righe.reduce((s, c) => s + c.n_gare, 0);
+  const nFederali = righe.reduce((s, c) => s + c.n_federali, 0);
+  const nAssociato = righe.reduce((s, c) => s + c.n_associato, 0);
+  const kmTotali = Math.round(righe.reduce((s, c) => s + c.km_totali, 0) * 10) / 10;
+  const totaleDesignazioni = nFederali + nAssociato;
+  return {
+    nGare, nFederali, nAssociato, kmTotali,
+    nDoppioFederale: righe.reduce((s, c) => s + c.n_gare_doppio_federale, 0),
+    nTutoraggio: righe.reduce((s, c) => s + c.n_gare_tutoraggio, 0),
+    pctFederali: totaleDesignazioni ? Math.round(nFederali / totaleDesignazioni * 1000) / 10 : 0,
+    mediaKmFederali: nFederali ? Math.round(kmTotali / nFederali * 10) / 10 : 0,
+  };
 }
 
 function _rigaTotaleReportCampionati(righe) {

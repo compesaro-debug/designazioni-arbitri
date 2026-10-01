@@ -149,6 +149,9 @@
       <span id="colonne-candidati" style="margin-left:6px"></span>
     </p>
     <input type="text" id="filtro-candidati" placeholder="Cerca arbitro o comune...">
+    <div class="suggerimento-azioni" style="border:none; background:none; padding:8px 0 0;">
+      <span>Designa con il pulsante a destra, oppure <kbd>Doppio clic</kbd> sulla riga &middot; <kbd>Clic destro</kbd> anche per aprire lo storico</span>
+    </div>
     <div class="table-scroll" style="max-height:55vh; margin-top:12px;">
       <table class="tabella-ridimensionabile" id="tabella-candidati-el" style="min-width:1500px">
         <thead id="tabella-head-candidati">
@@ -171,7 +174,7 @@
             <th class="sortable" data-campo="indisp_motivo">Motivazione</th>
             <th class="sortable" data-campo="note">Note</th>
             <th class="sortable" data-campo="inibizione">Inibizione</th>
-            <th></th>
+            <th class="cella-designa"></th>
           </tr>
           <tr class="filtri-row" id="riga-filtri-candidati">
             <th><input class="filtro-input" data-campo="nome" data-tipo="testo" placeholder="Filtra..."></th>
@@ -192,7 +195,7 @@
             <th><input class="filtro-input" data-campo="indisp_motivo" data-tipo="testo" placeholder="Filtra..."></th>
             <th><input class="filtro-input" data-campo="note" data-tipo="testo" placeholder="Filtra..."></th>
             <th><input class="filtro-input" data-campo="inibizione" data-tipo="testo" placeholder="Filtra..."></th>
-            <th></th>
+            <th class="cella-designa"></th>
           </tr>
         </thead>
         <tbody id="tabella-candidati"></tbody>

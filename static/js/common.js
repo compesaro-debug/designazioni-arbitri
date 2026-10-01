@@ -30,8 +30,8 @@ function toggleSidebar() {
 }
 
 // ---------- GRUPPI DI MENU (sottomenu a comparsa nella sidebar) ----------
-// Ogni gruppo ricorda se era aperto o chiuso in localStorage; il gruppo che contiene
-// la pagina attualmente attiva viene sempre aperto, indipendentemente da cosa era salvato.
+// Ogni gruppo ricorda se era aperto o chiuso in localStorage (aperto se mai toccato); il
+// gruppo che contiene la pagina attualmente attiva viene sempre aperto.
 
 function toggleNavGroup(nome) {
   if (document.documentElement.classList.contains("sidebar-collassata")) {
@@ -48,8 +48,205 @@ document.querySelectorAll(".nav-group").forEach(gruppo => {
   const nome = gruppo.dataset.navGroup;
   const contieneAttiva = !!gruppo.querySelector(".nav-item.active");
   const salvato = localStorage.getItem(`navGroupEspanso_${nome}`);
-  gruppo.classList.toggle("espanso", contieneAttiva || salvato === "1");
+  gruppo.classList.toggle("espanso", contieneAttiva || salvato !== "0");
 });
+
+// ---------- PULSANTI AZIONE DI RIGA (icona + etichetta) ----------
+// Il tipo "modifica" è l'azione principale: la lancia anche il doppio clic sulla riga.
+
+const ICONE_AZIONE = {
+  modifica: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>',
+  elimina: '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path>',
+  report: '<path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19V3"></path>',
+  gestisci: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path>',
+  designa: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line>',
+  conferma: '<polyline points="20 6 9 17 4 12"></polyline>',
+  storico: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path>',
+};
+
+function iconaAzione(tipo, dimensione = 14) {
+  return `<svg viewBox="0 0 24 24" width="${dimensione}" height="${dimensione}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONE_AZIONE[tipo] || ""}</svg>`;
+}
+
+function btnAzione(tipo, onclick, etichetta, principale = tipo === "modifica") {
+  return `<button type="button" class="btn-azione btn-azione-${tipo}" onclick="${onclick}" title="${etichetta}" data-icona="${tipo}"${principale ? " data-azione-principale" : ""}>${iconaAzione(tipo)}<span>${etichetta}</span></button>`;
+}
+
+// ---------- MENU TASTO DESTRO ----------
+// Funziona su qualunque "record" (riga di tabella o riquadro) che contenga un elemento
+// marcato data-azioni: il menu elenca i pulsanti che ci sono dentro, quindi resta sempre
+// allineato a quello che si vede sulla riga senza doverlo configurare pagina per pagina.
+
+const _SELETTORE_RECORD = "tbody tr, .riquadro-designazione";
+let _menuContestuale = null;
+
+function _chiudiMenuContestuale() {
+  if (_menuContestuale) {
+    _menuContestuale.remove();
+    _menuContestuale = null;
+  }
+  document.querySelectorAll(".record-attivo").forEach(el => el.classList.remove("record-attivo"));
+}
+
+// i pulsanti possono essere nascosti (colonna azioni): contano comunque come voci del menu;
+// l'azione principale (quella del doppio clic) va sempre per prima
+function _pulsantiAzioneRecord(record) {
+  const pulsanti = [...record.querySelectorAll("[data-azioni] button")].filter(b => !b.disabled);
+  return pulsanti.sort((a, b) => b.hasAttribute("data-azione-principale") - a.hasAttribute("data-azione-principale"));
+}
+
+function _etichettaPulsante(b) {
+  return (b.title || b.textContent || "").trim();
+}
+
+function _tipoPulsante(b) {
+  if (b.dataset.icona) return b.dataset.icona;
+  const testo = _etichettaPulsante(b).toLowerCase();
+  if (b.classList.contains("btn-rimuovi-x") || testo.startsWith("elimina") || testo.startsWith("rimuovi")) return "elimina";
+  if (testo.startsWith("designa")) return "designa";
+  if (testo.startsWith("modifica")) return "modifica";
+  if (testo.startsWith("conferma")) return "conferma";
+  return "";
+}
+
+function _apriMenuContestuale(record, x, y) {
+  _chiudiMenuContestuale();
+  const pulsanti = _pulsantiAzioneRecord(record);
+  if (!pulsanti.length) return false;
+
+  record.classList.add("record-attivo");
+  const menu = document.createElement("div");
+  menu.className = "menu-contestuale";
+  menu.setAttribute("role", "menu");
+
+  const normali = pulsanti.filter(b => _tipoPulsante(b) !== "elimina");
+  const pericolosi = pulsanti.filter(b => _tipoPulsante(b) === "elimina");
+  const creaVoce = (b) => {
+    const tipo = _tipoPulsante(b);
+    const voce = document.createElement("button");
+    voce.type = "button";
+    voce.className = "menu-contestuale-voce" + (tipo === "elimina" ? " pericolosa" : "");
+    voce.setAttribute("role", "menuitem");
+    voce.innerHTML = `${tipo ? iconaAzione(tipo, 15) : '<span class="menu-contestuale-spazio"></span>'}<span></span>`;
+    voce.lastElementChild.textContent = _etichettaPulsante(b);
+    voce.addEventListener("click", () => {
+      _chiudiMenuContestuale();
+      b.click();
+    });
+    return voce;
+  };
+  normali.forEach(b => menu.appendChild(creaVoce(b)));
+  if (normali.length && pericolosi.length) {
+    const sep = document.createElement("div");
+    sep.className = "menu-contestuale-separatore";
+    menu.appendChild(sep);
+  }
+  pericolosi.forEach(b => menu.appendChild(creaVoce(b)));
+
+  document.body.appendChild(menu);
+  const larghezza = menu.offsetWidth;
+  const altezza = menu.offsetHeight;
+  menu.style.left = `${Math.min(x, window.innerWidth - larghezza - 8)}px`;
+  menu.style.top = `${Math.min(y, window.innerHeight - altezza - 8)}px`;
+  _menuContestuale = menu;
+  menu.querySelector("button").focus();
+  return true;
+}
+
+document.addEventListener("contextmenu", (e) => {
+  const record = e.target.closest(_SELETTORE_RECORD);
+  if (!record || e.target.closest("input, textarea, select")) {
+    _chiudiMenuContestuale();
+    return;
+  }
+  if (_apriMenuContestuale(record, e.clientX, e.clientY)) e.preventDefault();
+});
+
+document.addEventListener("dblclick", (e) => {
+  if (e.target.closest("button, a, input, select, textarea, label")) return;
+  const record = e.target.closest(_SELETTORE_RECORD);
+  if (!record) return;
+  const principale = record.querySelector("[data-azioni] [data-azione-principale]");
+  if (principale) {
+    window.getSelection()?.removeAllRanges();
+    principale.click();
+  }
+});
+
+document.addEventListener("click", (e) => {
+  if (_menuContestuale && !_menuContestuale.contains(e.target)) _chiudiMenuContestuale();
+});
+document.addEventListener("scroll", _chiudiMenuContestuale, true);
+window.addEventListener("resize", _chiudiMenuContestuale);
+document.addEventListener("keydown", (e) => {
+  if (!_menuContestuale) return;
+  const voci = [..._menuContestuale.querySelectorAll(".menu-contestuale-voce")];
+  const i = voci.indexOf(document.activeElement);
+  if (e.key === "Escape") { e.stopPropagation(); _chiudiMenuContestuale(); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); voci[(i + 1) % voci.length].focus(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); voci[(i - 1 + voci.length) % voci.length].focus(); }
+}, true);
+
+// ---------- FINESTRA DI CONFERMA E NOTIFICHE ----------
+// conferma() sostituisce il confirm() del browser: stessa semantica (true/false) ma come
+// Promise, quindi si usa con await. avviso() mostra una notifica che sparisce da sola.
+
+function conferma(messaggio, opzioni = {}) {
+  const { titolo = "Sei sicuro?", testoConferma = "Conferma", pericolosa = true } = opzioni;
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.className = "overlay show overlay-conferma";
+    overlay.innerHTML = `
+      <div class="modal modal-conferma" role="alertdialog" aria-modal="true">
+        <div class="modal-conferma-icona ${pericolosa ? "pericolosa" : ""}">${iconaAzione(pericolosa ? "elimina" : "conferma", 22)}</div>
+        <h2></h2>
+        <p class="modal-conferma-testo"></p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-scelta="no">Annulla</button>
+          <button type="button" class="btn ${pericolosa ? "btn-danger" : "btn-primary"}" data-scelta="si"></button>
+        </div>
+      </div>`;
+    overlay.querySelector("h2").textContent = titolo;
+    overlay.querySelector(".modal-conferma-testo").textContent = messaggio;
+    overlay.querySelector('[data-scelta="si"]').textContent = testoConferma;
+
+    const chiudi = (esito) => {
+      document.removeEventListener("keydown", tasti, true);
+      overlay.remove();
+      resolve(esito);
+    };
+    const tasti = (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); chiudi(false); }
+    };
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) chiudi(false);
+      const scelta = e.target.closest("[data-scelta]");
+      if (scelta) chiudi(scelta.dataset.scelta === "si");
+    });
+    document.addEventListener("keydown", tasti, true);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-scelta="no"]').focus();
+  });
+}
+
+function avviso(messaggio, tipo = "ok") {
+  let contenitore = document.getElementById("contenitore-avvisi");
+  if (!contenitore) {
+    contenitore = document.createElement("div");
+    contenitore.id = "contenitore-avvisi";
+    contenitore.setAttribute("aria-live", "polite");
+    document.body.appendChild(contenitore);
+  }
+  const el = document.createElement("div");
+  el.className = `avviso avviso-${tipo}`;
+  el.textContent = messaggio;
+  el.addEventListener("click", () => el.remove());
+  contenitore.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("in-uscita");
+    setTimeout(() => el.remove(), 250);
+  }, tipo === "errore" ? 7000 : 4000 + Math.min(messaggio.length * 25, 4000));
+}
 
 // ---------- HELPER FETCH ----------
 
@@ -110,7 +307,7 @@ function abilitaChiusuraModali() {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    document.querySelectorAll(".overlay.show").forEach(overlay => closeOverlay(overlay.id));
+    document.querySelectorAll(".overlay.show:not(.overlay-conferma)").forEach(overlay => closeOverlay(overlay.id));
   }
 });
 
@@ -461,19 +658,45 @@ function rendiHeaderFisso(theadSelector) {
   }
 }
 
-// ---------- RIDIMENSIONAMENTO COLONNE (tabelle molto larghe, es. Partite) ----------
-// Aggiunge una maniglia trascinabile sul bordo destro di ogni intestazione di colonna
-// della prima riga del thead. Richiede che la tabella abbia table-layout: fixed.
+// ---------- COLONNE CONFIGURABILI: larghezza, visibilità, colonne fisse ----------
+// Ogni scelta (colonne nascoste, larghezze, colonne fisse a sinistra) è ricordata per
+// tabella nel browser, così riaprendo la pagina la tabella si presenta come l'avevi lasciata.
 
-function abilitaRidimensionamentoColonne(tableSelector) {
+function _leggiPreferenza(chiave, predefinito) {
+  try {
+    return JSON.parse(localStorage.getItem(chiave)) ?? predefinito;
+  } catch {
+    return predefinito;
+  }
+}
+
+function _salvaPreferenza(chiave, valore) {
+  try {
+    localStorage.setItem(chiave, JSON.stringify(valore));
+  } catch {}
+}
+
+// Maniglia trascinabile sul bordo destro di ogni intestazione della prima riga del thead.
+// Può essere richiamata più volte sulla stessa tabella: le maniglie già presenti non si
+// duplicano (la griglia Disponibilità ricostruisce il thead ad ogni ricerca).
+function abilitaRidimensionamentoColonne(tableSelector, opzioni = {}) {
   const tabella = document.querySelector(tableSelector);
   if (!tabella) return;
   const primaRiga = tabella.querySelector("thead tr:first-child");
   if (!primaRiga) return;
 
-  primaRiga.querySelectorAll("th").forEach(th => {
+  const persisti = opzioni.persisti !== false && !!tabella.id;
+  const chiave = `larghezzeColonne_${tabella.id}`;
+  const larghezze = persisti ? _leggiPreferenza(chiave, {}) : {};
+
+  primaRiga.querySelectorAll("th").forEach((th, i) => {
+    if (larghezze[i]) th.style.width = `${larghezze[i]}px`;
+    if (th.querySelector(".col-resize-handle")) return;
+    if (getComputedStyle(th).position === "static") th.style.position = "relative";
+
     const maniglia = document.createElement("span");
     maniglia.className = "col-resize-handle";
+    maniglia.title = "Trascina per cambiare la larghezza";
     th.appendChild(maniglia);
 
     maniglia.addEventListener("click", (e) => e.stopPropagation());
@@ -486,10 +709,15 @@ function abilitaRidimensionamentoColonne(tableSelector) {
 
       const onMouseMove = (e2) => {
         th.style.width = `${Math.max(50, startWidth + (e2.pageX - startX))}px`;
+        _aggiornaColonneFisse(tabella);
       };
       const onMouseUp = () => {
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
+        if (persisti) {
+          larghezze[i] = Math.round(th.getBoundingClientRect().width);
+          _salvaPreferenza(chiave, larghezze);
+        }
       };
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
@@ -497,15 +725,43 @@ function abilitaRidimensionamentoColonne(tableSelector) {
   });
 }
 
-// ---------- SELETTORE COLONNE VISIBILI (riutilizzabile in tutte le tabelle) ----------
-// Legge le intestazioni della prima riga del thead della tabella indicata e crea un
-// pulsante "Colonne" con un pannello a checkbox per nascondere/mostrare ogni colonna.
-// Le colonne senza testo nell'intestazione (es. quella con i pulsanti azione) restano
-// sempre visibili e non compaiono nell'elenco. Richiede che la tabella abbia un id.
-// opzioni.persisti (default true) ricorda la scelta in localStorage; va disattivato
-// per tabelle il cui thead viene ricostruito da zero con colonne diverse ad ogni ricerca
-// (es. la griglia Disponibilità, dove le colonne sono le date scelte di volta in volta).
+// Colonne fisse: restano agganciate al bordo sinistro mentre il resto della tabella scorre
+// in orizzontale. La posizione di ognuna dipende dalla larghezza reale delle fisse che la
+// precedono, quindi va ricalcolata ogni volta che una larghezza cambia.
+function _aggiornaColonneFisse(tabella) {
+  if (!tabella || !tabella.id) return;
+  let styleTag = document.getElementById(`stile-fisse-${tabella.id}`);
+  if (!styleTag) {
+    styleTag = document.createElement("style");
+    styleTag.id = `stile-fisse-${tabella.id}`;
+    document.head.appendChild(styleTag);
+  }
+  const fisse = tabella._colonneFisse;
+  const ths = [...tabella.querySelectorAll("thead tr:first-child th")];
+  const indici = fisse
+    ? [...fisse].filter(i => ths[i] && getComputedStyle(ths[i]).display !== "none").sort((a, b) => a - b)
+    : [];
+  const id = tabella.id;
+  let sinistra = 0;
+  styleTag.textContent = indici.map((i, k) => {
+    const n = i + 1;
+    const ombra = k === indici.length - 1 ? " box-shadow: inset -1px 0 0 var(--bordo), 8px 0 8px -8px rgba(15,23,42,0.25);" : "";
+    const regole = `
+      #${id} tr > :nth-child(${n}) { position: sticky; left: ${sinistra}px; z-index: 2;${ombra} }
+      #${id} tbody tr > td:nth-child(${n}) { background: inherit; }
+      #${id} thead tr > th:nth-child(${n}) { z-index: 6 !important; background: var(--carta); }`;
+    sinistra += ths[i].getBoundingClientRect().width;
+    return regole;
+  }).join("\n");
+}
 
+const ICONA_FISSA_COLONNA = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"></path><path d="M9 3h6"></path><path d="M10 3v7.5L6.5 14v3h11v-3L14 10.5V3"></path></svg>';
+
+// Pulsante "Colonne" con un pannello per scegliere, colonna per colonna, se è visibile e se
+// è fissa a sinistra; attiva anche il ridimensionamento. Le colonne senza testo
+// nell'intestazione (es. quella delle azioni) non compaiono nell'elenco. Richiede che la
+// tabella abbia un id. opzioni.persisti (default true) va disattivato per tabelle il cui
+// thead cambia colonne ad ogni ricerca (es. la griglia Disponibilità, colonne = date scelte).
 function abilitaSelettoreColonne(tableSelector, containerElemento, opzioni = {}) {
   const tabella = document.querySelector(tableSelector);
   if (!tabella || !tabella.id || !containerElemento) return;
@@ -514,14 +770,19 @@ function abilitaSelettoreColonne(tableSelector, containerElemento, opzioni = {})
 
   const tableId = tabella.id;
   const persisti = opzioni.persisti !== false;
-  const chiaveStorage = `colonneNascoste_${tableId}`;
+  const chiaveNascoste = `colonneNascoste_${tableId}`;
+  const chiaveFisse = `colonneFisse_${tableId}`;
+
+  abilitaRidimensionamentoColonne(tableSelector, { persisti });
 
   const colonne = [...primaRiga.querySelectorAll("th")]
     .map((th, indice) => ({ indice, etichetta: th.textContent.trim() }))
     .filter(c => c.etichetta);
   if (colonne.length === 0) return;
 
-  const nascoste = new Set(persisti ? JSON.parse(localStorage.getItem(chiaveStorage) || "[]") : []);
+  const nascoste = new Set(persisti ? _leggiPreferenza(chiaveNascoste, []) : []);
+  const fisse = new Set(persisti ? _leggiPreferenza(chiaveFisse, []) : []);
+  tabella._colonneFisse = fisse;
 
   function applica() {
     let styleTag = document.getElementById(`stile-colonne-${tableId}`);
@@ -533,7 +794,11 @@ function abilitaSelettoreColonne(tableSelector, containerElemento, opzioni = {})
     styleTag.textContent = [...nascoste]
       .map(i => `#${tableId} th:nth-child(${i + 1}), #${tableId} td:nth-child(${i + 1}) { display: none; }`)
       .join("\n");
-    if (persisti) localStorage.setItem(chiaveStorage, JSON.stringify([...nascoste]));
+    if (persisti) {
+      _salvaPreferenza(chiaveNascoste, [...nascoste]);
+      _salvaPreferenza(chiaveFisse, [...fisse]);
+    }
+    _aggiornaColonneFisse(tabella);
   }
 
   const esistente = document.getElementById(`selettore-colonne-${tableId}`);
@@ -548,10 +813,18 @@ function abilitaSelettoreColonne(tableSelector, containerElemento, opzioni = {})
       Colonne
     </button>
     <div class="pannello-colonne">
-      ${colonne.map(c => `<label><input type="checkbox" data-indice="${c.indice}" ${nascoste.has(c.indice) ? "" : "checked"}> ${c.etichetta}</label>`).join("")}
+      <div class="pannello-colonne-intestazione"><span>Colonna visibile</span><span>Fissa</span></div>
+      ${colonne.map(c => `
+        <div class="pannello-colonne-riga">
+          <label><input type="checkbox" data-indice="${c.indice}" ${nascoste.has(c.indice) ? "" : "checked"}> ${_esc(c.etichetta)}</label>
+          <button type="button" class="btn-fissa-colonna${fisse.has(c.indice) ? " attiva" : ""}" data-fissa="${c.indice}" aria-pressed="${fisse.has(c.indice)}" title="Fissa a sinistra: resta visibile mentre il resto scorre">${ICONA_FISSA_COLONNA}</button>
+        </div>`).join("")}
+      <p class="pannello-colonne-nota">Trascina il bordo destro di un'intestazione per cambiarne la larghezza. Tutto viene ricordato.</p>
       <div class="pannello-colonne-azioni">
         <button type="button" data-azione="tutte">Mostra tutte</button>
         <button type="button" data-azione="nessuna">Nascondi tutte</button>
+        <button type="button" data-azione="sblocca">Nessuna fissa</button>
+        <button type="button" data-azione="larghezze">Larghezze originali</button>
       </div>
     </div>
   `;
@@ -575,6 +848,15 @@ function abilitaSelettoreColonne(tableSelector, containerElemento, opzioni = {})
       applica();
     });
   });
+  pannello.querySelectorAll("[data-fissa]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.fissa);
+      if (fisse.has(i)) fisse.delete(i); else fisse.add(i);
+      btn.classList.toggle("attiva", fisse.has(i));
+      btn.setAttribute("aria-pressed", String(fisse.has(i)));
+      applica();
+    });
+  });
   pannello.querySelector('[data-azione="tutte"]').addEventListener("click", () => {
     nascoste.clear();
     pannello.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = true);
@@ -585,6 +867,33 @@ function abilitaSelettoreColonne(tableSelector, containerElemento, opzioni = {})
     pannello.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
     applica();
   });
+  pannello.querySelector('[data-azione="sblocca"]').addEventListener("click", () => {
+    fisse.clear();
+    pannello.querySelectorAll("[data-fissa]").forEach(b => { b.classList.remove("attiva"); b.setAttribute("aria-pressed", "false"); });
+    applica();
+  });
+  pannello.querySelector('[data-azione="larghezze"]').addEventListener("click", () => {
+    primaRiga.querySelectorAll("th").forEach(th => { th.style.width = ""; });
+    try { localStorage.removeItem(`larghezzeColonne_${tableId}`); } catch {}
+    abilitaRidimensionamentoColonne(tableSelector, { persisti });
+    applica();
+  });
+
+  // le larghezze reali cambiano con il contenuto, la finestra e il caricamento dei font:
+  // le posizioni delle colonne fisse vanno ricalcolate di conseguenza
+  if (window.ResizeObserver && !tabella._osservatoreFisse) {
+    let inAttesa = false;
+    tabella._osservatoreFisse = new ResizeObserver(() => {
+      if (inAttesa) return;
+      inAttesa = true;
+      requestAnimationFrame(() => { inAttesa = false; _aggiornaColonneFisse(tabella); });
+    });
+    primaRiga.querySelectorAll("th").forEach(th => tabella._osservatoreFisse.observe(th));
+  }
 
   applica();
+}
+
+function _esc(testo) {
+  return String(testo ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
