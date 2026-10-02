@@ -96,7 +96,7 @@ async function salvaIndisponibilita() {
   }
   closeOverlay("modale-indisponibilita");
   await caricaIndisponibilita();
-  avviso(id ? "Modifiche salvate." : "Indisponibilità aggiunta.");
+  salvato(id ? "Modifiche salvate." : "Indisponibilità aggiunta.");
 }
 
 async function eliminaIndisponibilita(id) {

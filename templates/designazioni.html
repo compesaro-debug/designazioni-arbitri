@@ -139,6 +139,36 @@
     <h2 id="titolo-modale-designazione">Designa arbitro</h2>
     <p id="info-squadre-modale" class="hint"></p>
     <div id="banner-tutoraggio-designazione" class="hint" style="display:none; background:var(--ambra-tinta); color:var(--accento-scuro); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:10px; font-weight:600;"></div>
+    <div class="tabs" id="schede-candidati" style="margin-bottom:12px;">
+      <button class="tab-btn active" data-scheda="federali" onclick="cambiaSchedaCandidati('federali')">Arbitri <span id="n-candidati-federali"></span></button>
+      <button class="tab-btn" data-scheda="associati" onclick="cambiaSchedaCandidati('associati')">Associati (ASS) <span id="n-candidati-associati"></span></button>
+    </div>
+
+    <div id="pannello-candidati-associati" style="display:none;">
+      <p class="hint" style="margin-top:0;">Gli associati arbitrano sempre <strong>da soli</strong>: designandone uno diventa l'arbitro della gara e l'eventuale 2° arbitro viene tolto. Per loro il rimborso km è sempre 0.</p>
+      <div class="table-scroll" style="max-height:55vh; border:1px solid var(--bordo); border-radius:var(--radius);">
+        <table id="tabella-associati-el">
+          <thead>
+            <tr>
+              <th>Associato</th>
+              <th>Comune</th>
+              <th>Distanza</th>
+              <th>Disponibilità</th>
+              <th>Designato oggi</th>
+              <th>Note / inibizioni</th>
+              <th class="cella-designa"></th>
+            </tr>
+          </thead>
+          <tbody id="tabella-associati"></tbody>
+        </table>
+      </div>
+      <div id="stato-vuoto-associati" class="empty-state" style="display:none">
+        <strong>Nessun associato in anagrafica</strong>
+        Inserisci in Anagrafica arbitri le persone con ruolo "ASS" (in attività) per poterle designare da qui.
+      </div>
+    </div>
+
+    <div id="pannello-candidati-federali">
     <p class="hint">
       <span class="tag tag-rosso">Rosso</span> = non disponibile in quel giorno/orario (in fondo alla lista, con dettaglio dell'indisponibilità) &nbsp;
       <span class="tag tag-arancione">Arancione</span> = già designato oggi su un'altra gara (resta selezionabile) &nbsp;
@@ -200,6 +230,7 @@
         </thead>
         <tbody id="tabella-candidati"></tbody>
       </table>
+    </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-designazione')">Chiudi</button>
@@ -415,5 +446,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sorprese.js') }}"></script>
 <script src="{{ url_for('static', filename='js/designazioni.js') }}"></script>
 {% endblock %}

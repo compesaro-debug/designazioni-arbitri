@@ -96,7 +96,8 @@ async function confermaPropostaRimborso(id, modalita, kmManualeArbitro, kmManual
     rimborso_km_manuale_assistente1: modalita === "manuale" ? (kmManualeAssistente1 || "") : "",
     conferma: true,
   });
-  caricaRimborsiKm();
+  await caricaRimborsiKm();
+  salvato("Rimborso confermato.");
 }
 
 function _rigaRimborso(r) {
@@ -154,7 +155,8 @@ async function salvaRigaRimborso(id) {
     rimborso_km_manuale_assistente1: modalita === "manuale" ? kmAssManuale.trim() : "",
     conferma: true,
   });
-  caricaRimborsiKm();
+  await caricaRimborsiKm();
+  salvato("Rimborso salvato.");
 }
 
 document.getElementById("rimborsi-data-da").addEventListener("change", caricaRimborsiKm);

@@ -19,6 +19,11 @@ PARTITE_COLONNE = [
 # lo schema di partite_storiche).
 PARTITE_RIMBORSO_COLONNE = ["rimborso_km_modalita", "rimborso_km_manuale_arbitro", "rimborso_km_manuale_assistente1"]
 
+# Data/ora dell'import che ha trovato una gara da disputare già designata e ne ha conservato
+# la designazione (il file non portava nomi): vuoto quando la designazione è stata fatta o
+# ricontrollata dopo l'ultimo import.
+PARTITE_DESIGNAZIONE_PREIMPORT = "designazione_preimport"
+
 # Elenco completo dei campi della tabella "indisponibilita", nell'ordine in cui compaiono
 # nel file Excel di export usato per l'import (colonne Da/A con data e ora combinate).
 INDISPONIBILITA_COLONNE = [
@@ -52,7 +57,7 @@ def _migra_se_necessario(conn):
     la aggiunge con ALTER TABLE (senza mai toccare i dati già presenti)."""
     schema_atteso = {
         "arbitri": ["codice_fiscale", "cognome_nome", "matricola", "comune", "ruolo", "scadenza_certificato_medico", "cellulare", "email"],
-        "partite": PARTITE_COLONNE + ["disputata"] + PARTITE_RIMBORSO_COLONNE,
+        "partite": PARTITE_COLONNE + ["disputata"] + PARTITE_RIMBORSO_COLONNE + [PARTITE_DESIGNAZIONE_PREIMPORT],
         "indisponibilita": INDISPONIBILITA_COLONNE,
         "note_inibizioni": NOTE_INIBIZIONI_COLONNE,
         "campionati": CAMPIONATI_COLONNE,

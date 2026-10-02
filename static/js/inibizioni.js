@@ -86,7 +86,7 @@ async function salvaInibizione() {
   }
   closeOverlay("modale-inibizione");
   await caricaInibizioni();
-  avviso(id ? "Modifiche salvate." : "Nota/inibizione aggiunta.");
+  salvato(id ? "Modifiche salvate." : "Nota/inibizione aggiunta.");
 }
 
 async function eliminaInibizione(id) {

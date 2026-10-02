@@ -225,6 +225,8 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
     <li><strong>Doppio clic</strong> su una riga esegue l'azione principale: apre la modifica, oppure il report nell'elenco del Report arbitro, oppure <strong>designa</strong> l'arbitro nella finestra "Designa arbitro".</li>
     <li>Prima di ogni eliminazione compare una finestra di conferma che dice esattamente cosa stai per cancellare (es. il nome dell'arbitro o la gara con le squadre). <em>Annulla</em> o il tasto Esc non cancellano nulla.</li>
     <li>Dopo ogni salvataggio o eliminazione compare in basso a destra una breve notifica di conferma, che sparisce da sola.</li>
+    <li>A ogni <strong>salvataggio</strong> (anche una designazione o un rimborso confermato) arriva in volo un gabbiano che fa "Ok!" e il suo verso. Un clic sul gabbiano lo rende muto (fa solo "Ok!"); un altro clic gli ridà la voce. La scelta resta ricordata nel browser.</li>
+    <li>Se in "Designa arbitro" scegli un arbitro <strong>indisponibile</strong> (riga rossa), arriva un gabbiano gigante a ali incrociate che fa il verso e mostra il periodo e il motivo dell'indisponibilità: "Va bene, scelgo un altro" (o Esc) annulla, "Designa comunque" procede con la designazione.</li>
   </ul>
 
   <h3>Configurare le colonne</h3>
@@ -267,7 +269,7 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
     <li><strong>Scoperte nei prossimi 7 giorni</strong> — gare nei prossimi sette giorni ancora senza designazione completa: le più urgenti.</li>
     <li><strong>Arbitri indisponibili oggi</strong> — quanti hanno un periodo di indisponibilità che copre la data odierna.</li>
     <li><strong>Inibizioni attive</strong> — quante note di tipo "inibizione" sono registrate in Inibizioni e note.</li>
-    <li><strong>Gare ancora da omologare</strong> — partite disputate a cui manca ancora il risultato.</li>
+    <li><strong>Gare ancora da omologare</strong> — partite disputate non ancora omologate (N. Uff. diverso da 1).</li>
     <li><strong>Certificati medici in scadenza (30gg) o scaduti</strong> — confronta la scadenza del certificato con la data odierna + 30 giorni (non con la data di una gara specifica: quello è un controllo diverso, vedi Designazioni).</li>
   </ul>
   <p>Sotto ai numeri, le stesse sezioni del menu con una riga di descrizione, utile come punto di partenza rapido.</p>
@@ -379,7 +381,8 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
   <h3>Arbitro e 2° arbitro: si conservano solo sulle disputate</h3>
   <div class="callout">
     Reimportando le <strong>Disputate</strong>: se il file non porta un nome, la designazione già fatta resta quella impostata; se il file ne porta uno, quello vince sempre (anche se diverso da quanto già inserito).<br><br>
-    Reimportando le <strong>Da disputare</strong>: arbitro e 2° arbitro tornano <strong>sempre vuoti</strong>, anche se la gara aveva già una designazione — va rifatta da Designazioni. Scelta voluta: una gara "da disputare" ripresentata dal file non deve mai portarsi dietro una designazione vecchia in modo silenzioso.
+    1° e 2° arbitro seguono le stesse regole <strong>in coppia</strong>: se il file porta il 1° arbitro (es. una gara già giocata con il suo arbitro, o "Arbitro Associato"), anche il 2° viene dal file, vuoto compreso, così non resta il 2° della vecchia designazione accanto al nuovo 1°.<br>
+    Reimportando gare <strong>da disputare</strong> già designate, se il file non porta nomi la designazione <strong>resta</strong>, ma non in modo silenzioso: in Designazioni la gara mostra una striscia gialla <strong>"Designata prima dell'import del …"</strong> (in vista tabella il cartellino "Pre-import"), perché data, ora o campo potrebbero essere cambiati. Dopo averla ricontrollata clicca <strong>"Ok, controllata"</strong> (anche dal tasto destro); il segno sparisce da solo anche se ridesigni la gara.
   </div>
 
   <h3>Il rimborso km non si riapplica mai da solo</h3>
@@ -389,13 +392,15 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
   <p>Se una gara reimportata ha data o orario diversi da quelli già in sistema, dopo l'import compare in un elenco a parte "gare rinviate": la designazione resta quella di prima, ma vale la pena ricontrollare la disponibilità dell'arbitro sulla nuova data.</p>
 
   <h3>Il cartellino risultato (scheda Disputate)</h3>
-  <p>Nella scheda <strong>Disputate</strong>, la colonna Risultato mostra un cartellino <span class="chip verde" style="margin:0 3px;">verde</span> col punteggio quando c'è, oppure <span class="chip giallo" style="margin:0 3px;">Da omologare</span> quando manca — così le gare ancora senza risultato si notano subito scorrendo l'elenco, invece di una cella vuota che si confonde con le altre.</p>
+  <p>Nella scheda <strong>Disputate</strong>, la colonna Risultato mostra un cartellino <span class="chip verde" style="margin:0 3px;">verde</span> col punteggio quando c'è, oppure <span class="chip giallo" style="margin:0 3px;">Senza risultato</span> quando manca — così le gare ancora senza risultato si notano subito scorrendo l'elenco, invece di una cella vuota che si confonde con le altre.</p>
+  <p>Per caricare tutto il calendario in un colpo solo c'è <strong>Importa calendario completo</strong>: ogni gara del file va da sola tra le Disputate se ha il risultato, altrimenti tra le Da disputare (l'anteprima mostra la scheda di ogni riga). <strong>Importa solo in questa scheda</strong> fa invece l'import di sempre nella scheda aperta. In entrambi i casi restano invariati accordi di rimborso km, proposte da confermare e segnalazione delle gare rinviate.</p>
 </section>
 
 <section id="designazioni">
   <h2>Designazioni</h2>
   <p class="sotto">Gare &rarr; Designazioni — la pagina più usata del sito</p>
   <p>Le gare da disputare, in vista giornaliera (per data) o tabellare, con un pulsante "Designa" per 1° e 2° arbitro. Cliccandolo si apre la griglia dei candidati.</p>
+  <div class="callout info">La finestra "Designa arbitro" ha due schede: <strong>Arbitri</strong> (la griglia completa dei federali) e <strong>Associati (ASS)</strong>, con le persone che in anagrafica hanno ruolo ASS e sono in attività. Un associato arbitra sempre <strong>da solo</strong>: designandolo diventa l'arbitro della gara, l'eventuale 2° arbitro viene tolto (con conferma), e nel riquadro della gara il 2° arbitro compare come "Non serve". La gara conta come designata completamente, e per l'associato il rimborso km è sempre 0.</div>
 
   <div class="mock">
     <div class="mock-body" style="padding:16px 18px;">

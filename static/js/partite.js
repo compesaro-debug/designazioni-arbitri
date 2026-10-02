@@ -45,6 +45,7 @@ function cambiaTab(tab) {
   document.getElementById("btn-azzera-filtri-partite").style.display = isOmologazione ? "none" : "";
   document.getElementById("btn-azzera-filtri-omologazione").style.display = isOmologazione ? "" : "none";
   document.getElementById("btn-importa-partite").style.display = isOmologazione ? "none" : "";
+  document.getElementById("btn-importa-tutte-partite").style.display = isOmologazione ? "none" : "";
   document.getElementById("btn-nuova-partita").style.display = isOmologazione ? "none" : "";
   document.getElementById("btn-elimina-tutte-partite").style.display = isOmologazione ? "none" : "";
   document.getElementById("btn-elimina-tutte-partite").textContent =
@@ -87,12 +88,12 @@ async function caricaPartite() {
   renderTabellaPartite();
 }
 
-// Sulla scheda Disputate, una gara senza risultato è ancora da omologare ("gara gialla"):
-// un cartellino la rende visibile a colpo d'occhio invece di una cella vuota indistinguibile.
+// Sulla scheda Disputate una gara senza risultato non è ancora stata giocata davvero (es.
+// importata come designata prima della partita): il cartellino la distingue da una cella vuota.
 function _cellaRisultato(risultato) {
   return risultato
     ? `<span class="tag tag-verde">${risultato}</span>`
-    : `<span class="tag tag-giallo">Da omologare</span>`;
+    : `<span class="tag tag-giallo">Senza risultato</span>`;
 }
 
 function renderTabellaPartite() {
@@ -188,7 +189,7 @@ async function salvaPartita() {
   }
   closeOverlay("modale-partita");
   await caricaPartite();
-  avviso(id ? "Modifiche salvate." : "Partita aggiunta.");
+  salvato(id ? "Modifiche salvate." : "Partita aggiunta.");
 }
 
 async function eliminaPartita(id) {

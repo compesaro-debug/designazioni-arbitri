@@ -21,7 +21,8 @@
     <span id="colonne-omologazione" style="display:none"></span>
     <button id="btn-azzera-filtri-partite" class="btn-testo" onclick="azzeraFiltri('#tabella-head-partite', filtriPartite, renderTabellaPartite)">Azzera filtri</button>
     <button id="btn-azzera-filtri-omologazione" class="btn-testo" style="display:none" onclick="azzeraFiltri('#tabella-head-omologazione', filtriOmologazione, renderTabellaOmologazione)">Azzera filtri</button>
-    <button class="btn btn-import" id="btn-importa-partite">Importa da Excel</button>
+    <button class="btn btn-import" id="btn-importa-tutte-partite" onclick="apriImportModal('import-partite-tutte', {endpoint:'/api/partite/import', params:{tipo:'tutte'}, onDone: caricaPartite})" title="Un solo file con tutto il calendario: le gare con risultato vanno tra le Disputate, le altre tra le Da disputare">Importa calendario completo</button>
+    <button class="btn btn-secondary" id="btn-importa-partite">Importa solo in questa scheda</button>
     <button class="btn-testo" onclick="openOverlay('modale-spiegazione-import')" title="Come funziona l'import">? Come funziona l'import</button>
     <button id="btn-nuova-partita" class="btn btn-primary" onclick="apriModalePartita()">+ Nuova partita</button>
     <button id="btn-elimina-tutte-partite" class="btn-danger-text" onclick="eliminaTutteLePartite()">Elimina tutte</button>
@@ -265,10 +266,16 @@
   <div class="modal modal-large">
     <h2>Come funziona l'import</h2>
 
+    <p class="riepilogo-label">Calendario completo o una scheda sola</p>
+    <p>
+      <strong>Importa calendario completo</strong>: un solo file con tutte le gare. Ogni gara va da sola nella scheda giusta: <strong>con il risultato</strong> tra le "Disputate", <strong>senza risultato</strong> tra le "Da disputare" (anche se la data è passata: vuol dire che è stata rinviata). L'anteprima mostra, riga per riga, in quale scheda finirà.<br>
+      <strong>Importa solo in questa scheda</strong>: come prima, tutte le gare del file vanno nella scheda aperta in quel momento.
+    </p>
+
     <p class="riepilogo-label">Le due modalità</p>
     <p>
       <strong>Aggiungi ai dati esistenti</strong>: le gare del file vengono aggiunte o aggiornate una per una, senza toccare il resto della tabella.<br>
-      <strong>Sostituisci tutti i dati</strong>: prima cancella tutte le gare della scheda che stai importando (solo "Da disputare" oppure solo "Disputate", non entrambe), poi reimporta da zero il file — utile se vuoi che il file rappresenti sempre l'elenco esatto e completo di cosa deve esserci.
+      <strong>Sostituisci tutti i dati</strong>: prima cancella tutte le gare della scheda che stai importando (solo "Da disputare" oppure solo "Disputate"), poi reimporta da zero il file — utile se vuoi che il file rappresenti sempre l'elenco esatto e completo di cosa deve esserci. Con "Importa calendario completo" svuota invece <strong>entrambe</strong> le schede, dopo aver salvato in automatico un backup del database.
     </p>
 
     <p class="riepilogo-label">Come viene riconosciuta la stessa gara</p>
@@ -276,10 +283,11 @@
       Ogni gara viene identificata da <strong>campionato + numero gara</strong>, indipendentemente dal fatto che si trovi tra le "Da disputare" o le "Disputate": è la stessa identità per tutta la vita della gara, anche se cambia data, ora o palestra (rinvio), e anche se passa da una scheda all'altra.
     </p>
 
-    <p class="riepilogo-label">Arbitro e 2° arbitro: solo sulle disputate si conservano</p>
+    <p class="riepilogo-label">Arbitro e 2° arbitro: la designazione già fatta si conserva</p>
     <p>
-      Reimportando le <strong>"Disputate"</strong>, se il file non porta un nome la designazione già fatta resta quella che avevi impostato tu; se invece il file ne porta uno (es. chi ha arbitrato davvero), è sempre quello a vincere, anche se diverso.<br>
-      Reimportando invece le <strong>"Da disputare"</strong>, arbitro e 2° arbitro tornano <strong>sempre vuoti</strong>, anche se la gara aveva già una designazione: va rifatta da Designazioni.
+      In ogni import, se il file non porta un nome la designazione già fatta resta quella che avevi impostato tu; se invece il file ne porta uno (es. chi ha arbitrato davvero), è sempre quello a vincere, anche se diverso.<br>
+      1° e 2° arbitro vanno <strong>in coppia</strong>: se il file porta il 1° arbitro, anche il 2° viene preso dal file (vuoto compreso), così accanto al nuovo 1° non resta il 2° della designazione precedente.<br>
+      Sulle gare ancora <strong>da disputare</strong> la designazione conservata viene segnata in Designazioni con una striscia gialla <strong>"Designata prima dell'import"</strong>: data, ora o campo potrebbero essere cambiati, quindi va ricontrollata. Il segno sparisce con "Ok, controllata" oppure ridesignando la gara.
     </p>
 
     <p class="riepilogo-label">Il rimborso km non si riapplica mai da solo</p>

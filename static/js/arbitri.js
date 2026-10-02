@@ -132,7 +132,7 @@ async function salvaArbitro() {
   }
   closeOverlay("modale-arbitro");
   await caricaArbitri();
-  avviso(id ? "Modifiche salvate." : "Arbitro aggiunto.");
+  salvato(id ? "Modifiche salvate." : "Arbitro aggiunto.");
 }
 
 async function eliminaArbitro(id) {

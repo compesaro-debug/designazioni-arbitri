@@ -55,7 +55,7 @@ async function salvaSocieta() {
   }
   closeOverlay("modale-societa");
   await caricaSocieta();
-  avviso(id ? "Modifiche salvate." : "Società aggiunta.");
+  salvato(id ? "Modifiche salvate." : "Società aggiunta.");
 }
 
 async function eliminaSocieta(id) {

@@ -59,8 +59,10 @@ function _normComuneDesignazioni(s) {
 async function caricaDatiKmDesignazioni() {
   const [arbitri, distanze] = await Promise.all([apiGet("/api/arbitri"), apiGet("/api/distanze-comuni")]);
   window._mappaComuneArbitroDesignazioni = {};
+  window._associatiZeroKmDesignazioni = new Set();
   arbitri.forEach(a => {
     window._mappaComuneArbitroDesignazioni[_normNomeDesignazioni(a.cognome_nome)] = a.comune;
+    if ((a.ruolo || "").trim().toUpperCase() === "ASS") window._associatiZeroKmDesignazioni.add(_normNomeDesignazioni(a.cognome_nome));
   });
   window._mappaDistanzeDesignazioni = {};
   distanze.forEach(d => {
@@ -96,12 +98,21 @@ function _calcolaKmCoppiaDesignazioni(p) {
     const n = parseFloat(String(v).replace(",", "."));
     return isNaN(n) ? null : n;
   };
+  let km;
   if (modalita === "manuale") {
-    return { kmArbitro: parseManuale(p.rimborso_km_manuale_arbitro), kmAssistente1: parseManuale(p.rimborso_km_manuale_assistente1) };
+    km = { kmArbitro: parseManuale(p.rimborso_km_manuale_arbitro), kmAssistente1: parseManuale(p.rimborso_km_manuale_assistente1) };
+  } else if (modalita === "primo" || modalita === "tutoraggio_primo") {
+    km = { kmArbitro: kmArbitroAuto, kmAssistente1: 0 };
+  } else if (modalita === "secondo" || modalita === "tutoraggio_secondo") {
+    km = { kmArbitro: 0, kmAssistente1: kmAssistenteAuto };
+  } else {
+    km = { kmArbitro: kmArbitroAuto, kmAssistente1: kmAssistenteAuto };
   }
-  if (modalita === "primo" || modalita === "tutoraggio_primo") return { kmArbitro: kmArbitroAuto, kmAssistente1: 0 };
-  if (modalita === "secondo" || modalita === "tutoraggio_secondo") return { kmArbitro: 0, kmAssistente1: kmAssistenteAuto };
-  return { kmArbitro: kmArbitroAuto, kmAssistente1: kmAssistenteAuto };
+  // come in app.py: chi ha ruolo ASS è sempre a 0 km, qualunque accordo sia dichiarato
+  const associato = (campo) => !!p[campo] && !!window._associatiZeroKmDesignazioni?.has(_normNomeDesignazioni(p[campo]));
+  if (associato("arbitro")) km.kmArbitro = 0;
+  if (associato("assistente1")) km.kmAssistente1 = 0;
+  return km;
 }
 
 function aggiornaKmTotaliDesignazioni() {
@@ -182,7 +193,8 @@ async function salvaRimborsoKm() {
     conferma: false,
   });
   closeOverlay("modale-rimborso-km");
-  caricaPartiteDesignazioni();
+  await caricaPartiteDesignazioni();
+  salvato("Accordo di trasferta proposto: va confermato in Rimborsi km.");
 }
 
 // ---------- REPORT KM PER CAMPIONATO (periodo da/a vs soglia di Alias campionati) ----------
@@ -276,13 +288,54 @@ function _titoloGiorno(dataIso) {
   return `${giornoSettimana} ${d.getDate()} ${NOMI_MESI_ESTESI[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+// ---------- DESIGNAZIONI CONSERVATE DA UN IMPORT ----------
+// Un reimport del calendario conserva le designazioni già fatte sulle gare da disputare, ma
+// le segna con data/ora dell'import: data, ora o campo potrebbero essere cambiati.
+
+function _momentoImport(valore) {
+  const [data, ora] = (valore || "").split(" ");
+  return `${formattaData(data)}${ora ? " alle " + ora : ""}`;
+}
+
+function _designataPrimaImport(p) {
+  return !!p.designazione_preimport && !!(p.arbitro || p.assistente1);
+}
+
+function _avvisoPreimport(p) {
+  if (!_designataPrimaImport(p)) return "";
+  return `
+    <div class="riquadro-preimport" data-azioni>
+      <span>Designata prima dell'import del ${_momentoImport(p.designazione_preimport)}: ricontrolla data, ora e disponibilità.</span>
+      <button type="button" class="btn-testo" title="Segna la designazione come controllata" data-icona="conferma" onclick="segnaDesignazioneControllata(${p.id})">Ok, controllata</button>
+    </div>`;
+}
+
+async function segnaDesignazioneControllata(partitaId) {
+  await apiSend(`/api/partite/${partitaId}/designazione-controllata`, "PUT", {});
+  await caricaPartiteDesignazioni();
+  avviso("Designazione segnata come controllata.");
+}
+
+// una gara è coperta del tutto con 1° e 2° arbitro, oppure con un solo associato
+function _garaDesignataCompleta(p) {
+  return !!p.arbitro && (!!p.assistente1 || _eAssociatoDesignazioni(p.arbitro));
+}
+
 function _riquadroRuolo(p, campo, etichetta) {
   const nome = p[campo];
+  if (campo === "assistente1" && !nome && _eAssociatoDesignazioni(p.arbitro)) {
+    return `
+      <div class="riquadro-designazione-ruolo non-serve">
+        <span class="riquadro-designazione-ruolo-etichetta">${etichetta}</span>
+        <span class="riquadro-designazione-ruolo-nome">Non serve: arbitra un associato</span>
+      </div>`;
+  }
   if (nome) {
+    const tagAss = _eAssociatoDesignazioni(nome) ? ' <span class="tag tag-giallo">ASS</span>' : "";
     return `
       <div class="riquadro-designazione-ruolo assegnato">
         <span class="riquadro-designazione-ruolo-etichetta">${etichetta}</span>
-        <span class="riquadro-designazione-ruolo-nome">${nome}</span>
+        <span class="riquadro-designazione-ruolo-nome">${nome}${tagAss}</span>
         <button class="btn-rimuovi-x" title="Rimuovi ${etichetta.toLowerCase()}" data-icona="elimina" onclick="rimuoviArbitro(${p.id}, '${campo}')">&times;</button>
       </div>`;
   }
@@ -327,8 +380,8 @@ function renderVistaGiornaliera() {
 
   contenitore.innerHTML = giorniOrdinati.map(giorno => {
     const gare = perGiorno[giorno].slice().sort((a, b) => (a.ora || "").localeCompare(b.ora || ""));
-    const nDesignate = gare.filter(p => p.arbitro && p.assistente1).length;
-    const nParziali = gare.filter(p => (p.arbitro || p.assistente1) && !(p.arbitro && p.assistente1)).length;
+    const nDesignate = gare.filter(_garaDesignataCompleta).length;
+    const nParziali = gare.filter(p => (p.arbitro || p.assistente1) && !_garaDesignataCompleta(p)).length;
     const percentuale = Math.round((nDesignate / gare.length) * 100);
     const classeBarra = nDesignate === gare.length ? "completa" : nDesignate === 0 && nParziali === 0 ? "vuota" : "parziale";
 
@@ -350,6 +403,7 @@ function renderVistaGiornaliera() {
               </div>
               <div class="riquadro-designazione-squadre">${p.squadra_casa} <span class="riquadro-designazione-vs">vs</span> ${p.squadra_ospite}</div>
               <div class="riquadro-designazione-luogo">${p.localita || ""}${p.campo ? " — " + p.campo : ""}</div>
+              ${_avvisoPreimport(p)}
               <div class="riquadro-designazione-ruoli" data-azioni>
                 ${_riquadroRuolo(p, "arbitro", "Arbitro")}
                 ${_riquadroRuolo(p, "assistente1", "2° Arbitro")}
@@ -366,6 +420,9 @@ document.getElementById("filtro-giornaliera-designazioni").addEventListener("inp
 
 function cellaArbitro(p, campo, etichetta) {
   const nome = p[campo];
+  if (campo === "assistente1" && !nome && _eAssociatoDesignazioni(p.arbitro)) {
+    return `<td style="white-space:nowrap; color:var(--testo-tenue)">Non serve (associato)</td>`;
+  }
   const rimuovi = nome ? `<button class="btn-rimuovi-x" title="Rimuovi ${etichetta.toLowerCase()}" data-icona="elimina" onclick="rimuoviArbitro(${p.id}, '${campo}')">&times;</button>` : "";
   const designaBtn = `<button class="btn-storico-inline" title="${nome ? "Cambia" : "Designa"} ${etichetta.toLowerCase()}" data-icona="designa" onclick="apriModaleDesignazione(${p.id}, '${campo}')">${nome ? "cambia" : "designa"}</button>`;
   return `<td style="white-space:nowrap" data-azioni>${nome || "-"}${rimuovi} ${designaBtn}</td>`;
@@ -385,8 +442,11 @@ function renderTabellaDesignazioni() {
 
   partite.forEach(p => {
     const tr = document.createElement("tr");
+    const tagPreimport = _designataPrimaImport(p)
+      ? ` <span class="tag tag-giallo" title="Designata prima dell'import del ${_momentoImport(p.designazione_preimport)}: ricontrolla">Pre-import</span>`
+      : "";
     tr.innerHTML = `
-      <td>${formattaData(p.data)}</td>
+      <td>${formattaData(p.data)}${tagPreimport}</td>
       <td>${p.ora}</td>
       <td>${p.campionato}</td>
       <td>${tagFase(p.tipo_fase)}</td>
@@ -432,6 +492,10 @@ async function apriModaleDesignazione(partitaId, ruolo) {
      <button class="btn-storico-inline" onclick="apriClassificaDesignazione()">Vedi classifica</button>`;
   document.getElementById("filtro-candidati").value = "";
   document.getElementById("tabella-candidati").innerHTML = "";
+  document.getElementById("tabella-associati").innerHTML = "";
+  document.getElementById("n-candidati-federali").textContent = "";
+  document.getElementById("n-candidati-associati").textContent = "";
+  cambiaSchedaCandidati("federali");
   openOverlay("modale-designazione");
   rendiHeaderFisso("#tabella-head-candidati");
 
@@ -439,7 +503,78 @@ async function apriModaleDesignazione(partitaId, ruolo) {
 
   const candidati = await apiGet(`/api/designazioni/candidati/${partitaId}?ruolo=${window._ruoloDaDesignare}`);
   window._candidatiCache = candidati;
+  const nAssociati = candidati.filter(c => c.associato).length;
+  document.getElementById("n-candidati-federali").textContent = `(${candidati.length - nAssociati})`;
+  document.getElementById("n-candidati-associati").textContent = `(${nAssociati})`;
   renderCandidati();
+  renderCandidatiAssociati();
+}
+
+// ---------- ASSOCIATI (ruolo ASS): arbitrano sempre da soli ----------
+
+function cambiaSchedaCandidati(scheda) {
+  document.querySelectorAll("#schede-candidati .tab-btn").forEach(b => b.classList.toggle("active", b.dataset.scheda === scheda));
+  document.getElementById("pannello-candidati-federali").style.display = scheda === "federali" ? "" : "none";
+  document.getElementById("pannello-candidati-associati").style.display = scheda === "associati" ? "" : "none";
+}
+
+function _eAssociatoDesignazioni(nome) {
+  return !!nome && !!window._associatiZeroKmDesignazioni?.has(_normNomeDesignazioni(nome));
+}
+
+function renderCandidatiAssociati() {
+  const tbody = document.getElementById("tabella-associati");
+  const vuoto = document.getElementById("stato-vuoto-associati");
+  const associati = (window._candidatiCache || [])
+    .filter(c => c.associato)
+    .sort((a, b) => (!a.disponibile - !b.disponibile) || a.nome.localeCompare(b.nome));
+  vuoto.style.display = associati.length ? "none" : "block";
+  tbody.closest(".table-scroll").style.display = associati.length ? "" : "none";
+
+  tbody.innerHTML = associati.map(c => {
+    const classe = !c.disponibile ? "riga-non-disponibile" : (c.designato_oggi ? "riga-designato-oggi" : (c.inibito ? "riga-inibito" : ""));
+    const disponibilita = c.disponibile
+      ? '<span class="tag tag-verde">Disponibile</span>'
+      : `<span class="tag tag-rosso">Indisponibile</span> <span class="hint">${_esc(_periodoIndisponibilita(c))}</span>`;
+    const note = [c.note, c.inibizione].filter(Boolean).map(_esc).join(" · ");
+    const nomeEsc = _esc(c.nome);
+    return `
+      <tr class="${classe}">
+        <td data-azioni>${nomeEsc} <span class="tag tag-giallo">ASS</span> <button class="btn-storico-icona" title="Storico di ${nomeEsc}" data-icona="storico" onclick="apriStoricoArbitroId(${c.id})">${iconaAzione("storico", 13)}</button></td>
+        <td>${_esc(c.comune)}</td>
+        <td>${c.distanza_km != null ? c.distanza_km + " km" : "-"} <span class="hint">(rimborso 0)</span></td>
+        <td>${disponibilita}</td>
+        <td>${c.designato_oggi ? _esc(c.designato_info) : ""}</td>
+        <td>${note}</td>
+        <td class="cella-designa" data-azioni><button type="button" class="btn btn-primary btn-designa" title="Designa ${nomeEsc}" data-icona="designa" data-azione-principale onclick="designaAssociato(${c.id})">${iconaAzione("designa", 13)}Designa</button></td>
+      </tr>`;
+  }).join("");
+}
+
+async function designaAssociato(arbitroId) {
+  const candidato = (window._candidatiCache || []).find(c => c.id === arbitroId);
+  const partita = window._partitaDaDesignare;
+  if (!candidato || !partita) return;
+  if (!candidato.disponibile && !await gabbianoIndisponibile(candidato)) return;
+
+  const daTogliere = [partita.arbitro, partita.assistente1].filter(n => n && n !== candidato.nome);
+  if (daTogliere.length && !await conferma(
+    `Gli associati arbitrano da soli: ${daTogliere.join(" e ")} ${daTogliere.length > 1 ? "verranno tolti" : "verrà tolto"} da questa gara e ${candidato.nome} sarà l'unico arbitro.`,
+    { titolo: "Designare un associato?", testoConferma: "Designa", pericolosa: false },
+  )) return;
+
+  const aggiornata = {
+    ...partita,
+    arbitro: candidato.nome,
+    assistente1: "",
+    rimborso_km_modalita: "",
+    rimborso_km_manuale_arbitro: "",
+    rimborso_km_manuale_assistente1: "",
+  };
+  await apiSend(`/api/partite/${partita.id}`, "PUT", aggiornata);
+  closeOverlay("modale-designazione");
+  await caricaPartiteDesignazioni();
+  salvato(`${candidato.nome} (associato) designato: arbitra da solo la gara n° ${partita.numero_gara}`);
 }
 
 // Un arbitro in tutoraggio "finisce" solo quando ha fatto almeno 5 tutoraggi totali E con
@@ -602,9 +737,9 @@ function renderCandidati() {
   const tbody = document.getElementById("tabella-candidati");
   tbody.innerHTML = "";
 
-  let candidati = (window._candidatiCache || []).filter(c =>
+  let candidati = (window._candidatiCache || []).filter(c => !c.associato && (
     !filtroRapido || c.nome.toLowerCase().includes(filtroRapido) || (c.comune || "").toLowerCase().includes(filtroRapido)
-  );
+  ));
   candidati = applicaFiltriCandidati(candidati, filtriColonna);
   candidati = ordinaCandidati(candidati);
 
@@ -802,6 +937,7 @@ function _blocoRiepilogoAssociati(etichettaLato, nomeSquadra, dati) {
 async function designaArbitro(arbitroId) {
   const candidato = (window._candidatiCache || []).find(c => c.id === arbitroId);
   if (!candidato) return;
+  if (!candidato.disponibile && !await gabbianoIndisponibile(candidato)) return;
   const campo = window._ruoloDaDesignare || "arbitro";
   const partita = { ...window._partitaDaDesignare, [campo]: candidato.nome };
   // cambiando uno dei due ruoli, l'eventuale accordo di rimborso km già scelto in precedenza
@@ -814,7 +950,13 @@ async function designaArbitro(arbitroId) {
   const risposta = await apiSend(`/api/partite/${partita.id}`, "PUT", partita);
   closeOverlay("modale-designazione");
   await caricaPartiteDesignazioni();
-  avviso(`${candidato.nome} designato come ${campo === "arbitro" ? "1° arbitro" : "2° arbitro"} — gara n° ${partita.numero_gara}`);
+  const messaggio = `${candidato.nome} designato come ${campo === "arbitro" ? "1° arbitro" : "2° arbitro"} — gara n° ${partita.numero_gara}`;
+  if (eGiovanePromessa(candidato.nome)) {
+    avviso(messaggio);
+    mostraGiovanePromessa(candidato.nome, `${campo === "arbitro" ? "1° arbitro" : "2° arbitro"} · ${partita.squadra_casa} vs ${partita.squadra_ospite}`);
+  } else {
+    salvato(messaggio);
+  }
   // Se con questa designazione la gara ha ora sia arbitro che 2° arbitro, chiede subito come
   // gestire il rimborso km (auto separate, viaggio insieme, tutoraggio, o km inseriti a mano);
   // se uno dei due è in tutoraggio il backend ha già calcolato la modalità da preselezionare.
@@ -851,5 +993,13 @@ abilitaOrdinamento("#tabella-head-candidati", ordinamentoCandidati, renderCandid
 abilitaRidimensionamentoColonne("#tabella-candidati-el");
 abilitaSelettoreColonne("#tabella-candidati-el", document.getElementById("colonne-candidati"));
 
-caricaDatiKmDesignazioni().then(aggiornaKmTotaliDesignazioni);
+// i nomi degli associati servono anche ai riquadri ("Non serve" sul 2° arbitro): se arrivano
+// dopo le partite, si ridisegna
+caricaDatiKmDesignazioni().then(() => {
+  aggiornaKmTotaliDesignazioni();
+  if (window._partiteDesignazioniCache) {
+    renderVistaGiornaliera();
+    renderTabellaDesignazioni();
+  }
+});
 caricaPartiteDesignazioni();

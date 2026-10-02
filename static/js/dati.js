@@ -72,6 +72,7 @@ async function salvaStagione() {
   closeOverlay("modale-stagione");
   _stagioneSelezionataId = risultato.id;
   await caricaStagioni();
+  salvato(`Stagione "${nome}" creata.`);
 }
 
 async function eliminaStagioneCorrente() {
@@ -191,7 +192,8 @@ async function salvaCampionatoStorico() {
     await apiSend(`/api/stagioni/${_stagioneSelezionataId}/campionati`, "POST", payload);
   }
   closeOverlay("modale-campionato-storico");
-  caricaCampionatiStorici();
+  await caricaCampionatiStorici();
+  salvato(id ? "Modifiche salvate." : "Campionato aggiunto.");
 }
 
 async function eliminaCampionatoStorico(id) {

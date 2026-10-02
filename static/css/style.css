@@ -940,6 +940,23 @@ table.tabella-ridimensionabile .due-righe-interno {
 }
 .riquadro-designazione-ruolo.assegnato .riquadro-designazione-ruolo-etichetta { color: var(--verde-ok); }
 .riquadro-designazione-ruolo-nome { font-size: 13px; font-weight: 500; flex: 1; text-align: right; margin-right: 4px; }
+.riquadro-designazione-ruolo.non-serve { border-style: dashed; }
+.riquadro-preimport {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -4px 0 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--ambra-tinta);
+  border-left: 3px solid var(--accento);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--accento-scuro);
+}
+.riquadro-preimport .btn-testo { flex-shrink: 0; padding: 4px 10px; font-size: 11.5px; }
+.riquadro-designazione-ruolo.non-serve .riquadro-designazione-ruolo-nome { font-weight: 400; font-style: italic; color: var(--testo-tenue); }
 
 /* ---------- PAGINA RICONOSCIMENTI ---------- */
 
@@ -1961,6 +1978,239 @@ tbody tr.record-attivo td.cella-azioni { background: var(--primario-tinta); }
 .tooltip-grafico.visibile { display: flex; }
 .tooltip-grafico strong { font-weight: 600; }
 .tooltip-grafico span { color: #d6dcea; }
+
+/* ---------- IL GABBIANO DEL SALVATAGGIO ---------- */
+
+.gabbiano {
+  position: fixed;
+  right: 36px;
+  bottom: 88px;
+  z-index: 92;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  animation: gabbiano-volo 3s ease-in-out forwards;
+}
+.gabbiano svg { display: block; overflow: visible; filter: drop-shadow(0 4px 6px rgba(15,23,42,0.18)); }
+.gabbiano-ala {
+  transform-origin: 58px 54px;
+  animation: gabbiano-ali 3s linear;
+}
+.gabbiano-testa {
+  transform-origin: 82px 52px;
+  animation: gabbiano-annuisce 3s ease-in-out;
+}
+.gabbiano-zampe { opacity: 0; animation: gabbiano-atterra 3s linear forwards; }
+.gabbiano-fumetto {
+  position: absolute;
+  left: 92px;
+  top: -16px;
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: var(--carta);
+  border: 2px solid var(--primario);
+  color: var(--primario);
+  font-family: "Barlow Condensed", "Oswald", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  transform: scale(0.6);
+  animation: gabbiano-fumetto 3s ease-out forwards;
+}
+.gabbiano-fumetto::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  bottom: -8px;
+  border-width: 8px 6px 0;
+  border-style: solid;
+  border-color: var(--primario) transparent transparent;
+}
+
+@keyframes gabbiano-volo {
+  0%   { transform: translate(180px, -140px) rotate(-8deg); opacity: 0; }
+  8%   { opacity: 1; }
+  24%  { transform: translate(0, 0) rotate(0); }
+  28%  { transform: translate(0, 4px); }
+  32%  { transform: translate(0, 0); }
+  78%  { transform: translate(0, 0); opacity: 1; }
+  100% { transform: translate(-220px, -200px) rotate(-10deg); opacity: 0; }
+}
+@keyframes gabbiano-ali {
+  0%, 8%, 16%  { transform: rotate(0); }
+  4%, 12%, 20% { transform: rotate(38deg); }
+  24%, 78%     { transform: rotate(0); }
+  82%, 90%, 98% { transform: rotate(40deg); }
+  86%, 94%, 100% { transform: rotate(0); }
+}
+@keyframes gabbiano-annuisce {
+  0%, 36%, 72%, 100% { transform: rotate(0); }
+  42%, 56% { transform: rotate(16deg); }
+  49%, 63% { transform: rotate(-3deg); }
+}
+@keyframes gabbiano-atterra {
+  0%, 22% { opacity: 0; }
+  26%, 78% { opacity: 1; }
+  82%, 100% { opacity: 0; }
+}
+@keyframes gabbiano-fumetto {
+  0%, 30% { opacity: 0; transform: scale(0.6); }
+  36% { opacity: 1; transform: scale(1.08); }
+  40%, 74% { opacity: 1; transform: scale(1); }
+  80%, 100% { opacity: 0; transform: scale(0.9); }
+}
+
+/* ---------- GABBIANO GIGANTE: ARBITRO INDISPONIBILE ---------- */
+
+.gabbiano-stop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, 92vw);
+  padding: 26px 30px 24px;
+  border-radius: 18px;
+  background: var(--carta);
+  box-shadow: var(--ombra-lg);
+  text-align: center;
+  animation: gabbiano-stop-arrivo 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.gabbiano-stop-fumetto {
+  position: relative;
+  padding: 10px 22px;
+  border-radius: 18px;
+  background: var(--rosso);
+  color: #fff;
+  font-family: "Barlow Condensed", "Oswald", sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.gabbiano-stop-fumetto::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  margin-left: -10px;
+  border-width: 12px 10px 0;
+  border-style: solid;
+  border-color: var(--rosso) transparent transparent;
+}
+.gabbiano-stop-figura { animation: gabbiano-stop-no 0.5s ease-in-out 0.45s 3; }
+.gabbiano-stop-figura svg { display: block; width: min(240px, 50vw); height: auto; }
+.ala-stop { transform-origin: 120px 165px; }
+.ala-stop-sx { transform: rotate(32deg); animation: ala-stop-sx 0.5s ease-out; }
+.ala-stop-dx { transform: rotate(-32deg); animation: ala-stop-dx 0.5s ease-out; }
+.gabbiano-stop-dettaglio {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--testo);
+}
+.gabbiano-stop-azioni { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
+
+@keyframes gabbiano-stop-arrivo {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes gabbiano-stop-no {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-7deg); }
+  75% { transform: rotate(7deg); }
+}
+@keyframes ala-stop-sx { from { transform: rotate(-40deg); } to { transform: rotate(32deg); } }
+@keyframes ala-stop-dx { from { transform: rotate(40deg); } to { transform: rotate(-32deg); } }
+
+/* ---------- LA GIOVANE PROMESSA ---------- */
+
+.overlay-promessa { cursor: pointer; transition: opacity 0.4s ease; }
+.overlay-promessa.in-uscita { opacity: 0; }
+.promessa {
+  position: relative;
+  width: min(520px, 94vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(1.5px 1.5px at 20% 30%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 20%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 80% 70%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 35% 80%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 45%, #ffffffaa 50%, transparent 51%),
+    radial-gradient(circle at 50% 45%, #3b2f8f 0%, #1a1650 55%, #0a0a24 100%);
+  box-shadow: 0 0 60px rgba(247,168,35,0.45), var(--ombra-lg);
+  animation: promessa-arrivo 0.7s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+.promessa-anello {
+  position: absolute;
+  inset: 5%;
+  width: 90%;
+  height: 90%;
+  animation: promessa-giro 24s linear infinite;
+}
+.promessa-anello .sfera {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 8px rgba(255,190,60,0.85));
+  animation: sfera-pulsa 1.6s ease-in-out infinite alternate;
+}
+.promessa-centro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 22%;
+  text-align: center;
+}
+.promessa-titolo {
+  font-family: "Barlow Condensed", "Oswald", sans-serif;
+  font-size: clamp(30px, 8vw, 50px);
+  font-weight: 700;
+  line-height: 0.95;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #ffd24a;
+  text-shadow: 0 2px 0 #c8560c, 0 4px 0 #7a2e05, 0 0 22px rgba(255,190,60,0.7);
+  animation: promessa-titolo 0.9s ease-out 0.3s both;
+}
+.promessa-nome {
+  font-family: "Barlow Condensed", "Oswald", sans-serif;
+  font-size: clamp(18px, 4.5vw, 24px);
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.promessa-dettaglio { font-size: 13px; color: #c9cdf2; line-height: 1.4; }
+.promessa-chiudi {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9%;
+  text-align: center;
+  font-size: 11.5px;
+  color: #8f93c9;
+}
+
+@keyframes promessa-arrivo {
+  from { opacity: 0; transform: scale(0.3) rotate(-25deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes promessa-giro { to { transform: rotate(360deg); } }
+@keyframes sfera-pulsa {
+  from { filter: drop-shadow(0 0 4px rgba(255,190,60,0.6)); }
+  to { filter: drop-shadow(0 0 14px rgba(255,200,80,1)); }
+}
+@keyframes promessa-titolo {
+  from { opacity: 0; transform: scale(1.6); letter-spacing: 0.3em; }
+  to { opacity: 1; transform: scale(1); letter-spacing: 0.03em; }
+}
 
 /* ---------- RIFINITURE GENERALI ---------- */
 

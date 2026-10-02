@@ -248,6 +248,121 @@ function avviso(messaggio, tipo = "ok") {
   }, tipo === "errore" ? 7000 : 4000 + Math.min(messaggio.length * 25, 4000));
 }
 
+// ---------- IL GABBIANO DEL SALVATAGGIO ----------
+// A ogni salvataggio arriva un gabbiano in volo, annuisce con un "Ok!" e riparte, facendo il
+// verso. Il verso è sintetizzato con Web Audio (nessun file da scaricare). Un clic sul
+// gabbiano lo rende muto o gli ridà la voce; la scelta resta salvata nel browser.
+
+let _contestoAudioGabbiano = null;
+
+function _audioGabbiano() {
+  const ContestoAudio = window.AudioContext || window.webkitAudioContext;
+  if (!ContestoAudio) return null;
+  if (!_contestoAudioGabbiano) _contestoAudioGabbiano = new ContestoAudio();
+  if (_contestoAudioGabbiano.state === "suspended") _contestoAudioGabbiano.resume();
+  return _contestoAudioGabbiano;
+}
+
+// i browser fanno partire l'audio solo dopo un'interazione dell'utente: il contesto audio
+// viene preparato al primo clic sulla pagina, così è pronto quando arriva il salvataggio
+document.addEventListener("pointerdown", _audioGabbiano, { once: true });
+
+function _gabbianoMuto() {
+  try { return localStorage.getItem("gabbianoMuto") === "1"; } catch { return false; }
+}
+
+// tre richiami "kiaa" discendenti: dente di sega filtrato con una glissata veloce verso
+// l'alto e una lunga verso il basso, più un vibrato rapido che dà la voce rauca
+function _versoGabbiano() {
+  const ctx = _audioGabbiano();
+  if (!ctx) return;
+  const inizio = ctx.currentTime + 0.05;
+  [[0, 1, 0.32], [0.36, 0.94, 0.3], [0.68, 0.88, 0.42]].forEach(([ritardo, tono, durata]) => {
+    const t = inizio + ritardo;
+    const voce = ctx.createOscillator();
+    voce.type = "sawtooth";
+    voce.frequency.setValueAtTime(1050 * tono, t);
+    voce.frequency.exponentialRampToValueAtTime(1700 * tono, t + 0.06);
+    voce.frequency.exponentialRampToValueAtTime(760 * tono, t + durata);
+
+    const vibrato = ctx.createOscillator();
+    vibrato.frequency.value = 36;
+    const ampiezzaVibrato = ctx.createGain();
+    ampiezzaVibrato.gain.value = 55;
+    vibrato.connect(ampiezzaVibrato).connect(voce.frequency);
+
+    const filtro = ctx.createBiquadFilter();
+    filtro.type = "bandpass";
+    filtro.Q.value = 5;
+    filtro.frequency.setValueAtTime(1500 * tono, t);
+    filtro.frequency.exponentialRampToValueAtTime(1000 * tono, t + durata);
+
+    const volume = ctx.createGain();
+    volume.gain.setValueAtTime(0.0001, t);
+    volume.gain.exponentialRampToValueAtTime(0.4, t + 0.03);
+    volume.gain.setValueAtTime(0.4, t + durata * 0.5);
+    volume.gain.exponentialRampToValueAtTime(0.0001, t + durata);
+
+    voce.connect(filtro).connect(volume).connect(ctx.destination);
+    voce.start(t);
+    vibrato.start(t);
+    voce.stop(t + durata + 0.05);
+    vibrato.stop(t + durata + 0.05);
+  });
+}
+
+const SVG_GABBIANO = `
+  <svg viewBox="0 0 130 100" width="130" height="100" aria-hidden="true">
+    <path class="gabbiano-coda" d="M36 60 L12 52 L16 66 Z" fill="#8f9aab"/>
+    <g class="gabbiano-zampe" stroke="#e8892b" stroke-width="3" stroke-linecap="round" fill="none">
+      <path d="M56 74 L53 90 L47 92 M53 90 L58 93"/>
+      <path d="M68 74 L69 90 L63 92 M69 90 L74 92"/>
+    </g>
+    <ellipse cx="62" cy="60" rx="30" ry="17" fill="#ffffff" stroke="#d3d8e0" stroke-width="1.5"/>
+    <g class="gabbiano-testa">
+      <circle cx="88" cy="40" r="14" fill="#ffffff" stroke="#d3d8e0" stroke-width="1.5"/>
+      <path d="M99 39 L118 43 L99 48 Z" fill="#f2b705"/>
+      <circle cx="108" cy="45" r="1.8" fill="#d0392b"/>
+      <circle cx="92" cy="36" r="2.4" fill="#1b2130"/>
+    </g>
+    <g class="gabbiano-ala">
+      <path d="M58 52 Q40 18 14 24 Q30 38 34 46 Q46 56 62 62 Z" fill="#9aa5b4"/>
+      <path d="M14 24 Q22 26 26 32 L20 30 Z" fill="#1b2130"/>
+    </g>
+  </svg>`;
+
+function gabbianoOk() {
+  const precedente = document.getElementById("gabbiano-ok");
+  if (precedente) precedente.remove();
+  if (!_gabbianoMuto()) _versoGabbiano();
+
+  const gabbiano = document.createElement("button");
+  gabbiano.type = "button";
+  gabbiano.id = "gabbiano-ok";
+  gabbiano.className = "gabbiano";
+  gabbiano.title = _gabbianoMuto() ? "Clic per ridare la voce al gabbiano" : "Clic per silenziare il gabbiano";
+  gabbiano.setAttribute("aria-label", "Salvato");
+  gabbiano.innerHTML = `<span class="gabbiano-fumetto">Ok!</span>${SVG_GABBIANO}`;
+  gabbiano.addEventListener("click", () => {
+    const muto = !_gabbianoMuto();
+    try { localStorage.setItem("gabbianoMuto", muto ? "1" : "0"); } catch {}
+    avviso(muto ? "Gabbiano silenziato: farà ok senza verso." : "Il gabbiano ha di nuovo la voce.", "info");
+    if (!muto) _versoGabbiano();
+  });
+  gabbiano.addEventListener("animationend", (e) => {
+    if (e.target === gabbiano) gabbiano.remove();
+  });
+  // se la scheda non è in primo piano l'animazione può non finire mai: va via comunque
+  setTimeout(() => gabbiano.remove(), 3500);
+  document.body.appendChild(gabbiano);
+}
+
+// notifica di salvataggio riuscito + gabbiano
+function salvato(messaggio) {
+  avviso(messaggio);
+  gabbianoOk();
+}
+
 // ---------- HELPER FETCH ----------
 
 async function apiGet(url) {
@@ -392,9 +507,10 @@ function creaImportOverlay(overlayId, config) {
         return;
       }
 
-      resultDiv.innerHTML = data.duplicate > 0
+      resultDiv.innerHTML = (data.duplicate > 0
         ? `<div class="import-result errore">${data.totale} righe lette: ${data.nuove} nuove, ${data.duplicate} già presenti nel sistema (evidenziate sotto in rosso — verranno aggiornate con i nuovi dati se confermi).</div>`
-        : `<div class="import-result ok">${data.totale} righe lette: tutte nuove, nessun duplicato trovato.</div>`;
+        : `<div class="import-result ok">${data.totale} righe lette: tutte nuove, nessun duplicato trovato.</div>`)
+        + (data.nota ? `<div class="import-result">${_esc(data.nota)}</div>` : "");
 
       const colonne = data.righe.length ? Object.keys(data.righe[0].dati) : [];
       anteprimaDiv.innerHTML = data.righe.length ? `
@@ -435,9 +551,10 @@ function creaImportOverlay(overlayId, config) {
       });
       const data = await res.json();
       if (data.ok) {
-        resultDiv.innerHTML = data.aggiornati > 0
+        resultDiv.innerHTML = (data.aggiornati > 0
           ? `<div class="import-result ok">Importate ${data.inseriti} righe nuove, aggiornate ${data.aggiornati} già esistenti.</div>`
-          : `<div class="import-result ok">Importate ${data.inseriti} righe con successo.</div>`;
+          : `<div class="import-result ok">Importate ${data.inseriti} righe con successo.</div>`)
+          + (data.nota ? `<div class="import-result ok">${_esc(data.nota)}</div>` : "");
         // gare la cui data/ora e' cambiata rispetto a prima (rinvio): l'arbitro gia' assegnato
         // resta quello, ma vale la pena ricontrollarne la disponibilita' sulla nuova data.
         if (data.rinviate && data.rinviate.length) {

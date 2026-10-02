@@ -93,7 +93,7 @@ async function salvaCampionato() {
   }
   closeOverlay("modale-campionato");
   await caricaCampionati();
-  avviso(id ? "Modifiche salvate." : "Campionato aggiunto.");
+  salvato(id ? "Modifiche salvate." : "Campionato aggiunto.");
 }
 
 async function eliminaCampionato(id) {

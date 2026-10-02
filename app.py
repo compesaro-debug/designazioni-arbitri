@@ -304,11 +304,25 @@ def update_partita(id):
     valori = [data.get(c, "") for c in colonne] + [int(data.get("disputata", 0)), id]
     assegnazioni_sql = ",".join(f"{c}=?" for c in colonne + ["disputata"])
     conn = db.get_db()
+    # cambiando 1° o 2° arbitro la designazione diventa nuova: non è più "da prima dell'import"
+    attuale = conn.execute("SELECT arbitro, assistente1 FROM partite WHERE id=?", (id,)).fetchone()
+    if attuale and (attuale["arbitro"] != data.get("arbitro", "") or attuale["assistente1"] != data.get("assistente1", "")):
+        conn.execute(f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='' WHERE id=?", (id,))
     conn.execute(f"UPDATE partite SET {assegnazioni_sql} WHERE id=?", valori)
     suggerimento = _suggerimento_tutoraggio(conn, data.get("arbitro", ""), data.get("assistente1", ""))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "rimborso_km_suggerito": suggerimento})
+
+
+@app.route("/api/partite/<int:id>/designazione-controllata", methods=["PUT"])
+def segna_designazione_controllata(id):
+    """Toglie il segno "da prima dell'import": la designazione conservata è stata ricontrollata."""
+    conn = db.get_db()
+    conn.execute(f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='' WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 def _salva_proposta_rimborso(conn, partita_id, modalita, km_manuale_arbitro, km_manuale_assistente1, confermato):
@@ -413,8 +427,11 @@ def elimina_tutte_partite():
 
 @app.route("/api/partite/import", methods=["POST"])
 def import_partite():
-    # tipo = "disputate" oppure "da_disputare", determina il valore del campo 'disputata'
+    # tipo = "disputate" oppure "da_disputare" fissa il campo 'disputata' per tutte le righe;
+    # "tutte" lo decide gara per gara (vedi _disputata_da_file)
     tipo = request.args.get("tipo", "da_disputare")
+    if tipo == "tutte":
+        return _import_generico("partite", extra_fields={"disputata": None})
     disputata_val = 1 if tipo == "disputate" else 0
     return _import_generico("partite", extra_fields={"disputata": disputata_val})
 
@@ -422,8 +439,51 @@ def import_partite():
 @app.route("/api/partite/import/anteprima", methods=["POST"])
 def anteprima_import_partite():
     tipo = request.args.get("tipo", "da_disputare")
+    if tipo == "tutte":
+        return _anteprima_import_partite_tutte()
     disputata_val = 1 if tipo == "disputate" else 0
     return _anteprima_import_generico("partite", extra_fields={"disputata": disputata_val})
+
+
+def _anteprima_import_partite_tutte():
+    """Anteprima dell'import unico: come quella generica, ma ogni gara è confrontata con
+    tutte le partite (di entrambe le schede) e mostra in quale scheda finirà."""
+    if "file" not in request.files:
+        return jsonify({"ok": False, "errore": "Nessun file ricevuto"}), 400
+    try:
+        record = importer.leggi_excel(request.files["file"], "partite")
+    except Exception as e:
+        return jsonify({"ok": False, "errore": f"Errore lettura file: {e}"}), 400
+    if not record:
+        return jsonify({"ok": False, "errore": "Nessuna colonna riconosciuta nel file. Controlla le intestazioni."}), 400
+
+    conn = db.get_db()
+    chiavi_viste = set(_indice_esistenti_import(conn, "partite", {}).keys())
+    conn.close()
+
+    righe = []
+    n_duplicate = 0
+    per_scheda = {0: 0, 1: 0}
+    for riga in record:
+        chiave = _chiave_duplicato_import("partite", riga)
+        duplicato = chiave in chiavi_viste
+        chiavi_viste.add(chiave)
+        n_duplicate += duplicato
+        disputata = _disputata_da_file(riga)
+        per_scheda[disputata] += 1
+        dati = {c: riga.get(c, "") for c in CAMPI_ANTEPRIMA_IMPORT["partite"]}
+        dati["risultato"] = riga.get("risultato", "")
+        dati["scheda"] = "Disputata" if disputata else "Da disputare"
+        righe.append({"duplicato": duplicato, "dati": dati})
+
+    return jsonify({
+        "ok": True,
+        "totale": len(record),
+        "duplicate": n_duplicate,
+        "nuove": len(record) - n_duplicate,
+        "righe": righe,
+        "nota": f"{per_scheda[1]} gare con risultato andranno tra le Disputate, {per_scheda[0]} senza risultato tra le Da disputare.",
+    })
 
 
 # ---------- API: INDISPONIBILITA ----------
@@ -1173,6 +1233,24 @@ def _parse_km_manuale(valore):
         return None
 
 
+# Chi ha ruolo "ASS" in anagrafica ha sempre 0 km: nelle mappe nome -> comune usate per i km
+# è registrato con questo segnaposto al posto del comune di residenza.
+COMUNE_ASSOCIATO_ZERO_KM = "\x00associato"
+
+
+def _e_ruolo_associato(ruolo):
+    return (ruolo or "").strip().upper() == "ASS"
+
+
+def _mappa_comuni_km(righe_arbitri):
+    """Nome normalizzato -> comune di residenza, per il calcolo dei km (righe con
+    cognome_nome, comune, ruolo); chi ha ruolo ASS risulta sempre a 0 km."""
+    return {
+        _norm_nome(r["cognome_nome"]): COMUNE_ASSOCIATO_ZERO_KM if _e_ruolo_associato(r["ruolo"]) else r["comune"]
+        for r in righe_arbitri
+    }
+
+
 def _km_auto_persona(nome, localita, arbitri_comuni, distanza_fn):
     """Km calcolato automaticamente (comune di residenza -> localita della gara) per una
     singola persona, senza applicare nessun accordo di trasferta dichiarato: usato sia dentro
@@ -1180,6 +1258,8 @@ def _km_auto_persona(nome, localita, arbitri_comuni, distanza_fn):
     if not nome:
         return None
     comune = arbitri_comuni.get(_norm_nome(nome))
+    if comune == COMUNE_ASSOCIATO_ZERO_KM:
+        return 0.0
     if not comune:
         return None
     return distanza_fn(comune, localita)
@@ -1201,20 +1281,27 @@ def _calcola_km_coppia(p, arbitri_comuni, distanza_fn):
     modalita = (p["rimborso_km_modalita"] or "").strip()
 
     if modalita == "manuale":
-        return _parse_km_manuale(p["rimborso_km_manuale_arbitro"]), _parse_km_manuale(p["rimborso_km_manuale_assistente1"])
-    if modalita in ("primo", "tutoraggio_primo"):
-        return km_arbitro_auto, 0.0
-    if modalita in ("secondo", "tutoraggio_secondo"):
-        return 0.0, km_assistente_auto
-    return km_arbitro_auto, km_assistente_auto
+        km_arbitro, km_assistente1 = _parse_km_manuale(p["rimborso_km_manuale_arbitro"]), _parse_km_manuale(p["rimborso_km_manuale_assistente1"])
+    elif modalita in ("primo", "tutoraggio_primo"):
+        km_arbitro, km_assistente1 = km_arbitro_auto, 0.0
+    elif modalita in ("secondo", "tutoraggio_secondo"):
+        km_arbitro, km_assistente1 = 0.0, km_assistente_auto
+    else:
+        km_arbitro, km_assistente1 = km_arbitro_auto, km_assistente_auto
+
+    # un ASS resta a 0 km qualunque sia l'accordo dichiarato, anche con km inseriti a mano
+    def _associato(nome):
+        return bool(nome) and arbitri_comuni.get(_norm_nome(nome)) == COMUNE_ASSOCIATO_ZERO_KM
+    if _associato(p["arbitro"]):
+        km_arbitro = 0.0
+    if _associato(p["assistente1"]):
+        km_assistente1 = 0.0
+    return km_arbitro, km_assistente1
 
 
 def _carica_dati_km(conn):
     """Mappe comuni-arbitro e distanze, condivise dagli endpoint che calcolano km rimborso."""
-    arbitri_comuni = {
-        _norm_nome(r["cognome_nome"]): r["comune"]
-        for r in conn.execute("SELECT cognome_nome, comune FROM arbitri").fetchall()
-    }
+    arbitri_comuni = _mappa_comuni_km(conn.execute("SELECT cognome_nome, comune, ruolo FROM arbitri").fetchall())
     mappa_km = {
         (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
         for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
@@ -1244,6 +1331,11 @@ def report_km_designazioni():
     mappa_codici, nomi_campionati = _carica_alias_campionati(conn)
     mappa_soglie = {r["id"]: r["km_per_partita"] for r in conn.execute("SELECT id, km_per_partita FROM campionati").fetchall()}
     arbitri_comuni, distanza = _carica_dati_km(conn)
+    # come la media "solo federali" del Report campionato: i km di chi ha ruolo ASS (e del
+    # segnaposto "Arbitro Associato") non entrano nel confronto con la soglia
+    nomi_associato_norm = _NOMI_PLACEHOLDER_ASSOCIATO_NORM | {
+        _norm_nome(r["cognome_nome"]) for r in conn.execute("SELECT cognome_nome FROM arbitri WHERE UPPER(TRIM(ruolo))='ASS'").fetchall()
+    }
     query = (
         "SELECT data, numero_gara, campionato, localita, squadra_casa, squadra_ospite, arbitro, assistente1, "
         "rimborso_km_modalita, rimborso_km_manuale_arbitro, rimborso_km_manuale_assistente1 "
@@ -1273,8 +1365,8 @@ def report_km_designazioni():
         g = gruppi.setdefault(chiave, {"nome": nome, "soglia_testo": soglia_testo, "n_gare": 0, "km_valori": [], "gare": []})
         g["n_gare"] += 1
         km_arbitro, km_assistente1 = _calcola_km_coppia(p, arbitri_comuni, distanza)
-        for km in (km_arbitro, km_assistente1):
-            if km is not None:
+        for nome, km in ((p["arbitro"], km_arbitro), (p["assistente1"], km_assistente1)):
+            if km is not None and _norm_nome(nome) not in nomi_associato_norm:
                 g["km_valori"].append(km)
         g["gare"].append({
             "data": p["data"], "numero_gara": p["numero_gara"],
@@ -1372,14 +1464,11 @@ def get_candidati_designazione(partita_id):
         conn.close()
         return jsonify({"ok": False, "errore": "Partita non trovata"}), 404
 
-    # chi ha ruolo "ASS" in anagrafica non va proposto come candidato designabile: le sue gare
-    # rientrano comunque nel conteggio "Arbitro Associato" nei report, ma non è un arbitro
-    # federale assegnabile da questa griglia. Allo stesso modo, chi è segnato "non in attività"
-    # non va proposto: è ancora in anagrafica per le statistiche ma non è designabile.
-    arbitri = [
-        a for a in conn.execute("SELECT * FROM arbitri ORDER BY cognome_nome").fetchall()
-        if (a["ruolo"] or "").strip().upper() != "ASS" and a["attivo"]
-    ]
+    # chi ha ruolo "ASS" viene restituito con "associato": true e il frontend lo propone in
+    # una scheda a parte (arbitra sempre da solo, senza 2° arbitro); nei report le sue gare
+    # restano nel conteggio "Arbitro Associato". Chi è segnato "non in attività" non va
+    # proposto: è ancora in anagrafica per le statistiche ma non è designabile.
+    arbitri = [a for a in conn.execute("SELECT * FROM arbitri ORDER BY cognome_nome").fetchall() if a["attivo"]]
     indisponibilita = conn.execute("SELECT * FROM indisponibilita").fetchall()
     note = conn.execute("SELECT * FROM note_inibizioni").fetchall()
     # per i conteggi "P. dirette casa/ospite" e "ultima designazione" sotto: non solo le gare
@@ -1567,6 +1656,7 @@ def get_candidati_designazione(partita_id):
             "nome": a["cognome_nome"],
             "ruolo": a["ruolo"],
             "tutoraggio": bool(a["tutoraggio"]),
+            "associato": _e_ruolo_associato(a["ruolo"]),
             "comune": a["comune"],
             "distanza_km": distanza_km,
             "disponibile": disponibile,
@@ -1963,7 +2053,9 @@ def report_arbitro(id):
         else:
             g["e_tutor"] = False
             localita_norm = _norm_comune(g["localita"])
-            if not comune_arbitro_norm or not localita_norm:
+            if _e_ruolo_associato(arbitro["ruolo"]):
+                km = 0.0
+            elif not comune_arbitro_norm or not localita_norm:
                 km = None
             elif comune_arbitro_norm == localita_norm:
                 km = 0.0
@@ -2116,7 +2208,7 @@ def _calcola_report_sezione(conn, live, stagione_storica_id):
         (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
         for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
     }
-    arbitri_comuni_km = {_norm_nome(a["cognome_nome"]): a["comune"] for a in arbitri_tutti}
+    arbitri_comuni_km = _mappa_comuni_km(arbitri_tutti)
 
     def distanza(comune1, comune2):
         a, b = _norm_comune(comune1), _norm_comune(comune2)
@@ -2206,10 +2298,12 @@ def _calcola_report_sezione(conn, live, stagione_storica_id):
     # da persone in anagrafica con ruolo "ASS" (non sono arbitri federali veri e propri, quindi
     # non rientrano nel loop sopra né nella distribuzione per qualifica NAZ/REG/TER, ma in
     # questa riga a parte).
+    # si contano le designazioni (1° e 2° arbitro separatamente), come per le qualifiche
+    # federali, così le percentuali sul totale delle designazioni restano omogenee
     nomi_associato_norm = nomi_ass_norm | _NOMI_PLACEHOLDER_ASSOCIATO_NORM
     n_gare_arbitro_associato = sum(
-        1 for p in partite
-        if _norm_nome(p["arbitro"]) in nomi_associato_norm or _norm_nome(p["assistente1"]) in nomi_associato_norm
+        (_norm_nome(p["arbitro"]) in nomi_associato_norm) + (_norm_nome(p["assistente1"]) in nomi_associato_norm)
+        for p in partite
     )
     if n_gare_arbitro_associato:
         distribuzione_ruolo.append({
@@ -2322,10 +2416,7 @@ def report_riconoscimenti():
         (r["comune_a_norm"], r["comune_b_norm"]): r["km"]
         for r in conn.execute("SELECT comune_a_norm, comune_b_norm, km FROM distanze_comuni").fetchall()
     }
-    arbitri_comuni_km = {
-        _norm_nome(r["cognome_nome"]): r["comune"]
-        for r in conn.execute("SELECT cognome_nome, comune FROM arbitri").fetchall()
-    }
+    arbitri_comuni_km = _mappa_comuni_km(conn.execute("SELECT cognome_nome, comune, ruolo FROM arbitri").fetchall())
     conn.close()
 
     def distanza(comune1, comune2):
@@ -3155,17 +3246,24 @@ def _anteprima_import_generico(tabella, extra_fields=None):
     })
 
 
-# Campi di designazione di una gara. Sull'import delle DISPUTATE non vengono mai svuotati se
-# il file non li contiene (altrimenti si perde chi ha arbitrato davvero); se il file porta un
-# valore vince sempre quello. Sull'import delle DA DISPUTARE invece non si ripristinano MAI:
-# quella scheda deve tornare sempre senza arbitro, anche se una designazione esisteva in
-# precedenza sulla stessa gara (va designata di nuovo).
+# Campi di designazione di una gara. In ogni import non vengono mai svuotati se il file non li
+# contiene (altrimenti si perde la designazione già fatta o chi ha arbitrato davvero); se il
+# file porta un valore vince sempre quello. Sulle gare ancora da disputare la designazione
+# conservata viene segnata "da prima dell'import" (colonna designazione_preimport).
 CAMPI_DESIGNAZIONE_PARTITE = [
     "arbitro", "residenza_arbitro", "assistente1", "residenza_assistente1",
     "osservatore_associato", "residenza_osservatore_associato",
     "segnapunti", "residenza_segnapunti",
     "assistente2", "residenza_assistente2", "osservatore", "residenza_osservatore",
 ]
+
+CAMPI_COPPIA_ARBITRI = {"arbitro", "residenza_arbitro", "assistente1", "residenza_assistente1"}
+
+
+def _disputata_da_file(riga):
+    """Import unico: una gara è disputata se nel file ha il risultato. Una gara giocata ha
+    sempre il risultato; senza risultato, anche con la data passata, è da disputare (rinviata)."""
+    return 1 if str(riga.get("risultato") or "").strip() else 0
 
 
 def _importa_righe_partite(conn, record, disputata_target, modalita):
@@ -3176,38 +3274,63 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
     ancora assegnata dopo un rinvio). Prima di un'eventuale cancellazione ("sostituisci") si
     salva un'istantanea di arbitro/2° arbitro/residenze di ogni gara corrente: dopo il
     reimport questi campi vengono rimessi sulla gara corrispondente SOLO se il file non porta
-    un valore proprio."""
+    un valore proprio.
+    disputata_target None = import unico di tutto il calendario: la scheda di ogni gara la
+    decide _disputata_da_file, e "sostituisci" svuota entrambe le schede (dopo un backup)."""
     snapshot = {
         (_norm_confronto(r["campionato"]), _norm_confronto(r["numero_gara"])): dict(r)
         for r in conn.execute("SELECT * FROM partite").fetchall()
     }
 
     if modalita == "sostituisci":
-        conn.execute("DELETE FROM partite WHERE disputata=?", (disputata_target,))
+        if disputata_target is None:
+            cartella_backup = os.path.dirname(db.DB_PATH)
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            shutil.copy2(db.DB_PATH, os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_import_tutte.db"))
+            conn.execute("DELETE FROM partite")
+        else:
+            conn.execute("DELETE FROM partite WHERE disputata=?", (disputata_target,))
 
     esistenti = {
         (_norm_confronto(r["campionato"]), _norm_confronto(r["numero_gara"])): r["id"]
         for r in conn.execute("SELECT id, campionato, numero_gara FROM partite").fetchall()
     }
 
-    colonne = db.PARTITE_COLONNE + ["disputata"]
+    colonne = db.PARTITE_COLONNE + ["disputata", db.PARTITE_DESIGNAZIONE_PREIMPORT]
     inseriti = aggiornati = 0
     rinviate = []
+    per_scheda = {0: 0, 1: 0}
+    momento_import = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    n_designazioni_conservate = 0
 
     for riga in record:
         chiave = (_norm_confronto(riga.get("campionato")), _norm_confronto(riga.get("numero_gara")))
         precedente = snapshot.get(chiave)
 
+        disputata_riga = _disputata_da_file(riga) if disputata_target is None else disputata_target
+        per_scheda[disputata_riga] += 1
         valori = {c: riga.get(c, "") for c in db.PARTITE_COLONNE}
-        valori["disputata"] = disputata_target
+        valori["disputata"] = disputata_riga
+        valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = ""
 
         if precedente:
-            # la designazione si ripristina solo diventando "disputata": la scheda "da
-            # disputare" torna sempre senza arbitro, va designata di nuovo.
-            if disputata_target == 1:
-                for campo in CAMPI_DESIGNAZIONE_PARTITE:
-                    if not valori[campo]:
-                        valori[campo] = precedente[campo]
+            # 1° e 2° arbitro sono una coppia e seguono le stesse regole: se il file porta il 1°
+            # arbitro (anche il segnaposto "Arbitro Associato" di una gara giocata), l'intera
+            # coppia viene dal file, 2° compreso anche se vuoto, così accanto al nuovo 1° non
+            # resta il 2° della vecchia designazione. Se il 1° nel file è vuoto resta la coppia
+            # già designata (salvo un 2° portato dal file). Su una gara ancora da disputare la
+            # designazione conservata viene segnata come "precedente all'import", perché
+            # data/ora/campo potrebbero essere cambiati e va ricontrollata.
+            coppia_dal_file = bool(valori["arbitro"])
+            conservata = not coppia_dal_file and any(not valori[c] and precedente[c] for c in ("arbitro", "assistente1"))
+            for campo in CAMPI_DESIGNAZIONE_PARTITE:
+                if coppia_dal_file and campo in CAMPI_COPPIA_ARBITRI:
+                    continue
+                if not valori[campo]:
+                    valori[campo] = precedente[campo]
+            if disputata_riga == 0 and conservata:
+                valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = momento_import
+                n_designazioni_conservate += 1
             if precedente["data"] != valori["data"] or precedente["ora"] != valori["ora"]:
                 rinviate.append({
                     "campionato": riga.get("campionato", ""),
@@ -3230,7 +3353,16 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
 
     _riapplica_proposte_confermate(conn)
     conn.commit()
-    return {"ok": True, "inseriti": inseriti, "aggiornati": aggiornati, "rinviate": rinviate}
+    risultato = {"ok": True, "inseriti": inseriti, "aggiornati": aggiornati, "rinviate": rinviate}
+    note = []
+    if disputata_target is None:
+        note.append(f"{per_scheda[1]} gare con risultato tra le Disputate, {per_scheda[0]} senza risultato tra le Da disputare.")
+    if n_designazioni_conservate:
+        quante = "1 gara da disputare era già designata" if n_designazioni_conservate == 1 else f"{n_designazioni_conservate} gare da disputare erano già designate"
+        note.append(f"{quante}: la designazione è stata conservata e segnata \"da prima dell'import\" in Designazioni, da ricontrollare.")
+    if note:
+        risultato["nota"] = " ".join(note)
+    return risultato
 
 
 def _riapplica_proposte_confermate(conn):
