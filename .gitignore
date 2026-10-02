@@ -18,3 +18,7 @@ venv/
 
 # documenti generati, non codice
 *.docx
+
+# audio personali (messaggi vocali) usati nelle animazioni: il repository è pubblico,
+# vanno caricati a mano sul server in static/audio/
+static/audio/
