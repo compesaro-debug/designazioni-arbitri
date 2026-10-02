@@ -306,9 +306,18 @@ function _designataPrimaImport(p) {
 
 function _testoSegnoImport(p) {
   const quando = _momentoImport(p.designazione_preimport);
-  return p.designazione_precedente_import
-    ? `Designazione cambiata dall'import del ${quando}: prima c'era ${p.designazione_precedente_import}.`
-    : `Designata prima dell'import del ${quando}: ricontrolla data, ora e disponibilità.`;
+  const tornata = p.designazione_motivo_import === "tornata_da_disputare";
+  if (p.designazione_precedente_import) {
+    return `Designazione cambiata dall'import del ${quando}: prima c'era ${p.designazione_precedente_import}.`
+      + (tornata ? " La gara è tornata tra le da disputare." : "");
+  }
+  if (tornata) {
+    return `Gara tornata da disputare (import del ${quando}): nel file non ha più il risultato. Gli arbitri sono quelli della partita già giocata: verifica se la gara va rigiocata e se sono ancora disponibili.`;
+  }
+  if (p.rinvio_data_precedente) {
+    return `Designata prima dell'import del ${quando}: ricontrolla data, ora e disponibilità.`;
+  }
+  return `Designazione conservata dall'import del ${quando}: il file non portava gli arbitri, quindi restano quelli che avevi inserito. Controlla che siano ancora giusti.`;
 }
 
 function _avvisoPreimport(p) {
@@ -457,6 +466,9 @@ function renderVistaGiornaliera() {
               <div class="riquadro-designazione-ruoli" data-azioni>
                 ${_riquadroRuolo(p, "arbitro", "Arbitro")}
                 ${_riquadroRuolo(p, "assistente1", "2° Arbitro")}
+              </div>
+              <div class="riquadro-designazione-piede" data-azioni>
+                <button type="button" class="btn-storico-inline" data-icona="cronologia" title="Cronologia" onclick="apriCronologiaGara(${p.id})">Cronologia</button>
               </div>
             </div>
           `).join("")}

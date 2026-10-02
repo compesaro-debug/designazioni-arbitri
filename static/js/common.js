@@ -62,6 +62,7 @@ const ICONE_AZIONE = {
   designa: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line>',
   conferma: '<polyline points="20 6 9 17 4 12"></polyline>',
   storico: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path>',
+  cronologia: '<line x1="9" y1="6" x2="21" y2="6"></line><line x1="9" y1="12" x2="21" y2="12"></line><line x1="9" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="1.3"></circle><circle cx="4" cy="12" r="1.3"></circle><circle cx="4" cy="18" r="1.3"></circle>',
 };
 
 function iconaAzione(tipo, dimensione = 14) {
@@ -510,7 +511,8 @@ function creaImportOverlay(overlayId, config) {
       resultDiv.innerHTML = (data.duplicate > 0
         ? `<div class="import-result errore">${data.totale} righe lette: ${data.nuove} nuove, ${data.duplicate} già presenti nel sistema (evidenziate sotto in rosso — verranno aggiornate con i nuovi dati se confermi).</div>`
         : `<div class="import-result ok">${data.totale} righe lette: tutte nuove, nessun duplicato trovato.</div>`)
-        + (data.nota ? `<div class="import-result">${_esc(data.nota)}</div>` : "");
+        + (data.nota ? `<div class="import-result">${_esc(data.nota)}</div>` : "")
+        + _riepilogoAnteprimaVera(data, overlayId);
 
       const colonne = data.righe.length ? Object.keys(data.righe[0].dati) : [];
       anteprimaDiv.innerHTML = data.righe.length ? `
@@ -530,6 +532,7 @@ function creaImportOverlay(overlayId, config) {
       ` : "";
 
       submitBtn.style.display = "";
+      overlay.querySelector(`#${overlayId}-anteprima-report`)?.addEventListener("click", () => mostraReportImport(data.simulazione, config, { anteprima: true }));
     } catch (err) {
       resultDiv.innerHTML = `<div class="import-result errore">Errore di connessione: ${err}</div>`;
     }
@@ -550,6 +553,13 @@ function creaImportOverlay(overlayId, config) {
         body: formData,
       });
       const data = await res.json();
+      if (data.ok && data.report) {
+        // import delle partite: tutto il resoconto (e le gare assenti dal file) è nel popup dedicato
+        closeOverlay(overlayId);
+        if (config.onDone) config.onDone();
+        mostraReportImport(data, config);
+        return;
+      }
       if (data.ok) {
         resultDiv.innerHTML = (data.aggiornati > 0
           ? `<div class="import-result ok">Importate ${data.inseriti} righe nuove, aggiornate ${data.aggiornati} già esistenti.</div>`
@@ -626,6 +636,286 @@ function creaImportOverlay(overlayId, config) {
 function apriImportModal(overlayId, config) {
   creaImportOverlay(overlayId, config);
   openOverlay(overlayId);
+}
+
+// ---------- CRONOLOGIA DI UNA GARA ----------
+// Popup con chi è stato designato nel tempo e tutti i cambiamenti registrati (import, modifiche a mano).
+
+const TAG_CRONOLOGIA = {
+  nuova: ["tag-verde", "Nuova"], arbitri: ["tag-arancione", "Arbitri"], rinvio: ["tag-arancione", "Data/ora"],
+  scheda: ["tag-giallo", "Scheda"], conservata: ["tag-giallo", "Conservata"], modifica: ["", "Modifica"],
+  rimborso: ["tag-giallo", "Rimborso km"], controllo: ["tag-verde", "Controllata"], eliminata: ["tag-rosso", "Eliminata"],
+};
+
+function _quandoCronologia(quando) {
+  const [data, ora] = (quando || "").split(" ");
+  return `${formattaData(data)} ${(ora || "").slice(0, 5)}`;
+}
+
+async function apriCronologiaGara(id) {
+  const IDOVERLAY = "overlay-cronologia";
+  document.getElementById(IDOVERLAY)?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "overlay show";
+  overlay.id = IDOVERLAY;
+  overlay.innerHTML = `
+    <div class="modal modal-large">
+      <h2>Cronologia gara</h2>
+      <div id="cronologia-corpo"><p class="hint">Caricamento...</p></div>
+      <div class="modal-footer"><button type="button" class="btn btn-primary" data-close>Chiudi</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  _abilitaChiusuraModale(overlay);
+  overlay.querySelector("[data-close]").addEventListener("click", () => closeOverlay(IDOVERLAY));
+
+  const d = await apiGet(`/api/partite/${id}/cronologia`);
+  const corpo = overlay.querySelector("#cronologia-corpo");
+  if (!d.ok) { corpo.innerHTML = `<p class="hint">${_esc(d.errore || "Gara non trovata.")}</p>`; return; }
+
+  const g = d.gara;
+  const nome = (v) => v ? _esc(v) : '<span style="color:var(--testo-tenue)">nessuno</span>';
+  const tag = (t) => { const [classe, testo] = TAG_CRONOLOGIA[t] || ["", t]; return `<span class="tag ${classe}">${testo}</span>`; };
+
+  let designati = "";
+  if (d.eventi.length) {
+    if (d.designati.length === 1) {
+      designati = `<p class="riepilogo-label" style="margin:14px 0 6px;">Chi è designato</p>
+        <p style="margin:0 0 8px;">1° ${nome(d.designati[0].arbitro)} &middot; 2° ${nome(d.designati[0].assistente1)} <span class="hint">(nessun cambio di arbitri registrato)</span></p>`;
+    } else {
+      designati = `
+        <p class="riepilogo-label" style="margin:14px 0 6px;">Chi è stato designato nel tempo</p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Da quando</th><th>1° arbitro</th><th>2° arbitro</th><th>Come</th></tr></thead>
+          <tbody>${d.designati.map((r, i) => {
+            const eliminata = (r.tipi || []).includes("eliminata");
+            return `<tr>
+              <td>${r.dal ? _quandoCronologia(r.dal) : "Prima della cronologia"}${i === d.designati.length - 1 ? ' <span class="tag tag-verde">Attuale</span>' : ""}</td>
+              <td>${eliminata ? "gara eliminata" : nome(r.arbitro)}</td><td>${eliminata ? "" : nome(r.assistente1)}</td>
+              <td>${_esc(r.origine || "")}</td></tr>`;
+          }).join("")}</tbody>
+        </table></div>`;
+    }
+  }
+
+  const eventi = d.eventi.length ? d.eventi.map(e => `
+    <div class="cronologia-evento">
+      <div class="cronologia-evento-testata">
+        <strong>${_quandoCronologia(e.quando)}</strong>
+        <span class="cronologia-origine">${_esc(e.origine)}</span>
+        ${e.tipi.map(tag).join(" ")}
+      </div>
+      <div>${e.riassunto.split("\n").map(r => `<div>${_esc(r)}</div>`).join("")}</div>
+      ${e.campi.length ? `<details class="cronologia-dettaglio"><summary>Dettaglio dei campi</summary>
+        <table><thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead><tbody>
+          ${e.campi.map(c => `<tr><td>${_esc(c.campo)}</td><td>${_esc(c.prima) || "&mdash;"}</td><td><strong>${_esc(c.dopo) || "&mdash;"}</strong></td></tr>`).join("")}
+        </tbody></table></details>` : ""}
+    </div>`).join("") : `
+    <div class="empty-state"><strong>Nessun cambiamento registrato</strong>La cronologia parte da quando è stata attivata: non ricostruisce quello che è successo prima.</div>`;
+
+  corpo.innerHTML = `
+    <p class="hint" style="margin-top:-8px;">${_esc(g.campionato)} &middot; n° ${_esc(g.numero_gara)} &middot; ${_esc(g.squadre)} &middot; ${formattaData(g.data)} ${_esc(g.ora || "")}</p>
+    ${designati}
+    <p class="riepilogo-label" style="margin:14px 0 6px;">Cambiamenti (dal più recente)</p>
+    ${eventi}`;
+}
+
+// Riquadro mostrato dopo "Vedi anteprima" nell'import delle partite: riassume cosa farebbe davvero
+// l'import (il server lo ha simulato e annullato) e apre l'anteprima dettagliata.
+function _riepilogoAnteprimaVera(data, overlayId) {
+  if (data.simulazione_errore) {
+    return `<div class="import-result errore">Anteprima dettagliata non disponibile: ${_esc(data.simulazione_errore)}</div>`;
+  }
+  if (!data.simulazione) return "";
+  const rep = data.simulazione.report;
+  const rinviate = (data.simulazione.rinviate || []).length;
+  const cambiati = (data.simulazione.arbitri_cambiati || []).length;
+  const conservate = (rep.designazioni_conservate || []).length;
+  const assenti = (rep.assenti_dal_file || []).length;
+  const distruttivo = rep.modalita === "sostituisci" && assenti > 0;
+  const pezzi = [`${rep.n_nuove} nuove`, `${rep.n_aggiornate} aggiornate (${rep.n_con_modifiche} con modifiche)`];
+  if (rinviate) pezzi.push(`${rinviate} rinviate`);
+  if (conservate) pezzi.push(`${conservate} designazioni conservate`);
+  const avvisi = [];
+  if (assenti) {
+    avvisi.push(distruttivo
+      ? `${assenti} gare nel sistema non sono nel file e VERRANNO ELIMINATE.`
+      : `${assenti} gare nel sistema non sono nel file: restano, e dopo l'import potrai scegliere quali eliminare.`);
+  }
+  if (cambiati) avvisi.push(`${cambiati} gare cambiano gli arbitri designati.`);
+  const classe = distruttivo ? "errore" : (avvisi.length ? "" : "ok");
+  return `
+    <div class="import-result ${classe}">
+      <strong>Cosa succederà con l'import (finora non è stato scritto nulla):</strong> ${pezzi.join(" · ")}.
+      ${avvisi.map(a => `<br>Attenzione: ${_esc(a)}`).join("")}
+      <br><button type="button" class="btn-testo" id="${overlayId}-anteprima-report" style="margin-top:8px;">Vedi anteprima dettagliata</button>
+    </div>`;
+}
+
+// ---------- POPUP "REPORT IMPORT" (import delle partite) ----------
+// Resoconto completo di quello che l'import ha fatto, più l'elenco delle gare presenti nel
+// sistema ma non nel file: con "Aggiungi" sono ancora lì e si sceglie a mano quali togliere.
+
+function mostraReportImport(data, config, opzioni = {}) {
+  const rep = data.report;
+  const anteprima = !!opzioni.anteprima;
+  const IDOVERLAY = "overlay-report-import";
+  document.getElementById(IDOVERLAY)?.remove();
+
+  const nomeAmbito = { tutte: "Calendario completo", disputate: "Solo scheda Disputate", da_disputare: "Solo scheda Da disputare" }[rep.ambito] || rep.ambito;
+  const sostituisci = rep.modalita === "sostituisci";
+  const rinviate = data.rinviate || [];
+  const cambiati = data.arbitri_cambiati || [];
+  const assenti = rep.assenti_dal_file || [];
+  const tagScheda = (s) => s === "Disputata" ? '<span class="tag tag-verde">Disputata</span>' : '<span class="tag tag-arancione">Da disputare</span>';
+  const gara = (g) => `<td>${formattaData(g.data)}${g.ora ? " " + _esc(g.ora) : ""}</td><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td>`;
+
+  const riga = (etichetta, valore, dettaglio = "") =>
+    `<tr><td>${etichetta}</td><td style="text-align:right"><strong>${valore}</strong>${dettaglio ? ` <span style="color:var(--testo-tenue)">${dettaglio}</span>` : ""}</td></tr>`;
+
+  const sezione = (titolo, n, corpo, aperta = false) => n ? `
+    <details class="report-import-sezione" ${aperta ? "open" : ""}>
+      <summary>${titolo} <span class="tag tag-giallo">${n}</span></summary>
+      ${corpo}
+    </details>` : "";
+
+  const tabella = (intestazioni, righe) => `
+    <div class="table-scroll" style="max-height:260px;">
+      <table>
+        <thead><tr>${intestazioni.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>${righe.join("")}</tbody>
+      </table>
+    </div>`;
+
+  const regole = [
+    sostituisci
+      ? (anteprima
+        ? "Modalità <strong>Sostituisci</strong>: prima verrà salvato un backup (con il calendario completo) e le gare dell'ambito scelto verranno cancellate; poi saranno ricreate dal file. Le gare che il file non contiene spariranno."
+        : "Modalità <strong>Sostituisci</strong>: prima è stato salvato un backup (con il calendario completo) e le gare dell'ambito scelto sono state cancellate; poi sono state ricreate dal file. Le gare che il file non contiene sono sparite.")
+      : (anteprima
+        ? "Modalità <strong>Aggiungi</strong>: le gare già presenti (stesso campionato + numero gara) verranno aggiornate, quelle nuove aggiunte. Le gare che il file non contiene <strong>non verranno toccate</strong>."
+        : "Modalità <strong>Aggiungi</strong>: le gare già presenti (stesso campionato + numero gara) sono state aggiornate, quelle nuove aggiunte. Le gare che il file non contiene <strong>non sono state toccate</strong>."),
+    "Data, ora, località, campo, squadre, risultato, parziali e N. Uff. vengono sempre presi dal file.",
+    "Se il file porta il 1° arbitro, la coppia 1°/2° arbitro è quella del file (2° compreso, anche se vuoto). Se il 1° arbitro nel file è vuoto resta la coppia già designata, segnata \"da prima dell'import\" in Designazioni.",
+    "Se data o ora cambiano la gara risulta rinviata e resta segnata in Designazioni finché non la ricontrolli.",
+    "I rimborsi km già confermati in Rimborsi km vengono rimessi da soli sulla gara corrispondente; quelli solo proposti restano da confermare.",
+  ];
+
+  const tabellaAssenti = () => tabella(["Data/ora", "Campionato", "N. Gara", "Squadre", "Scheda", "Designati"],
+    assenti.map(g => `<tr>${gara(g)}<td>${_esc(g.squadre)}</td><td>${tagScheda(g.scheda)}</td><td>${_esc(g.coppia)}</td></tr>`));
+  const sezAssenti = !assenti.length ? "" : (sostituisci ? sezione(
+    anteprima ? "Gare che non sono nel file: VERRANNO ELIMINATE da Sostituisci" : "Gare che non erano nel file: eliminate da Sostituisci",
+    assenti.length, tabellaAssenti(), true
+  ) : anteprima ? sezione(
+    "Gare nel sistema che NON sono nel file", assenti.length,
+    `<p class="hint" style="margin:6px 0 8px;">Non verranno toccate. A import finito il report ti permetterà di scegliere quali eliminare (con un backup prima).</p>${tabellaAssenti()}`, true
+  ) : `
+    <details class="report-import-sezione report-import-assenti" open>
+      <summary>Gare nel sistema che NON sono nel file <span class="tag tag-rosso">${assenti.length}</span></summary>
+      <p class="hint" style="margin:6px 0 8px;">Con "Aggiungi" non sono state toccate. Spunta quelle che vuoi togliere dal sistema (es. gare annullate o ritirate): le altre restano dove sono. Prima di eliminare viene salvato un backup del database.</p>
+      <div class="actions" style="margin-bottom:8px;">
+        <button type="button" class="btn btn-secondary" id="report-assenti-tutte">Seleziona tutte</button>
+        <button type="button" class="btn btn-secondary" id="report-assenti-nessuna">Deseleziona</button>
+        <button type="button" class="btn btn-danger" id="report-assenti-elimina" disabled>Elimina selezionate (0)</button>
+      </div>
+      <div class="table-scroll" style="max-height:300px;">
+        <table>
+          <thead><tr><th></th><th>Data/ora</th><th>Campionato</th><th>N. Gara</th><th>Squadre</th><th>Scheda</th><th>Designati</th><th></th></tr></thead>
+          <tbody id="report-assenti-corpo">
+            ${assenti.map(g => `<tr data-id="${g.id}">
+              <td><input type="checkbox" class="report-assenti-check" value="${g.id}"></td>
+              ${gara(g)}<td>${_esc(g.squadre)}</td><td>${tagScheda(g.scheda)}</td><td>${_esc(g.coppia)}</td>
+              <td>${g.rimborso_km ? '<span class="tag tag-giallo">Ha rimborso km</span>' : ""}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </details>`);
+
+  const overlay = document.createElement("div");
+  overlay.className = "overlay show";
+  overlay.id = IDOVERLAY;
+  overlay.innerHTML = `
+    <div class="modal modal-large">
+      <h2>${anteprima ? "Anteprima import" : "Report import"}</h2>
+      <p class="hint" style="margin-top:-8px;">${nomeAmbito} &middot; ${sostituisci ? "Sostituisci tutti i dati" : "Aggiungi ai dati esistenti"}${anteprima ? ' &middot; <strong>Non è stato ancora modificato nulla</strong>' : ""}</p>
+
+      <table class="report-import-riepilogo">
+        <tbody>
+          ${riga("Righe lette dal file", rep.totale_righe, rep.ambito === "tutte" ? `(${rep.per_scheda.disputate} con risultato → Disputate, ${rep.per_scheda.da_disputare} senza → Da disputare)` : "")}
+          ${(rep.duplicate_nel_file || []).length ? riga("Righe ripetute nel file (vale l'ultima)", rep.duplicate_nel_file.length) : ""}
+          ${riga("Gare nuove", rep.n_nuove)}
+          ${riga("Gare già presenti, aggiornate", rep.n_aggiornate, `(${rep.n_con_modifiche} con modifiche, ${rep.n_identiche} identiche)`)}
+          ${riga("Gare cambiate di scheda", (rep.cambi_scheda || []).length)}
+          ${riga("Gare rinviate (data/ora cambiate)", rinviate.length)}
+          ${riga("Gare con coppia arbitri cambiata dal file", cambiati.length)}
+          ${riga("Designazioni conservate (file senza arbitro)", (rep.designazioni_conservate || []).length)}
+          ${riga("Rimborsi km confermati riapplicati", rep.rimborsi_riapplicati)}
+          ${riga(sostituisci ? (anteprima ? "Gare non nel file, che verranno eliminate" : "Gare non nel file, eliminate") : "Gare nel sistema ma non nel file", assenti.length, sostituisci ? "" : (anteprima ? "(non verranno toccate)" : "(ancora presenti: decidi sotto)"))}
+        </tbody>
+      </table>
+
+      <details class="report-import-sezione">
+        <summary>Cosa fa questo import</summary>
+        <ul class="report-import-regole">${regole.map(r => `<li>${r}</li>`).join("")}</ul>
+      </details>
+
+      ${sezAssenti}
+      ${sezione(anteprima ? "Righe ripetute nel file: vale l'ultima" : "Righe ripetute nel file: è valsa l'ultima", (rep.duplicate_nel_file || []).length, tabella(
+        ["Data/ora (riga scartata)", "Campionato", "N. Gara"],
+        (rep.duplicate_nel_file || []).map(g => `<tr><td>${formattaData(g.data)} ${_esc(g.ora || "")}</td><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td></tr>`)), true)}
+      ${sezione("Arbitri cambiati dal file", cambiati.length, tabella(
+        ["Data", "Campionato", "N. Gara", "Scheda", "Prima", "Dopo (dal file)", ""],
+        cambiati.map(g => `<tr><td>${formattaData(g.data)}</td><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td><td>${tagScheda(g.scheda)}</td><td>${_esc(g.prima)}</td><td><strong>${_esc(g.dopo)}</strong></td><td>${g.rimborso_da_ricontrollare ? '<span class="tag tag-rosso">Rimborso km da ricontrollare</span>' : ""}</td></tr>`)), true)}
+      ${sezione("Gare rinviate", rinviate.length, tabella(
+        ["Campionato", "N. Gara", "Data/ora prima", "Data/ora dopo"],
+        rinviate.map(g => `<tr><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td><td>${formattaData(g.data_prima)} ${_esc(g.ora_prima || "")}</td><td><span class="tag tag-arancione">${formattaData(g.data_dopo)} ${_esc(g.ora_dopo || "")}</span></td></tr>`)), true)}
+      ${sezione("Designazioni conservate (il file non portava l'arbitro)", (rep.designazioni_conservate || []).length, tabella(
+        ["Data", "Campionato", "N. Gara", "Designati"],
+        rep.designazioni_conservate.map(g => `<tr><td>${formattaData(g.data)}</td><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td><td>${_esc(g.coppia)}</td></tr>`)), true)}
+      ${sezione("Gare cambiate di scheda", (rep.cambi_scheda || []).length, tabella(
+        ["Data", "Campionato", "N. Gara", "Da", "A"],
+        rep.cambi_scheda.map(g => `<tr><td>${formattaData(g.data)}</td><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td><td>${tagScheda(g.da)}</td><td>${tagScheda(g.a)}</td></tr>`)))}
+      ${sezione("Gare aggiornate con modifiche", rep.n_con_modifiche, tabella(
+        ["Data", "Campionato", "N. Gara", "Cosa è cambiato"],
+        rep.modifiche.map(g => `<tr><td>${formattaData(g.data)}</td><td>${_esc(g.campionato)}</td><td>${_esc(g.numero_gara)}</td><td>${g.campi.map(c => `<div><em>${_esc(c.campo)}</em>: ${_esc(c.prima) || "&mdash;"} &rarr; <strong>${_esc(c.dopo) || "&mdash;"}</strong></div>`).join("")}</td></tr>`)))}
+      ${sezione("Gare nuove", rep.n_nuove, tabella(
+        ["Data/ora", "Campionato", "N. Gara", "Squadre", "Scheda", "Designati"],
+        rep.nuove.map(g => `<tr>${gara(g)}<td>${_esc(g.squadre)}</td><td>${tagScheda(g.scheda)}</td><td>${_esc(g.coppia)}</td></tr>`)))}
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-close>Chiudi</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  _abilitaChiusuraModale(overlay);
+  overlay.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => closeOverlay(IDOVERLAY)));
+
+  const corpo = overlay.querySelector("#report-assenti-corpo");
+  if (!corpo) return;
+  const bottoneElimina = overlay.querySelector("#report-assenti-elimina");
+  const checks = () => [...corpo.querySelectorAll(".report-assenti-check")];
+  const aggiorna = () => {
+    const n = checks().filter(c => c.checked).length;
+    bottoneElimina.disabled = n === 0;
+    bottoneElimina.textContent = `Elimina selezionate (${n})`;
+  };
+  corpo.addEventListener("change", aggiorna);
+  overlay.querySelector("#report-assenti-tutte").addEventListener("click", () => { checks().forEach(c => c.checked = true); aggiorna(); });
+  overlay.querySelector("#report-assenti-nessuna").addEventListener("click", () => { checks().forEach(c => c.checked = false); aggiorna(); });
+  bottoneElimina.addEventListener("click", async () => {
+    const ids = checks().filter(c => c.checked).map(c => Number(c.value));
+    if (!ids.length) return;
+    const ok = await conferma(
+      `Stai per eliminare ${ids.length} ${ids.length === 1 ? "gara" : "gare"} dal sistema (con le relative designazioni). Prima viene salvato un backup del database.`,
+      { titolo: "Eliminare le gare selezionate?", testoConferma: "Elimina" }
+    );
+    if (!ok) return;
+    const esito = await apiSend("/api/partite/elimina-selezionate", "POST", { ids });
+    if (!esito.ok) { avviso(esito.errore || "Eliminazione non riuscita.", "errore"); return; }
+    ids.forEach(id => corpo.querySelector(`tr[data-id="${id}"]`)?.remove());
+    aggiorna();
+    avviso(`${esito.eliminate} ${esito.eliminate === 1 ? "gara eliminata" : "gare eliminate"}.`);
+    if (config.onDone) config.onDone();
+  });
 }
 
 // Converte una data ISO (aaaa-mm-gg) nel formato visualizzato gg/mm/aaaa.

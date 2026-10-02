@@ -1,5 +1,9 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import datetime
+import glob
+import hmac
+import io
+import json
 import os
 import re
 import secrets
@@ -20,10 +24,19 @@ app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 AUTH_USERNAME = os.environ.get("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "admin")
 
+# Online (PythonAnywhere o altro hosting) si imposta PRODUZIONE=1: il sito si rifiuta di partire con
+# la password di default o senza SECRET_KEY, così non resta mai aperto con admin/admin.
+if os.environ.get("PRODUZIONE") == "1":
+    if AUTH_PASSWORD == "admin" or len(AUTH_PASSWORD) < 10 or not os.environ.get("SECRET_KEY"):
+        raise RuntimeError("PRODUZIONE=1: imposta AUTH_PASSWORD (almeno 10 caratteri, non 'admin') e SECRET_KEY.")
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
 
 @app.before_request
 def richiedi_login():
-    if request.path == "/login" or request.path.startswith("/static/"):
+    # /api/automatico/ è per lo script di import: non ha una sessione, si autentica con IMPORT_TOKEN
+    if request.path == "/login" or request.path.startswith("/static/") or request.path.startswith("/api/automatico/"):
         return None
     if not session.get("autenticato"):
         return redirect(url_for("login", next=request.path))
@@ -263,6 +276,112 @@ def get_partite():
     return jsonify(risultato)
 
 
+# ---------- CRONOLOGIA DELLE GARE ----------
+# Ogni cambiamento di una gara (import, modifica a mano, eliminazione) lascia una riga in
+# cronologia_gare: quando, da dove arriva, cosa è cambiato (prima → dopo). Si vede dal pulsante
+# "Cronologia" in Partite e Designazioni. Parte da quando è stata attivata: non ricostruisce il passato.
+
+CAMPI_CRONOLOGIA = db.PARTITE_COLONNE + ["disputata"]
+ETICHETTA_SCHEDA = {0: "Da disputare", 1: "Disputata"}
+
+
+def _adesso():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _chiave_gara(campionato, numero_gara):
+    return f"{_norm_confronto(campionato)}|{_norm_confronto(numero_gara)}"
+
+
+def _registra_cronologia(conn, campionato, numero_gara, origine, tipi, riassunto, campi=None):
+    """Scrive un evento nella transazione del chiamante (il commit lo fa lui)."""
+    if not (campionato or numero_gara):
+        return
+    conn.execute(
+        "INSERT INTO cronologia_gare (chiave, campionato, numero_gara, quando, origine, tipi, riassunto, campi) VALUES (?,?,?,?,?,?,?,?)",
+        (_chiave_gara(campionato, numero_gara), campionato or "", numero_gara or "", _adesso(), origine,
+         ",".join(tipi), riassunto, json.dumps(campi or [], ensure_ascii=False)),
+    )
+
+
+def _txt(v):
+    return "" if v is None else str(v)
+
+
+def _cambi_gara(prima, dopo):
+    """Differenze tra due versioni di una gara (dict). Restituisce (tipi, righe di riassunto, campi cambiati)."""
+    campi = [
+        {"campo": c.replace("_", " "), "prima": _txt(prima.get(c)), "dopo": _txt(dopo.get(c))}
+        for c in CAMPI_CRONOLOGIA + ["rimborso_km_modalita"] if _txt(prima.get(c)) != _txt(dopo.get(c))
+    ]
+    nomi = {c["campo"] for c in campi}
+    tipi, parti, coperti = [], [], set()
+    if nomi & {"arbitro", "assistente1"}:
+        tipi.append("arbitri")
+        coperti |= {"arbitro", "assistente1"}
+        parti.append(f"Arbitri: {_testo_coppia(prima.get('arbitro'), prima.get('assistente1')) or 'nessuno'} → {_testo_coppia(dopo.get('arbitro'), dopo.get('assistente1')) or 'nessuno'}")
+    if nomi & {"data", "ora"}:
+        tipi.append("rinvio")
+        coperti |= {"data", "ora"}
+        parti.append(f"Data/ora: {_txt(prima.get('data'))} {_txt(prima.get('ora'))} → {_txt(dopo.get('data'))} {_txt(dopo.get('ora'))}")
+    if "disputata" in nomi:
+        tipi.append("scheda")
+        coperti.add("disputata")
+        parti.append(f"Scheda: {ETICHETTA_SCHEDA.get(int(prima.get('disputata') or 0))} → {ETICHETTA_SCHEDA.get(int(dopo.get('disputata') or 0))}")
+    if "rimborso km modalita" in nomi:
+        tipi.append("rimborso")
+        coperti.add("rimborso km modalita")
+        parti.append(f"Rimborso km: {_txt(prima.get('rimborso_km_modalita')) or 'automatico'} → {_txt(dopo.get('rimborso_km_modalita')) or 'automatico'}")
+    altri = [c for c in campi if c["campo"] not in coperti]
+    if altri:
+        tipi.append("modifica")
+        parti.append("Modificato: " + ", ".join(f"{c['campo']} ({c['prima'] or '—'} → {c['dopo'] or '—'})" for c in altri))
+    return tipi, parti, campi
+
+
+def _campi_eliminazione(arbitro, assistente1):
+    """Alla cancellazione di una gara gli arbitri tornano 'vuoti': registrarlo tiene coerente la
+    storia dei designati se la gara viene poi ricreata."""
+    return [{"campo": c, "prima": v, "dopo": ""} for c, v in (("arbitro", arbitro), ("assistente1", assistente1)) if v]
+
+
+@app.route("/api/partite/<int:id>/cronologia", methods=["GET"])
+def cronologia_partita(id):
+    conn = db.get_db()
+    gara = conn.execute("SELECT * FROM partite WHERE id=?", (id,)).fetchone()
+    if not gara:
+        conn.close()
+        return jsonify({"ok": False, "errore": "Gara non trovata"}), 404
+    righe = conn.execute("SELECT * FROM cronologia_gare WHERE chiave=? ORDER BY id",
+                         (_chiave_gara(gara["campionato"], gara["numero_gara"]),)).fetchall()
+    conn.close()
+    eventi = [{"quando": r["quando"], "origine": r["origine"], "tipi": [t for t in r["tipi"].split(",") if t],
+               "riassunto": r["riassunto"], "campi": json.loads(r["campi"] or "[]")} for r in righe]
+
+    # chi era designato nel tempo: si parte dalla designazione di adesso e si risale all'indietro
+    # applicando al contrario ogni cambio di arbitri registrato
+    stato = {"arbitro": gara["arbitro"] or "", "assistente1": gara["assistente1"] or ""}
+    designati = []
+    for ev in reversed(eventi):
+        cambi = {c["campo"]: c for c in ev["campi"]
+                 if c["campo"] in ("arbitro", "assistente1") and _norm_nome(c["prima"]) != _norm_nome(c["dopo"])}
+        if not cambi:
+            continue
+        designati.append({"dal": ev["quando"], "origine": ev["origine"], "tipi": ev["tipi"], **stato})
+        for campo, c in cambi.items():
+            stato[campo] = c["prima"]
+    designati.append({"dal": None, "origine": "", **stato})
+    designati.reverse()
+
+    return jsonify({
+        "ok": True,
+        "gara": {"campionato": gara["campionato"], "numero_gara": gara["numero_gara"], "data": gara["data"], "ora": gara["ora"],
+                 "squadre": f"{gara['squadra_casa']} - {gara['squadra_ospite']}"},
+        "eventi": list(reversed(eventi)),
+        "designati": designati,
+    })
+
+
 @app.route("/api/partite", methods=["POST"])
 def add_partita():
     data = request.json
@@ -272,6 +391,12 @@ def add_partita():
     placeholders = ",".join(["?"] * len(valori))
     conn = db.get_db()
     conn.execute(f"INSERT INTO partite ({colonne_sql}) VALUES ({placeholders})", valori)
+    coppia = _testo_coppia(data.get("arbitro", ""), data.get("assistente1", ""))
+    _registra_cronologia(
+        conn, data.get("campionato", ""), data.get("numero_gara", ""), "Modifica manuale", ["nuova"],
+        "Gara creata a mano" + (f" con {coppia}" if coppia else ""),
+        [{"campo": c, "prima": "", "dopo": data.get(c, "")} for c in ("arbitro", "assistente1") if data.get(c)],
+    )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -305,13 +430,19 @@ def update_partita(id):
     assegnazioni_sql = ",".join(f"{c}=?" for c in colonne + ["disputata"])
     conn = db.get_db()
     # cambiando 1° o 2° arbitro la designazione diventa nuova: non è più "da prima dell'import"
-    attuale = conn.execute("SELECT arbitro, assistente1 FROM partite WHERE id=?", (id,)).fetchone()
+    attuale = conn.execute("SELECT * FROM partite WHERE id=?", (id,)).fetchone()
     if attuale and (attuale["arbitro"] != data.get("arbitro", "") or attuale["assistente1"] != data.get("assistente1", "")):
         conn.execute(
             f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='', {db.PARTITE_DESIGNAZIONE_PRECEDENTE}='', "
-            f"{db.PARTITE_RINVIO_PRECEDENTE}='' WHERE id=?", (id,)
+            f"{db.PARTITE_RINVIO_PRECEDENTE}='', {db.PARTITE_DESIGNAZIONE_MOTIVO}='' WHERE id=?", (id,)
         )
     conn.execute(f"UPDATE partite SET {assegnazioni_sql} WHERE id=?", valori)
+    if attuale:
+        nuova = {c: data.get(c, "") for c in colonne}
+        nuova["disputata"] = int(data.get("disputata", 0))
+        tipi, parti, campi = _cambi_gara(dict(attuale), nuova)
+        if parti:
+            _registra_cronologia(conn, nuova["campionato"], nuova["numero_gara"], "Modifica manuale", tipi, "\n".join(parti), campi)
     suggerimento = _suggerimento_tutoraggio(conn, data.get("arbitro", ""), data.get("assistente1", ""))
     conn.commit()
     conn.close()
@@ -323,9 +454,13 @@ def segna_designazione_controllata(id):
     """Toglie i segni lasciati dall'import (designazione conservata o cambiata, gara rinviata):
     la gara è stata ricontrollata."""
     conn = db.get_db()
+    riga = conn.execute("SELECT campionato, numero_gara FROM partite WHERE id=?", (id,)).fetchone()
+    if riga:
+        _registra_cronologia(conn, riga["campionato"], riga["numero_gara"], "Modifica manuale", ["controllo"],
+                             "Segni dell'import controllati (Ok, controllata)")
     conn.execute(
         f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='', {db.PARTITE_DESIGNAZIONE_PRECEDENTE}='', "
-        f"{db.PARTITE_RINVIO_PRECEDENTE}='' WHERE id=?", (id,)
+        f"{db.PARTITE_RINVIO_PRECEDENTE}='', {db.PARTITE_DESIGNAZIONE_MOTIVO}='' WHERE id=?", (id,)
     )
     conn.commit()
     conn.close()
@@ -384,6 +519,16 @@ def update_rimborso_km(id):
     km_manuale_assistente1 = data.get("rimborso_km_manuale_assistente1", "")
     conferma = bool(data.get("conferma", True))
     conn = db.get_db()
+    riga = conn.execute("SELECT campionato, numero_gara, rimborso_km_modalita FROM partite WHERE id=?", (id,)).fetchone()
+    if riga:
+        prima = _txt(riga["rimborso_km_modalita"]) or "automatico"
+        if conferma and _txt(riga["rimborso_km_modalita"]) != _txt(modalita):
+            _registra_cronologia(conn, riga["campionato"], riga["numero_gara"], "Modifica manuale", ["rimborso"],
+                                 f"Rimborso km: {prima} → {_txt(modalita) or 'automatico'} (confermato)",
+                                 [{"campo": "rimborso km modalita", "prima": _txt(riga["rimborso_km_modalita"]), "dopo": _txt(modalita)}])
+        elif not conferma:
+            _registra_cronologia(conn, riga["campionato"], riga["numero_gara"], "Modifica manuale", ["rimborso"],
+                                 f"Rimborso km proposto dal designante: {_txt(modalita) or 'automatico'} (da confermare)")
     if conferma:
         conn.execute(
             "UPDATE partite SET rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
@@ -404,6 +549,10 @@ def update_rimborso_km(id):
 @app.route("/api/partite/<int:id>", methods=["DELETE"])
 def delete_partita(id):
     conn = db.get_db()
+    riga = conn.execute("SELECT campionato, numero_gara, arbitro, assistente1 FROM partite WHERE id=?", (id,)).fetchone()
+    if riga:
+        _registra_cronologia(conn, riga["campionato"], riga["numero_gara"], "Modifica manuale", ["eliminata"], "Gara eliminata a mano",
+                             _campi_eliminazione(riga["arbitro"], riga["assistente1"]))
     conn.execute("DELETE FROM partite WHERE id=?", (id,))
     conn.commit()
     conn.close()
@@ -426,10 +575,36 @@ def elimina_tutte_partite():
         etichetta = "disputate" if disputata == "1" else "da_disputare"
         percorso_backup = os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_elimina_tutte_{etichetta}.db")
         shutil.copy2(db.DB_PATH, percorso_backup)
+    for r in conn.execute("SELECT campionato, numero_gara, arbitro, assistente1 FROM partite WHERE disputata=?", (disputata,)).fetchall():
+        _registra_cronologia(conn, r["campionato"], r["numero_gara"], "Modifica manuale", ["eliminata"], "Gara eliminata con \"Elimina tutte\"",
+                             _campi_eliminazione(r["arbitro"], r["assistente1"]))
     conn.execute("DELETE FROM partite WHERE disputata=?", (disputata,))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "eliminate": eliminate})
+
+
+@app.route("/api/partite/elimina-selezionate", methods=["POST"])
+def elimina_partite_selezionate():
+    """Cancella le sole gare scelte dall'utente nel popup di report dell'import (quelle presenti
+    nel sistema ma non nel file). Come 'elimina-tutte', salva prima un backup del database."""
+    ids = [int(i) for i in (request.json or {}).get("ids", []) if str(i).isdigit()]
+    if not ids:
+        return jsonify({"ok": False, "errore": "Nessuna gara selezionata"}), 400
+    conn = db.get_db()
+    segnaposto = ",".join(["?"] * len(ids))
+    esistenti = conn.execute(f"SELECT COUNT(*) FROM partite WHERE id IN ({segnaposto})", ids).fetchone()[0]
+    if esistenti:
+        cartella_backup = os.path.dirname(db.DB_PATH)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        shutil.copy2(db.DB_PATH, os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_elimina_assenti_da_import.db"))
+    for r in conn.execute(f"SELECT campionato, numero_gara, arbitro, assistente1 FROM partite WHERE id IN ({segnaposto})", ids).fetchall():
+        _registra_cronologia(conn, r["campionato"], r["numero_gara"], "Report import", ["eliminata"],
+                             "Gara eliminata dal report dell'import (non era nel file)", _campi_eliminazione(r["arbitro"], r["assistente1"]))
+    conn.execute(f"DELETE FROM partite WHERE id IN ({segnaposto})", ids)
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "eliminate": esistenti})
 
 
 @app.route("/api/partite/import", methods=["POST"])
@@ -447,9 +622,27 @@ def import_partite():
 def anteprima_import_partite():
     tipo = request.args.get("tipo", "da_disputare")
     if tipo == "tutte":
-        return _anteprima_import_partite_tutte()
-    disputata_val = 1 if tipo == "disputate" else 0
-    return _anteprima_import_generico("partite", extra_fields={"disputata": disputata_val})
+        disputata_target = None
+        risposta = _anteprima_import_partite_tutte()
+    else:
+        disputata_target = 1 if tipo == "disputate" else 0
+        risposta = _anteprima_import_generico("partite", extra_fields={"disputata": disputata_target})
+    if isinstance(risposta, tuple):  # errore già pronto (nessun file, file illeggibile...)
+        return risposta
+    dati = risposta.get_json()
+    if dati.get("ok"):
+        # stesso report dell'import vero, ottenuto facendolo girare e poi annullandolo
+        try:
+            request.files["file"].stream.seek(0)
+            record = importer.leggi_excel(request.files["file"], "partite")
+            conn = db.get_db()
+            try:
+                dati["simulazione"] = _importa_righe_partite(conn, record, disputata_target, request.args.get("modalita", "aggiungi"), simulazione=True)
+            finally:
+                conn.close()
+        except Exception as e:
+            dati["simulazione_errore"] = f"{type(e).__name__}: {e}"
+    return jsonify(dati)
 
 
 def _anteprima_import_partite_tutte():
@@ -892,6 +1085,7 @@ def chiudi_stagione_corrente():
     )
 
     conn.execute("DELETE FROM partite")
+    conn.execute("DELETE FROM cronologia_gare")  # la cronologia è della stagione che si chiude (il backup la conserva)
     conn.execute("DELETE FROM indisponibilita")
     conn.execute("DELETE FROM rimborso_km_proposte")
     conn.execute("DELETE FROM campionati_codici")
@@ -3282,7 +3476,62 @@ def _disputata_da_file(riga):
     return 1 if str(riga.get("risultato") or "").strip() else 0
 
 
-def _importa_righe_partite(conn, record, disputata_target, modalita):
+def _registra_cronologia_import(conn, origine, modalita, nuove, modifiche, cambi_scheda, conservate, arbitri_cambiati, rinviate, assenti):
+    """Un evento di cronologia per ogni gara toccata dall'import (le gare identiche non ne lasciano)."""
+    eventi = {}
+
+    def ev(g):
+        return eventi.setdefault(_chiave_gara(g["campionato"], g["numero_gara"]), {
+            "campionato": g["campionato"], "numero_gara": g["numero_gara"], "tipi": [], "parti": [], "campi": []})
+
+    for g in nuove:
+        e = ev(g)
+        e["tipi"].append("nuova")
+        e["parti"].append("Gara creata dall'import" + (f" con {g['coppia']}" if g["coppia"] else ""))
+        e["campi"] += [{"campo": c, "prima": "", "dopo": g[c]} for c in ("arbitro", "assistente1") if g.get(c)]
+    for g in arbitri_cambiati:
+        e = ev(g)
+        e["tipi"].append("arbitri")
+        e["parti"].append(f"Arbitri: {g['prima']} → {g['dopo']}")
+    for g in rinviate:
+        e = ev(g)
+        e["tipi"].append("rinvio")
+        e["parti"].append(f"Rinviata: {g['data_prima']} {g['ora_prima'] or ''} → {g['data_dopo']} {g['ora_dopo'] or ''}".replace("  ", " "))
+    for g in cambi_scheda:
+        e = ev(g)
+        e["tipi"].append("scheda")
+        extra = " (nel file non ha più il risultato)" if g["da"] == "Disputata" and g["a"] == "Da disputare" else ""
+        e["parti"].append(f"Scheda: {g['da']} → {g['a']}{extra}")
+    for g in conservate:
+        if g.get("gia_segnata"):
+            continue
+        e = ev(g)
+        e["tipi"].append("conservata")
+        e["parti"].append(f"Designazione conservata (il file non portava gli arbitri): {g['coppia']}")
+    for g in modifiche:
+        e = ev(g)
+        coperti = set()
+        if "arbitri" in e["tipi"]:
+            coperti |= {"arbitro", "assistente1"}
+        if "rinvio" in e["tipi"]:
+            coperti |= {"data", "ora"}
+        e["campi"] += g["campi"]
+        altri = [c for c in g["campi"] if c["campo"] not in coperti]
+        if altri:
+            e["tipi"].append("modifica")
+            e["parti"].append("Modificato: " + ", ".join(f"{c['campo']} ({c['prima'] or '—'} → {c['dopo'] or '—'})" for c in altri))
+    if modalita == "sostituisci":
+        for g in assenti:
+            e = ev(g)
+            e["tipi"].append("eliminata")
+            e["parti"].append("Gara eliminata: non era nel file (import Sostituisci)")
+            e["campi"] += _campi_eliminazione(g.get("arbitro", ""), g.get("assistente1", ""))
+    for e in eventi.values():
+        if e["parti"]:
+            _registra_cronologia(conn, e["campionato"], e["numero_gara"], origine, e["tipi"], "\n".join(e["parti"]), e["campi"])
+
+
+def _importa_righe_partite(conn, record, disputata_target, modalita, simulazione=False, origine="Import"):
     """Import dedicato per la tabella 'partite' live (da disputare/disputate): la stessa gara
     (campionato+numero gara) resta la stessa gara indipendentemente da quale delle due
     tabelle la contiene in un dato momento, perché può passare da 'da disputare' a
@@ -3292,7 +3541,9 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
     reimport questi campi vengono rimessi sulla gara corrispondente SOLO se il file non porta
     un valore proprio.
     disputata_target None = import unico di tutto il calendario: la scheda di ogni gara la
-    decide _disputata_da_file, e "sostituisci" svuota entrambe le schede (dopo un backup)."""
+    decide _disputata_da_file, e "sostituisci" svuota entrambe le schede (dopo un backup).
+    simulazione=True esegue tutto allo stesso modo ma in fondo annulla la transazione (e non fa il
+    backup): serve all'anteprima, che mostra lo stesso report dell'import vero senza scrivere nulla."""
     snapshot = {
         (_norm_confronto(r["campionato"]), _norm_confronto(r["numero_gara"])): dict(r)
         for r in conn.execute("SELECT * FROM partite").fetchall()
@@ -3300,9 +3551,10 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
 
     if modalita == "sostituisci":
         if disputata_target is None:
-            cartella_backup = os.path.dirname(db.DB_PATH)
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            shutil.copy2(db.DB_PATH, os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_import_tutte.db"))
+            if not simulazione:
+                cartella_backup = os.path.dirname(db.DB_PATH)
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                shutil.copy2(db.DB_PATH, os.path.join(cartella_backup, f"designazioni_backup_{timestamp}_pre_import_tutte.db"))
             conn.execute("DELETE FROM partite")
         else:
             conn.execute("DELETE FROM partite WHERE disputata=?", (disputata_target,))
@@ -3314,6 +3566,7 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
 
     colonne = db.PARTITE_COLONNE + [
         "disputata", db.PARTITE_DESIGNAZIONE_PREIMPORT, db.PARTITE_DESIGNAZIONE_PRECEDENTE, db.PARTITE_RINVIO_PRECEDENTE,
+        db.PARTITE_DESIGNAZIONE_MOTIVO,
     ]
     inseriti = aggiornati = 0
     rinviate = []
@@ -3325,9 +3578,34 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
     # mostrate a fine import, perché su una gara che passa tra le disputate il cambio non
     # lascia segni in Designazioni e l'eventuale accordo di rimborso km va ricontrollato
     arbitri_cambiati = []
+    # dettaglio per il popup "Report import": cosa è stato creato, cosa è cambiato su ogni gara
+    # già presente, quali gare hanno cambiato scheda e quali designazioni sono state conservate
+    nuove = []
+    modifiche = []
+    cambi_scheda = []
+    designazioni_conservate = []
+    n_identiche = 0
+    chiavi_file = set()
+
+    def _etichetta_scheda(v):
+        return "Disputata" if v else "Da disputare"
+
+    # righe ripetute nel file (stesso campionato + numero gara): vale l'ultima, esattamente come
+    # se venissero scritte in sequenza; qui si tolgono prima così il report non le conta due volte
+    def _chiave_riga(r):
+        return (_norm_confronto(r.get("campionato")), _norm_confronto(r.get("numero_gara")))
+
+    righe_nel_file = len(record)
+    ultima_posizione = {_chiave_riga(r): i for i, r in enumerate(record)}
+    duplicate_nel_file = [
+        {"campionato": r.get("campionato", ""), "numero_gara": r.get("numero_gara", ""), "data": r.get("data", ""), "ora": r.get("ora", "")}
+        for i, r in enumerate(record) if ultima_posizione[_chiave_riga(r)] != i
+    ]
+    record = [r for i, r in enumerate(record) if ultima_posizione[_chiave_riga(r)] == i]
 
     for riga in record:
         chiave = (_norm_confronto(riga.get("campionato")), _norm_confronto(riga.get("numero_gara")))
+        chiavi_file.add(chiave)
         precedente = snapshot.get(chiave)
 
         disputata_riga = _disputata_da_file(riga) if disputata_target is None else disputata_target
@@ -3336,6 +3614,7 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
         valori["disputata"] = disputata_riga
         valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = ""
         valori[db.PARTITE_DESIGNAZIONE_PRECEDENTE] = ""
+        valori[db.PARTITE_DESIGNAZIONE_MOTIVO] = ""
         # un rinvio non ancora ricontrollato resta segnato anche ai reimport successivi
         valori[db.PARTITE_RINVIO_PRECEDENTE] = (precedente or {}).get(db.PARTITE_RINVIO_PRECEDENTE) or ""
 
@@ -3368,6 +3647,8 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
                     "rimborso_da_ricontrollare": bool((precedente["rimborso_km_modalita"] or "").strip()),
                 })
             if disputata_riga == 0 and any(coppia_prima):
+                if int(precedente["disputata"] or 0) == 1:
+                    valori[db.PARTITE_DESIGNAZIONE_MOTIVO] = "tornata_da_disputare"
                 if coppia_dopo != coppia_prima:
                     valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = momento_import
                     valori[db.PARTITE_DESIGNAZIONE_PRECEDENTE] = _testo_coppia(precedente["arbitro"], precedente["assistente1"])
@@ -3375,6 +3656,28 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
                 elif conservata:
                     valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = momento_import
                     n_designazioni_conservate += 1
+                    designazioni_conservate.append({
+                        "campionato": valori["campionato"], "numero_gara": valori["numero_gara"], "data": valori["data"],
+                        "coppia": _testo_coppia(valori["arbitro"], valori["assistente1"]),
+                        # già segnata da un import precedente e non ancora controllata: in cronologia non si ripete
+                        "gia_segnata": bool(precedente.get(db.PARTITE_DESIGNAZIONE_PREIMPORT)),
+                    })
+            campi_cambiati = [
+                {"campo": c.replace("_", " "), "prima": precedente[c] or "", "dopo": valori[c] or ""}
+                for c in db.PARTITE_COLONNE if (precedente[c] or "") != (valori[c] or "")
+            ]
+            if campi_cambiati:
+                modifiche.append({
+                    "campionato": valori["campionato"], "numero_gara": valori["numero_gara"],
+                    "data": valori["data"], "campi": campi_cambiati,
+                })
+            else:
+                n_identiche += 1
+            if int(precedente["disputata"] or 0) != disputata_riga:
+                cambi_scheda.append({
+                    "campionato": valori["campionato"], "numero_gara": valori["numero_gara"], "data": valori["data"],
+                    "da": _etichetta_scheda(int(precedente["disputata"] or 0)), "a": _etichetta_scheda(disputata_riga),
+                })
             if precedente["data"] != valori["data"] or precedente["ora"] != valori["ora"]:
                 valori[db.PARTITE_RINVIO_PRECEDENTE] = f"{precedente['data']} {precedente['ora'] or ''}".strip()
                 rinviate.append({
@@ -3383,6 +3686,14 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
                     "data_prima": precedente["data"], "ora_prima": precedente["ora"],
                     "data_dopo": valori["data"], "ora_dopo": valori["ora"],
                 })
+        else:
+            nuove.append({
+                "campionato": valori["campionato"], "numero_gara": valori["numero_gara"], "data": valori["data"],
+                "ora": valori["ora"], "squadre": f"{valori['squadra_casa']} - {valori['squadra_ospite']}",
+                "scheda": _etichetta_scheda(disputata_riga),
+                "coppia": _testo_coppia(valori["arbitro"], valori["assistente1"]),
+                "arbitro": valori["arbitro"], "assistente1": valori["assistente1"],
+            })
 
         id_esistente = esistenti.get(chiave)
         if id_esistente is not None:
@@ -3396,9 +3707,53 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
             esistenti[chiave] = cur.lastrowid
             inseriti += 1
 
-    _riapplica_proposte_confermate(conn)
-    conn.commit()
+    # gare nel sistema (nell'ambito dell'import: tutte con il calendario completo, solo la scheda
+    # scelta altrimenti) che il file non contiene. Con "Aggiungi" restano al loro posto e sarà
+    # l'utente a decidere se toglierle dal popup; con "Sostituisci" sono già state cancellate.
+    assenti_dal_file = []
+    for chiave, r in snapshot.items():
+        if chiave in chiavi_file:
+            continue
+        if disputata_target is not None and int(r["disputata"] or 0) != disputata_target:
+            continue
+        assenti_dal_file.append({
+            "id": r["id"], "data": r["data"], "ora": r["ora"], "campionato": r["campionato"],
+            "numero_gara": r["numero_gara"], "squadre": f"{r['squadra_casa']} - {r['squadra_ospite']}",
+            "scheda": _etichetta_scheda(int(r["disputata"] or 0)),
+            "coppia": _testo_coppia(r["arbitro"], r["assistente1"]),
+            "arbitro": r["arbitro"], "assistente1": r["assistente1"],
+            "rimborso_km": bool((r["rimborso_km_modalita"] or "").strip()),
+        })
+    assenti_dal_file.sort(key=lambda g: (g["data"] or "", g["ora"] or ""))
+
+    n_rimborsi_riapplicati = _riapplica_proposte_confermate(conn)
+    if not simulazione:
+        _registra_cronologia_import(conn, origine, modalita, nuove, modifiche, cambi_scheda, designazioni_conservate,
+                                    arbitri_cambiati, rinviate, assenti_dal_file)
+    if simulazione:
+        conn.rollback()
+    else:
+        conn.commit()
     risultato = {"ok": True, "inseriti": inseriti, "aggiornati": aggiornati, "rinviate": rinviate, "arbitri_cambiati": arbitri_cambiati}
+    risultato["report"] = {
+        "anteprima": simulazione,
+        "modalita": modalita,
+        "ambito": "tutte" if disputata_target is None else ("disputate" if disputata_target else "da_disputare"),
+        "totale_righe": righe_nel_file,
+        "duplicate_nel_file": duplicate_nel_file,
+        "n_nuove": len(nuove),
+        "n_aggiornate": aggiornati + (inseriti - len(nuove)),
+        "n_con_modifiche": len(modifiche),
+        "n_identiche": n_identiche,
+        "per_scheda": {"disputate": per_scheda[1], "da_disputare": per_scheda[0]},
+        "nuove": nuove,
+        "modifiche": modifiche,
+        "cambi_scheda": cambi_scheda,
+        "designazioni_conservate": designazioni_conservate,
+        "assenti_dal_file": assenti_dal_file,
+        "assenti_eliminate": modalita == "sostituisci",
+        "rimborsi_riapplicati": n_rimborsi_riapplicati,
+    }
     note = []
     n_giocate_cambiate = sum(1 for g in arbitri_cambiati if g["scheda"] == "Disputata")
     if disputata_target is None:
@@ -3424,7 +3779,8 @@ def _riapplica_proposte_confermate(conn):
     da confermare e ricompariranno come proposta su Rimborsi km."""
     proposte_confermate = conn.execute("SELECT * FROM rimborso_km_proposte WHERE confermato=1").fetchall()
     if not proposte_confermate:
-        return
+        return 0
+    riapplicate = 0
     indice_proposte = {
         (_norm_confronto(p["campionato"]), _norm_confronto(p["numero_gara"])): p
         for p in proposte_confermate
@@ -3437,6 +3793,8 @@ def _riapplica_proposte_confermate(conn):
                 "UPDATE partite SET rimborso_km_modalita=?, rimborso_km_manuale_arbitro=?, rimborso_km_manuale_assistente1=? WHERE id=?",
                 (p["rimborso_km_modalita"], p["rimborso_km_manuale_arbitro"], p["rimborso_km_manuale_assistente1"], r["id"]),
             )
+            riapplicate += 1
+    return riapplicate
 
 
 def _import_generico(tabella, extra_fields=None):
@@ -3508,6 +3866,134 @@ def _import_generico(tabella, extra_fields=None):
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "inseriti": inseriti, "aggiornati": aggiornati})
+
+
+# ---------- IMPORT AUTOMATICO (script esterno che scarica l'Excel e lo manda qui) ----------
+# Lo script non ha una sessione di login: si autentica con un token segreto (variabile d'ambiente
+# IMPORT_TOKEN, almeno 16 caratteri) mandato nell'intestazione "Authorization: Bearer <token>".
+# Senza IMPORT_TOKEN la funzione è spenta. L'import è sempre "Aggiungi" sul calendario completo:
+# non cancella mai niente. Le gare assenti dal file restano e si decidono a mano dal popup.
+
+IMPORT_TOKEN = os.environ.get("IMPORT_TOKEN", "")
+MAX_BYTE_IMPORT_AUTOMATICO = 20 * 1024 * 1024
+BACKUP_AUTOMATICI_DA_TENERE = 14
+
+
+def _controllo_token_import():
+    """None se il token è valido, altrimenti la risposta di errore da restituire."""
+    if len(IMPORT_TOKEN) < 16:
+        return jsonify({"ok": False, "errore": "Import automatico non attivo: manca IMPORT_TOKEN (almeno 16 caratteri)."}), 503
+    ricevuto = request.headers.get("Authorization", "")
+    ricevuto = ricevuto[7:] if ricevuto.lower().startswith("bearer ") else request.headers.get("X-Import-Token", "")
+    if not hmac.compare_digest(ricevuto.strip().encode(), IMPORT_TOKEN.encode()):
+        return jsonify({"ok": False, "errore": "Token non valido."}), 401
+    return None
+
+
+def _registra_import_automatico(esito, nome_file="", messaggio="", riepilogo=None, dati=None):
+    conn = db.get_db()
+    cur = conn.execute(
+        "INSERT INTO import_automatici (quando, esito, nome_file, messaggio, riepilogo, dati) VALUES (?,?,?,?,?,?)",
+        (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), esito, nome_file, messaggio,
+         json.dumps(riepilogo or {}), json.dumps(dati or {})),
+    )
+    conn.commit()
+    nuovo_id = cur.lastrowid
+    conn.close()
+    return nuovo_id
+
+
+def _backup_prima_import_automatico():
+    cartella = os.path.dirname(db.DB_PATH)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    shutil.copy2(db.DB_PATH, os.path.join(cartella, f"designazioni_backup_{timestamp}_pre_import_automatico.db"))
+    vecchi = sorted(glob.glob(os.path.join(cartella, "designazioni_backup_*_pre_import_automatico.db")))
+    for percorso in vecchi[:-BACKUP_AUTOMATICI_DA_TENERE]:
+        os.remove(percorso)
+
+
+@app.route("/api/automatico/import-partite", methods=["POST"])
+def import_partite_automatico():
+    errore_token = _controllo_token_import()
+    if errore_token:
+        return errore_token
+    if "file" not in request.files:
+        return jsonify({"ok": False, "errore": "Nessun file ricevuto"}), 400
+    file = request.files["file"]
+    nome_file = file.filename or ""
+    contenuto = file.read(MAX_BYTE_IMPORT_AUTOMATICO + 1)
+    if len(contenuto) > MAX_BYTE_IMPORT_AUTOMATICO:
+        _registra_import_automatico("errore", nome_file, "File troppo grande (oltre 20 MB).")
+        return jsonify({"ok": False, "errore": "File troppo grande"}), 413
+
+    try:
+        record = importer.leggi_excel(io.BytesIO(contenuto), "partite")
+    except Exception as e:
+        _registra_import_automatico("errore", nome_file, f"Errore lettura file: {e}")
+        return jsonify({"ok": False, "errore": f"Errore lettura file: {e}"}), 400
+    if not record:
+        _registra_import_automatico("errore", nome_file, "Nessuna colonna riconosciuta nel file: il formato dell'export potrebbe essere cambiato.")
+        return jsonify({"ok": False, "errore": "Nessuna colonna riconosciuta nel file."}), 400
+
+    _backup_prima_import_automatico()
+    conn = db.get_db()
+    try:
+        risultato = _importa_righe_partite(conn, record, None, "aggiungi", origine="Import automatico")
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        _registra_import_automatico("errore", nome_file, f"Errore durante l'import: {e}")
+        return jsonify({"ok": False, "errore": f"Errore durante l'import: {e}"}), 500
+    conn.close()
+
+    rep = risultato["report"]
+    riepilogo = {
+        "righe": rep["totale_righe"], "nuove": rep["n_nuove"], "aggiornate": rep["n_aggiornate"],
+        "con_modifiche": rep["n_con_modifiche"], "rinviate": len(risultato["rinviate"]),
+        "arbitri_cambiati": len(risultato["arbitri_cambiati"]), "assenti": len(rep["assenti_dal_file"]),
+    }
+    id_registro = _registra_import_automatico("ok", nome_file, risultato.get("nota", ""), riepilogo, risultato)
+    return jsonify({"ok": True, "id": id_registro, "riepilogo": riepilogo})
+
+
+@app.route("/api/automatico/errore", methods=["POST"])
+def segnala_errore_import_automatico():
+    """Lo script lo chiama quando non riesce a scaricare il file (login rifiutato, pagina cambiata...),
+    così il problema compare nell'elenco "Import automatici" invece di restare nascosto."""
+    errore_token = _controllo_token_import()
+    if errore_token:
+        return errore_token
+    messaggio = str((request.json or {}).get("messaggio", "Errore non specificato"))[:500]
+    _registra_import_automatico("errore", "", messaggio)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/import-automatici", methods=["GET"])
+def elenco_import_automatici():
+    conn = db.get_db()
+    righe = conn.execute(
+        "SELECT id, quando, esito, nome_file, messaggio, riepilogo FROM import_automatici ORDER BY id DESC LIMIT 60"
+    ).fetchall()
+    conn.close()
+    return jsonify([{**{k: r[k] for k in ("id", "quando", "esito", "nome_file", "messaggio")},
+                     "riepilogo": json.loads(r["riepilogo"] or "{}")} for r in righe])
+
+
+@app.route("/api/import-automatici/<int:id>", methods=["GET"])
+def dettaglio_import_automatico(id):
+    conn = db.get_db()
+    r = conn.execute("SELECT * FROM import_automatici WHERE id=?", (id,)).fetchone()
+    if not r:
+        conn.close()
+        return jsonify({"ok": False, "errore": "Import non trovato"}), 404
+    dati = json.loads(r["dati"] or "{}")
+    # dell'elenco "assenti dal file" restano solo le gare ancora presenti: quelle già tolte nel
+    # frattempo non vanno riproposte
+    if dati.get("report"):
+        ancora_presenti = {row["id"] for row in conn.execute("SELECT id FROM partite").fetchall()}
+        dati["report"]["assenti_dal_file"] = [g for g in dati["report"].get("assenti_dal_file", []) if g["id"] in ancora_presenti]
+    conn.close()
+    return jsonify({"ok": True, "quando": r["quando"], "esito": r["esito"], "messaggio": r["messaggio"], "dati": dati})
 
 
 if __name__ == "__main__":

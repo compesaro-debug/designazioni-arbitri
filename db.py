@@ -1,7 +1,9 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "designazioni.db")
+# DESIGNAZIONI_DB permette di far girare il sito su un database diverso (es. quello di prova in
+# data/test/) senza toccare i dati reali.
+DB_PATH = os.environ.get("DESIGNAZIONI_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "designazioni.db")
 
 # Elenco completo dei campi della tabella "partite" (esclusi id e disputata), nell'ordine
 # in cui compaiono nel file Excel di export "filtro gare" usato per l'import delle partite disputate.
@@ -29,6 +31,9 @@ PARTITE_DESIGNAZIONE_PRECEDENTE = "designazione_precedente_import"
 # Data e ora che la gara aveva prima che un import la spostasse (es. "2026-10-14 21:00"):
 # resta finché il rinvio non viene ricontrollato in Designazioni.
 PARTITE_RINVIO_PRECEDENTE = "rinvio_data_precedente"
+# Perché l'import ha segnato la designazione: "" = normale, "tornata_da_disputare" = la gara era tra le
+# Disputate e il file non ha più il risultato (gli arbitri sono quelli della partita giocata).
+PARTITE_DESIGNAZIONE_MOTIVO = "designazione_motivo_import"
 
 # Elenco completo dei campi della tabella "indisponibilita", nell'ordine in cui compaiono
 # nel file Excel di export usato per l'import (colonne Da/A con data e ora combinate).
@@ -64,7 +69,8 @@ def _migra_se_necessario(conn):
     schema_atteso = {
         "arbitri": ["codice_fiscale", "cognome_nome", "matricola", "comune", "ruolo", "scadenza_certificato_medico", "cellulare", "email"],
         "partite": PARTITE_COLONNE + ["disputata"] + PARTITE_RIMBORSO_COLONNE
-                   + [PARTITE_DESIGNAZIONE_PREIMPORT, PARTITE_DESIGNAZIONE_PRECEDENTE, PARTITE_RINVIO_PRECEDENTE],
+                   + [PARTITE_DESIGNAZIONE_PREIMPORT, PARTITE_DESIGNAZIONE_PRECEDENTE, PARTITE_RINVIO_PRECEDENTE,
+                      PARTITE_DESIGNAZIONE_MOTIVO],
         "indisponibilita": INDISPONIBILITA_COLONNE,
         "note_inibizioni": NOTE_INIBIZIONI_COLONNE,
         "campionati": CAMPIONATI_COLONNE,
@@ -377,6 +383,38 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_arbitri_attivo ON arbitri(attivo)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_indisponibilita_periodo ON indisponibilita(data_inizio, data_fine)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_rimborso_proposte_gara ON rimborso_km_proposte(campionato, numero_gara)")
+
+    # Cronologia di ogni gara: una riga per ogni evento (creazione, import che l'ha cambiata, modifica
+    # a mano, eliminazione...). La gara si identifica con campionato + numero gara (colonna "chiave",
+    # normalizzata) e non con l'id di riga, così la storia sopravvive a una cancellazione e reimport.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cronologia_gare (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chiave TEXT NOT NULL DEFAULT '',
+            campionato TEXT NOT NULL DEFAULT '',
+            numero_gara TEXT NOT NULL DEFAULT '',
+            quando TEXT NOT NULL DEFAULT '',
+            origine TEXT NOT NULL DEFAULT '',
+            tipi TEXT NOT NULL DEFAULT '',
+            riassunto TEXT NOT NULL DEFAULT '',
+            campi TEXT NOT NULL DEFAULT '[]'
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_cronologia_chiave ON cronologia_gare(chiave)")
+
+    # Storico degli import fatti da soli (script che scarica l'Excel e lo manda al sito): una riga
+    # per tentativo, con l'esito e il report completo (JSON) per poterlo riaprire dal popup.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS import_automatici (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            quando TEXT NOT NULL DEFAULT '',
+            esito TEXT NOT NULL DEFAULT '',
+            nome_file TEXT DEFAULT '',
+            messaggio TEXT DEFAULT '',
+            riepilogo TEXT DEFAULT '',
+            dati TEXT DEFAULT ''
+        )
+    """)
     conn.commit()
 
     # garantisce che esista sempre esattamente una stagione "corrente" (dati_live=1),

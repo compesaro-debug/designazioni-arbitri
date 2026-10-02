@@ -145,6 +145,7 @@ function renderTabellaPartite() {
       <td>${p.residenza_osservatore}</td>
       <td class="cella-azioni" data-azioni>
         ${btnAzione("modifica", `modificaPartita(${p.id})`, "Modifica")}
+        ${btnAzione("cronologia", `apriCronologiaGara(${p.id})`, "Cronologia")}
         ${btnAzione("elimina", `eliminaPartita(${p.id})`, "Elimina")}
       </td>
     `;
@@ -224,4 +225,49 @@ if (tabIniziale === "omologazione" || tabIniziale === "disputate") {
   aggiornaVisibilitaRisultato();
   aggiornaBottoneImport();
   caricaPartite();
+}
+
+// ---------- IMPORT AUTOMATICI (script esterno che scarica l'Excel e lo manda al sito) ----------
+
+async function apriImportAutomatici() {
+  const corpo = document.getElementById("corpo-import-automatici");
+  corpo.innerHTML = `<p class="hint">Caricamento...</p>`;
+  openOverlay("modale-import-automatici");
+  const elenco = await apiGet("/api/import-automatici");
+  if (!elenco.length) {
+    corpo.innerHTML = `<div class="empty-state"><strong>Nessun import automatico ancora</strong>Compariranno qui quando lo script manderà il primo file.</div>`;
+    return;
+  }
+  corpo.innerHTML = `
+    <div class="table-scroll" style="max-height:420px;">
+      <table>
+        <thead><tr><th>Quando</th><th>Esito</th><th>Righe</th><th>Nuove</th><th>Aggiornate</th><th>Rinviate</th><th>Arbitri cambiati</th><th>Assenti dal file</th><th></th></tr></thead>
+        <tbody>
+          ${elenco.map(r => r.esito === "ok" ? `
+            <tr>
+              <td>${_esc(_quandoLeggibile(r.quando))}</td>
+              <td><span class="tag tag-verde">Ok</span></td>
+              <td>${r.riepilogo.righe}</td><td>${r.riepilogo.nuove}</td><td>${r.riepilogo.aggiornate}</td>
+              <td>${r.riepilogo.rinviate}</td><td>${r.riepilogo.arbitri_cambiati}</td><td>${r.riepilogo.assenti}</td>
+              <td><button type="button" class="btn-testo" onclick="apriReportImportAutomatico(${r.id})">Apri report</button></td>
+            </tr>` : `
+            <tr style="background:var(--rosso-tinta)">
+              <td>${_esc(_quandoLeggibile(r.quando))}</td>
+              <td><span class="tag tag-rosso">Errore</span></td>
+              <td colspan="7">${_esc(r.messaggio)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function _quandoLeggibile(quando) {
+  const [data, ora] = (quando || "").split(" ");
+  return `${formattaData(data)} ${(ora || "").slice(0, 5)}`;
+}
+
+async function apriReportImportAutomatico(id) {
+  const esito = await apiGet(`/api/import-automatici/${id}`);
+  if (!esito.ok) { avviso(esito.errore || "Report non trovato.", "errore"); return; }
+  mostraReportImport(esito.dati, { onDone: caricaPartite });
 }

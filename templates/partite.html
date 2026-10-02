@@ -24,6 +24,7 @@
     <button class="btn btn-import" id="btn-importa-tutte-partite" onclick="apriImportModal('import-partite-tutte', {endpoint:'/api/partite/import', params:{tipo:'tutte'}, onDone: caricaPartite})" title="Un solo file con tutto il calendario: le gare con risultato vanno tra le Disputate, le altre tra le Da disputare">Importa calendario completo</button>
     <button class="btn btn-secondary" id="btn-importa-partite">Importa solo in questa scheda</button>
     <button class="btn-testo" onclick="openOverlay('modale-spiegazione-import')" title="Come funziona l'import">? Come funziona l'import</button>
+    <button class="btn-testo" onclick="apriImportAutomatici()" title="Gli import fatti da soli dallo script che scarica l'Excel">Import automatici</button>
     <button id="btn-nuova-partita" class="btn btn-primary" onclick="apriModalePartita()">+ Nuova partita</button>
     <button id="btn-elimina-tutte-partite" class="btn-danger-text" onclick="eliminaTutteLePartite()">Elimina tutte</button>
   </div>
@@ -256,6 +257,18 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeOverlay('modale-partita')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaPartita()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Elenco degli import fatti da soli (script esterno): ogni riga riapre il suo report. -->
+<div class="overlay" id="modale-import-automatici">
+  <div class="modal modal-large">
+    <h2>Import automatici</h2>
+    <p class="hint" style="margin-top:-8px;">Gli import fatti da soli dallo script che scarica l'Excel. Sono sempre in modalità Aggiungi: non cancellano niente. Le gare assenti dal file si decidono dal report.</p>
+    <div id="corpo-import-automatici"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeOverlay('modale-import-automatici')">Chiudi</button>
     </div>
   </div>
 </div>
