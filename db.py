@@ -402,19 +402,6 @@ def init_db():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_cronologia_chiave ON cronologia_gare(chiave)")
 
-    # Storico degli import fatti da soli (script che scarica l'Excel e lo manda al sito): una riga
-    # per tentativo, con l'esito e il report completo (JSON) per poterlo riaprire dal popup.
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS import_automatici (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            quando TEXT NOT NULL DEFAULT '',
-            esito TEXT NOT NULL DEFAULT '',
-            nome_file TEXT DEFAULT '',
-            messaggio TEXT DEFAULT '',
-            riepilogo TEXT DEFAULT '',
-            dati TEXT DEFAULT ''
-        )
-    """)
     conn.commit()
 
     # garantisce che esista sempre esattamente una stagione "corrente" (dati_live=1),

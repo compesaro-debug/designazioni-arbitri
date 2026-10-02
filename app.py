@@ -1,8 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import datetime
-import glob
-import hmac
-import io
 import json
 import os
 import re
@@ -35,8 +32,7 @@ if os.environ.get("PRODUZIONE") == "1":
 
 @app.before_request
 def richiedi_login():
-    # /api/automatico/ è per lo script di import: non ha una sessione, si autentica con IMPORT_TOKEN
-    if request.path == "/login" or request.path.startswith("/static/") or request.path.startswith("/api/automatico/"):
+    if request.path == "/login" or request.path.startswith("/static/"):
         return None
     if not session.get("autenticato"):
         return redirect(url_for("login", next=request.path))
@@ -3531,7 +3527,7 @@ def _registra_cronologia_import(conn, origine, modalita, nuove, modifiche, cambi
             _registra_cronologia(conn, e["campionato"], e["numero_gara"], origine, e["tipi"], "\n".join(e["parti"]), e["campi"])
 
 
-def _importa_righe_partite(conn, record, disputata_target, modalita, simulazione=False, origine="Import"):
+def _importa_righe_partite(conn, record, disputata_target, modalita, simulazione=False):
     """Import dedicato per la tabella 'partite' live (da disputare/disputate): la stessa gara
     (campionato+numero gara) resta la stessa gara indipendentemente da quale delle due
     tabelle la contiene in un dato momento, perché può passare da 'da disputare' a
@@ -3728,7 +3724,7 @@ def _importa_righe_partite(conn, record, disputata_target, modalita, simulazione
 
     n_rimborsi_riapplicati = _riapplica_proposte_confermate(conn)
     if not simulazione:
-        _registra_cronologia_import(conn, origine, modalita, nuove, modifiche, cambi_scheda, designazioni_conservate,
+        _registra_cronologia_import(conn, "Import", modalita, nuove, modifiche, cambi_scheda, designazioni_conservate,
                                     arbitri_cambiati, rinviate, assenti_dal_file)
     if simulazione:
         conn.rollback()
@@ -3866,134 +3862,6 @@ def _import_generico(tabella, extra_fields=None):
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "inseriti": inseriti, "aggiornati": aggiornati})
-
-
-# ---------- IMPORT AUTOMATICO (script esterno che scarica l'Excel e lo manda qui) ----------
-# Lo script non ha una sessione di login: si autentica con un token segreto (variabile d'ambiente
-# IMPORT_TOKEN, almeno 16 caratteri) mandato nell'intestazione "Authorization: Bearer <token>".
-# Senza IMPORT_TOKEN la funzione è spenta. L'import è sempre "Aggiungi" sul calendario completo:
-# non cancella mai niente. Le gare assenti dal file restano e si decidono a mano dal popup.
-
-IMPORT_TOKEN = os.environ.get("IMPORT_TOKEN", "")
-MAX_BYTE_IMPORT_AUTOMATICO = 20 * 1024 * 1024
-BACKUP_AUTOMATICI_DA_TENERE = 14
-
-
-def _controllo_token_import():
-    """None se il token è valido, altrimenti la risposta di errore da restituire."""
-    if len(IMPORT_TOKEN) < 16:
-        return jsonify({"ok": False, "errore": "Import automatico non attivo: manca IMPORT_TOKEN (almeno 16 caratteri)."}), 503
-    ricevuto = request.headers.get("Authorization", "")
-    ricevuto = ricevuto[7:] if ricevuto.lower().startswith("bearer ") else request.headers.get("X-Import-Token", "")
-    if not hmac.compare_digest(ricevuto.strip().encode(), IMPORT_TOKEN.encode()):
-        return jsonify({"ok": False, "errore": "Token non valido."}), 401
-    return None
-
-
-def _registra_import_automatico(esito, nome_file="", messaggio="", riepilogo=None, dati=None):
-    conn = db.get_db()
-    cur = conn.execute(
-        "INSERT INTO import_automatici (quando, esito, nome_file, messaggio, riepilogo, dati) VALUES (?,?,?,?,?,?)",
-        (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), esito, nome_file, messaggio,
-         json.dumps(riepilogo or {}), json.dumps(dati or {})),
-    )
-    conn.commit()
-    nuovo_id = cur.lastrowid
-    conn.close()
-    return nuovo_id
-
-
-def _backup_prima_import_automatico():
-    cartella = os.path.dirname(db.DB_PATH)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    shutil.copy2(db.DB_PATH, os.path.join(cartella, f"designazioni_backup_{timestamp}_pre_import_automatico.db"))
-    vecchi = sorted(glob.glob(os.path.join(cartella, "designazioni_backup_*_pre_import_automatico.db")))
-    for percorso in vecchi[:-BACKUP_AUTOMATICI_DA_TENERE]:
-        os.remove(percorso)
-
-
-@app.route("/api/automatico/import-partite", methods=["POST"])
-def import_partite_automatico():
-    errore_token = _controllo_token_import()
-    if errore_token:
-        return errore_token
-    if "file" not in request.files:
-        return jsonify({"ok": False, "errore": "Nessun file ricevuto"}), 400
-    file = request.files["file"]
-    nome_file = file.filename or ""
-    contenuto = file.read(MAX_BYTE_IMPORT_AUTOMATICO + 1)
-    if len(contenuto) > MAX_BYTE_IMPORT_AUTOMATICO:
-        _registra_import_automatico("errore", nome_file, "File troppo grande (oltre 20 MB).")
-        return jsonify({"ok": False, "errore": "File troppo grande"}), 413
-
-    try:
-        record = importer.leggi_excel(io.BytesIO(contenuto), "partite")
-    except Exception as e:
-        _registra_import_automatico("errore", nome_file, f"Errore lettura file: {e}")
-        return jsonify({"ok": False, "errore": f"Errore lettura file: {e}"}), 400
-    if not record:
-        _registra_import_automatico("errore", nome_file, "Nessuna colonna riconosciuta nel file: il formato dell'export potrebbe essere cambiato.")
-        return jsonify({"ok": False, "errore": "Nessuna colonna riconosciuta nel file."}), 400
-
-    _backup_prima_import_automatico()
-    conn = db.get_db()
-    try:
-        risultato = _importa_righe_partite(conn, record, None, "aggiungi", origine="Import automatico")
-    except Exception as e:
-        conn.rollback()
-        conn.close()
-        _registra_import_automatico("errore", nome_file, f"Errore durante l'import: {e}")
-        return jsonify({"ok": False, "errore": f"Errore durante l'import: {e}"}), 500
-    conn.close()
-
-    rep = risultato["report"]
-    riepilogo = {
-        "righe": rep["totale_righe"], "nuove": rep["n_nuove"], "aggiornate": rep["n_aggiornate"],
-        "con_modifiche": rep["n_con_modifiche"], "rinviate": len(risultato["rinviate"]),
-        "arbitri_cambiati": len(risultato["arbitri_cambiati"]), "assenti": len(rep["assenti_dal_file"]),
-    }
-    id_registro = _registra_import_automatico("ok", nome_file, risultato.get("nota", ""), riepilogo, risultato)
-    return jsonify({"ok": True, "id": id_registro, "riepilogo": riepilogo})
-
-
-@app.route("/api/automatico/errore", methods=["POST"])
-def segnala_errore_import_automatico():
-    """Lo script lo chiama quando non riesce a scaricare il file (login rifiutato, pagina cambiata...),
-    così il problema compare nell'elenco "Import automatici" invece di restare nascosto."""
-    errore_token = _controllo_token_import()
-    if errore_token:
-        return errore_token
-    messaggio = str((request.json or {}).get("messaggio", "Errore non specificato"))[:500]
-    _registra_import_automatico("errore", "", messaggio)
-    return jsonify({"ok": True})
-
-
-@app.route("/api/import-automatici", methods=["GET"])
-def elenco_import_automatici():
-    conn = db.get_db()
-    righe = conn.execute(
-        "SELECT id, quando, esito, nome_file, messaggio, riepilogo FROM import_automatici ORDER BY id DESC LIMIT 60"
-    ).fetchall()
-    conn.close()
-    return jsonify([{**{k: r[k] for k in ("id", "quando", "esito", "nome_file", "messaggio")},
-                     "riepilogo": json.loads(r["riepilogo"] or "{}")} for r in righe])
-
-
-@app.route("/api/import-automatici/<int:id>", methods=["GET"])
-def dettaglio_import_automatico(id):
-    conn = db.get_db()
-    r = conn.execute("SELECT * FROM import_automatici WHERE id=?", (id,)).fetchone()
-    if not r:
-        conn.close()
-        return jsonify({"ok": False, "errore": "Import non trovato"}), 404
-    dati = json.loads(r["dati"] or "{}")
-    # dell'elenco "assenti dal file" restano solo le gare ancora presenti: quelle già tolte nel
-    # frattempo non vanno riproposte
-    if dati.get("report"):
-        ancora_presenti = {row["id"] for row in conn.execute("SELECT id FROM partite").fetchall()}
-        dati["report"]["assenti_dal_file"] = [g for g in dati["report"].get("assenti_dal_file", []) if g["id"] in ancora_presenti]
-    conn.close()
-    return jsonify({"ok": True, "quando": r["quando"], "esito": r["esito"], "messaggio": r["messaggio"], "dati": dati})
 
 
 if __name__ == "__main__":

@@ -64,19 +64,6 @@ Il progetto è volutamente semplice per partire in fretta. Idee naturali per est
 - esportazione in Excel/PDF delle designazioni;
 - login e gestione utenti se più persone devono accedere.
 
-## Import automatico (per uno script che scarica l'Excel)
-
-Il sito ha un indirizzo riservato a cui uno script esterno può mandare l'Excel del calendario: l'import è sempre **Aggiungi** (non cancella mai niente), fa prima un backup del database (ne tiene gli ultimi 14) e salva un report, visibile in Partite → **Import automatici**.
-
-Attivazione: impostare la variabile d'ambiente `IMPORT_TOKEN` (almeno 16 caratteri, segreta) prima di avviare il sito. Senza, la funzione è spenta.
-
-```bash
-# manda il file
-curl -X POST -H "Authorization: Bearer <IMPORT_TOKEN>" -F "file=@calendario.xlsx" https://<sito>/api/automatico/import-partite
-# segnala che lo script non è riuscito a scaricare il file (compare nell'elenco come Errore)
-curl -X POST -H "Authorization: Bearer <IMPORT_TOKEN>" -H "Content-Type: application/json" -d '{"messaggio":"Login rifiutato"}' https://<sito>/api/automatico/errore
-```
-
 ## Metterlo online su PythonAnywhere
 
 1. Crea l'account su pythonanywhere.com (il nome utente diventa l'indirizzo `https://NOMEUTENTE.pythonanywhere.com`).
@@ -93,7 +80,6 @@ os.environ["PRODUZIONE"] = "1"
 os.environ["SECRET_KEY"] = "<stringa casuale lunga>"
 os.environ["AUTH_USERNAME"] = "<il tuo utente>"
 os.environ["AUTH_PASSWORD"] = "<password di almeno 10 caratteri>"
-os.environ["IMPORT_TOKEN"] = "<altra stringa casuale lunga>"   # solo per l'import automatico
 from app import app as application
 ```
 
@@ -101,4 +87,4 @@ from app import app as application
 5. Scheda **Files**: carica `designazioni.db` in `designazioni-arbitri/data/` (il database non è in git; senza, il sito parte vuoto).
 6. Scheda **Web**: attiva *Force HTTPS* e premi **Reload**.
 
-Limiti del piano gratuito: il sito va rinnovato con il pulsante nella scheda Web ogni 3 mesi, e dai task programmati si può uscire solo verso un elenco di siti ammessi, quindi lo script che scarica l'Excel da MPS deve girare altrove (il tuo PC o GitHub Actions) e mandare il file all'indirizzo `/api/automatico/import-partite`.
+Limiti del piano gratuito: il sito va rinnovato con il pulsante nella scheda Web ogni 3 mesi.
