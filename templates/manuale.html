@@ -152,6 +152,7 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
     <a class="toc-link" href="#riconoscimenti">Riconoscimenti</a>
     <div class="toc-gruppo">Gare</div>
     <a class="toc-link" href="#partite">Partite e import Excel</a>
+    <a class="toc-link" href="#import-casistiche">Import: tutte le casistiche</a>
     <a class="toc-link" href="#designazioni">Designazioni</a>
     <a class="toc-link" href="#disponibilita">Disponibilità arbitri</a>
     <a class="toc-link" href="#rimborsi">Rimborsi km</a>
@@ -191,6 +192,7 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
     <a href="#riconoscimenti">Riconoscimenti</a>
     <div class="toc-gruppo">Gare</div>
     <a href="#partite">Partite e import Excel</a>
+    <a href="#import-casistiche">Import: tutte le casistiche</a>
     <a href="#designazioni">Designazioni</a>
     <a href="#disponibilita">Disponibilità arbitri</a>
     <a href="#rimborsi">Rimborsi km</a>
@@ -367,33 +369,125 @@ footer{border-top:1px solid var(--bordo); margin-top:70px; padding-top:22px; fon
 <section id="partite">
   <h2>Partite e import Excel</h2>
   <p class="sotto">Gare &rarr; Partite</p>
-  <p>Il calendario delle gare, diviso in tre schede: <strong>Da disputare</strong>, <strong>Disputate</strong>, <strong>Omologazione</strong> (disputate ma senza risultato ancora). Puoi aggiungere una gara a mano o importare un file Excel — è di gran lunga il modo più usato, quindi merita una spiegazione a parte.</p>
+  <p>Il calendario delle gare, diviso in tre schede: <strong>Da disputare</strong>, <strong>Disputate</strong> e <strong>Omologazione</strong> (lo stato di omologazione delle disputate: <em>omologata</em> = N. Uff. 1). Puoi aggiungere una gara a mano o importare un file Excel — è di gran lunga il modo più usato: tutto quello che può succedere con un import è descritto nel dettaglio in <a href="#import-casistiche">Import partite: tutte le casistiche</a>.</p>
 
-  <h3>Le due modalità di import</h3>
+  <h3>I due pulsanti di import</h3>
   <ul>
-    <li><strong>Aggiungi ai dati esistenti</strong> — le gare del file vengono aggiunte o aggiornate una per una, senza toccare il resto della tabella.</li>
-    <li><strong>Sostituisci tutti i dati</strong> — cancella prima tutte le gare della scheda che stai importando (solo "Da disputare" oppure solo "Disputate", mai entrambe insieme), poi reimporta da zero: usalo quando il file deve rappresentare sempre l'elenco esatto e completo di cosa deve esserci.</li>
+    <li><strong>Importa calendario completo</strong> — un solo file con tutte le gare: ognuna va da sola nella scheda giusta (con il risultato tra le Disputate, senza tra le Da disputare). L'anteprima mostra la scheda di ogni riga.</li>
+    <li><strong>Importa solo in questa scheda</strong> — l'import di sempre: tutte le gare del file vanno nella scheda aperta in quel momento.</li>
   </ul>
 
   <h3>Come viene riconosciuta la stessa gara</h3>
-  <p>Ogni gara ha un'identità univoca: <strong>campionato + numero gara</strong>. Vale per tutta la sua vita, anche se cambia data/ora/palestra (rinvio) o passa da "Da disputare" a "Disputate".</p>
-
-  <h3>Arbitro e 2° arbitro: si conservano solo sulle disputate</h3>
-  <div class="callout">
-    Reimportando le <strong>Disputate</strong>: se il file non porta un nome, la designazione già fatta resta quella impostata; se il file ne porta uno, quello vince sempre (anche se diverso da quanto già inserito).<br><br>
-    1° e 2° arbitro seguono le stesse regole <strong>in coppia</strong>: se il file porta il 1° arbitro (es. una gara già giocata con il suo arbitro, o "Arbitro Associato"), anche il 2° viene dal file, vuoto compreso, così non resta il 2° della vecchia designazione accanto al nuovo 1°.<br>
-    Reimportando gare <strong>da disputare</strong> già designate, se il file non porta nomi la designazione <strong>resta</strong>, ma non in modo silenzioso: in Designazioni la gara mostra una striscia gialla <strong>"Designata prima dell'import del …"</strong> (in vista tabella il cartellino "Pre-import"), perché data, ora o campo potrebbero essere cambiati. Dopo averla ricontrollata clicca <strong>"Ok, controllata"</strong> (anche dal tasto destro); il segno sparisce da solo anche se ridesigni la gara.
-  </div>
-
-  <h3>Il rimborso km non si riapplica mai da solo</h3>
-  <p>L'accordo di trasferta (auto unica, tutoraggio, km a mano) non torna mai automaticamente su una gara reimportata. Se ne esisteva uno, lo ritrovi come proposta gialla "Proposto" nella pagina Rimborsi km: resta un suggerimento finché non lo confermi con un clic (vedi <a href="#rimborsi">Rimborsi km</a>).</p>
-
-  <h3>Gare rinviate</h3>
-  <p>Se una gara reimportata ha data o orario diversi da quelli già in sistema, dopo l'import compare in un elenco a parte "gare rinviate": la designazione resta quella di prima, ma vale la pena ricontrollare la disponibilità dell'arbitro sulla nuova data.</p>
+  <p>Ogni gara ha un'identità univoca: <strong>campionato + numero gara</strong>. Vale per tutta la sua vita, anche se cambia data/ora/palestra (rinvio) o passa da "Da disputare" a "Disputate": un reimport la aggiorna, non la duplica.</p>
 
   <h3>Il cartellino risultato (scheda Disputate)</h3>
   <p>Nella scheda <strong>Disputate</strong>, la colonna Risultato mostra un cartellino <span class="chip verde" style="margin:0 3px;">verde</span> col punteggio quando c'è, oppure <span class="chip giallo" style="margin:0 3px;">Senza risultato</span> quando manca — così le gare ancora senza risultato si notano subito scorrendo l'elenco, invece di una cella vuota che si confonde con le altre.</p>
-  <p>Per caricare tutto il calendario in un colpo solo c'è <strong>Importa calendario completo</strong>: ogni gara del file va da sola tra le Disputate se ha il risultato, altrimenti tra le Da disputare (l'anteprima mostra la scheda di ogni riga). <strong>Importa solo in questa scheda</strong> fa invece l'import di sempre nella scheda aperta. In entrambi i casi restano invariati accordi di rimborso km, proposte da confermare e segnalazione delle gare rinviate.</p>
+</section>
+
+<section id="import-casistiche">
+  <h2>Import partite: tutte le casistiche</h2>
+  <p class="sotto">Cosa succede a ogni gara quando importi un file in Partite</p>
+  <p>Questa pagina raccoglie in un posto solo tutte le regole dell'import delle partite. Valgono per entrambi i pulsanti ("Importa calendario completo" e "Importa solo in questa scheda") e per entrambe le modalità ("Aggiungi" e "Sostituisci"), salvo dove indicato.</p>
+
+  <h3>1. Aggiungi o Sostituisci</h3>
+  <table class="dati">
+    <thead><tr><th>Modalità</th><th>Cosa fa</th><th>Quando usarla</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Aggiungi ai dati esistenti</strong></td><td>Aggiorna le gare già presenti, aggiunge le nuove, <strong>non tocca</strong> quelle che nel file non ci sono (es. gare aggiunte a mano).</td><td>Sempre, per l'aggiornamento normale (anche ogni settimana).</td></tr>
+      <tr><td><strong>Sostituisci tutti i dati</strong></td><td>Prima cancella le gare (con il calendario completo <strong>entrambe le schede</strong>, dopo un <strong>backup automatico</strong> del database; con l'import nella singola scheda solo quella scheda), poi le ricrea dal file. Le gare che non sono nel file <strong>spariscono</strong>. Le designazioni invece vengono rilette prima di cancellare e seguono le stesse regole qui sotto.</td><td>Solo quando vuoi che il sito sia la copia esatta del file (es. far sparire gare annullate o ritirate).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2. In quale scheda finisce la gara</h3>
+  <table class="dati">
+    <thead><tr><th>Pulsante</th><th>Regola</th></tr></thead>
+    <tbody>
+      <tr><td>Importa calendario completo</td><td>Nel file la gara ha il <strong>risultato</strong> &rarr; <strong>Disputate</strong>. Non ha il risultato &rarr; <strong>Da disputare</strong>, anche se la data è già passata (vuol dire che è stata rinviata). Una gara che era tra le disputate e nel nuovo file non ha il risultato <strong>torna tra le da disputare</strong>.</td></tr>
+      <tr><td>Importa solo in questa scheda</td><td>Tutte le gare del file vanno nella scheda aperta, con o senza risultato.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3. Gara nuova, già presente o assente dal file</h3>
+  <ul>
+    <li><strong>Già presente</strong> (stesso campionato + numero gara, in qualunque scheda): viene <strong>aggiornata</strong>, mai duplicata.</li>
+    <li><strong>Nuova</strong>: viene aggiunta, con gli arbitri che porta il file (eventualmente nessuno).</li>
+    <li><strong>Nel sistema ma non nel file</strong>: con "Aggiungi" resta com'è; con "Sostituisci" viene cancellata.</li>
+  </ul>
+
+  <h3>4. Dati della partita</h3>
+  <p>Data, ora, località, campo, squadre, codici di affiliazione, risultato, parziali e N. Uff. vengono <strong>sempre presi dal file</strong>.</p>
+  <p><strong>Gare rinviate.</strong> Se data o ora sono diverse da prima, la gara compare a fine import nell'elenco "Gare rinviate" e, soprattutto, <strong>resta segnata in Designazioni</strong> con una striscia <em>"Gara rinviata: era il … ora il …"</em>. Sotto, per ogni arbitro già designato, c'è lo stato nella <strong>nuova</strong> data e ora: <span class="chip verde">Disponibile</span> oppure <span class="chip rosso">Indisponibile</span> con periodo e motivo, presi dalla pagina Indisponibilità. Se almeno un arbitro è indisponibile la striscia diventa rossa. La disponibilità si ricalcola ogni volta che apri la pagina, quindi se aggiorni le indisponibilità la striscia si aggiorna da sola. Il segno resta (anche se reimporti di nuovo il file) finché non clicchi <strong>"Ok, controllata"</strong> oppure ridesigni la gara; in vista tabella la gara ha il cartellino "Rinviata".</p>
+
+  <h3>5. Arbitri: le regole generali</h3>
+  <div class="callout info">
+    <strong>Il file vince sempre.</strong> Se nel file c'è un nome, è quello che conta (anche se diverso da quello designato).<br>
+    <strong>Se il file è vuoto, la designazione resta.</strong> Un import non cancella mai un arbitro solo perché il file non lo riporta.<br>
+    <strong>1° e 2° arbitro vanno in coppia.</strong> Se il file porta il 1° arbitro, anche il 2° viene dal file, <em>vuoto compreso</em>: così accanto al nuovo 1° non resta il 2° della vecchia designazione. Se il 1° nel file è vuoto, la coppia del sistema resta (salvo un 2° portato dal file).<br>
+    <strong>Gara giocata senza nome = Arbitro Associato.</strong> Nei file federali ("filtro gare") una gara con risultato ma con la colonna "I Arbitro" vuota viene registrata come diretta da <strong>"Arbitro Associato"</strong>: è la regola della federazione. Vale come un nome del file, quindi sostituisce la designazione (e svuota il 2°). Con un Excel di altro formato questa regola non scatta e la designazione resta.
+  </div>
+
+  <h3>6. Gara che nel file NON ha il risultato (da disputare)</h3>
+  <table class="dati">
+    <thead><tr><th>Nel sistema</th><th>Nel file</th><th>Dopo l'import</th><th>Avviso</th></tr></thead>
+    <tbody>
+      <tr><td>non designata</td><td>nessun nome</td><td>da disputare, senza arbitri</td><td>—</td></tr>
+      <tr><td>non designata</td><td>1° (± 2°)</td><td>da disputare, con gli arbitri del file</td><td>—</td></tr>
+      <tr><td>designata (1° oppure 1° + 2°)</td><td>nessun nome</td><td><strong>designazione conservata</strong></td><td><span class="chip giallo">Designata prima dell'import</span></td></tr>
+      <tr><td>designata</td><td>gli stessi arbitri</td><td>invariata (il file conferma)</td><td>—</td></tr>
+      <tr><td>designata</td><td>un altro 1° (± 2°)</td><td><strong>coppia del file</strong> (2° vuoto se il file non lo porta)</td><td><span class="chip arancione">Cambiata dall'import</span> + elenco a fine import</td></tr>
+      <tr><td>designata</td><td>lo stesso 1°, un altro 2° (o nessun 2°)</td><td>coppia del file</td><td><span class="chip arancione">Cambiata dall'import</span> + elenco a fine import</td></tr>
+      <tr><td>designata</td><td>1° vuoto, un altro 2°</td><td>il tuo 1° + il 2° del file</td><td><span class="chip arancione">Cambiata dall'import</span> + elenco a fine import</td></tr>
+    </tbody>
+  </table>
+  <p>I due avvisi compaiono in <strong>Designazioni</strong>, sopra gli arbitri della gara: la striscia <span class="chip giallo">gialla</span> dice da quale import la designazione è stata conservata (data, ora o campo potrebbero essere cambiati), quella <span class="chip arancione">arancione</span> dice <em>chi c'era prima</em>. In vista tabella diventano i cartellini "Pre-import" e "Cambiata dall'import". Spariscono con <strong>"Ok, controllata"</strong> (anche dal tasto destro) oppure ridesignando la gara; modificare altri dati della partita non li toglie.</p>
+
+  <h3>7. Gara che nel file HA il risultato (giocata)</h3>
+  <p>La gara va (o resta) tra le <strong>Disputate</strong> e prende risultato, parziali e N. Uff. dal file. Per gli arbitri vale quello che c'è scritto nel file, perché indica <strong>chi ha arbitrato davvero</strong>:</p>
+  <table class="dati">
+    <thead><tr><th>Nel sistema</th><th>Nel file</th><th>Dopo l'import</th><th>Avviso</th></tr></thead>
+    <tbody>
+      <tr><td>non designata</td><td>1° (± 2°)</td><td>gli arbitri del file</td><td>—</td></tr>
+      <tr><td>non designata</td><td>"I Arbitro" vuoto</td><td>Arbitro Associato</td><td>—</td></tr>
+      <tr><td>designata</td><td>gli stessi arbitri</td><td>invariata</td><td>—</td></tr>
+      <tr><td>designata</td><td><strong>entrambi diversi</strong></td><td>1° e 2° del file</td><td>elenco "Arbitri cambiati"</td></tr>
+      <tr><td>designata</td><td><strong>un altro 1°</strong>, 2° vuoto</td><td>1° del file, <strong>2° vuoto</strong> (anche se nel sistema c'era)</td><td>elenco "Arbitri cambiati"</td></tr>
+      <tr><td>designata</td><td>lo stesso 1°, <strong>un altro 2°</strong></td><td>stesso 1°, 2° del file</td><td>elenco "Arbitri cambiati"</td></tr>
+      <tr><td>designata con 1° + 2°</td><td>lo stesso 1°, <strong>2° vuoto</strong></td><td>stesso 1°, <strong>2° vuoto</strong></td><td>elenco "Arbitri cambiati"</td></tr>
+      <tr><td>designata</td><td>"I Arbitro" vuoto</td><td><strong>Arbitro Associato</strong>, 2° vuoto</td><td>elenco "Arbitri cambiati"</td></tr>
+    </tbody>
+  </table>
+  <p>Su queste gare non compare la striscia in Designazioni (le disputate non sono più in quella pagina): il cambio è riportato nell'elenco <strong>"Arbitri cambiati dall'import"</strong> che compare a fine import. Nelle statistiche (report, "P. dirette", ultima designazione…) la gara conta da quel momento per l'arbitro del file, non più per quello designato.</p>
+
+  <h3>8. Altri ufficiali di gara</h3>
+  <p>Osservatore associato, segnapunti, assistente 2 e osservatore (con le residenze) vanno <strong>campo per campo</strong>: se il file ha un nome vince quello, se è vuoto resta quello del sistema.</p>
+
+  <h3>9. Rimborso km</h3>
+  <ul>
+    <li>Con <strong>Aggiungi</strong> l'accordo di trasferta già impostato su una gara (auto unica, tutoraggio, km a mano) <strong>non viene mai toccato</strong>, nemmeno se l'import cambia gli arbitri: in quel caso l'elenco di fine import mostra il cartellino <span class="chip rosso">Rimborso km da ricontrollare</span>, perché l'accordo era pensato per gli arbitri di prima.</li>
+    <li>Con <strong>Sostituisci</strong> le gare vengono ricreate: tornano da sole solo le proposte <strong>già confermate</strong> in Rimborsi km; quelle ancora in attesa ricompaiono come "Proposto" da confermare.</li>
+    <li>Le proposte registrate in Rimborsi km non vengono mai cancellate da un import.</li>
+  </ul>
+
+  <h3>10. Arbitri con ruolo ASS (associati)</h3>
+  <p>Se nel file c'è il nome di una persona che in anagrafica ha ruolo <strong>ASS</strong>, nelle statistiche le sue gare contano come "Arbitro Associato" e il suo rimborso è sempre <strong>0 km</strong>. Gli associati arbitrano sempre da soli: in Designazioni la gara con un associato mostra il 2° arbitro come "Non serve".</p>
+
+  <h3>11. Cosa vedi a fine import</h3>
+  <ul>
+    <li><strong>Prima di confermare</strong>: l'anteprima mostra quante righe sono nuove e quante già presenti (in rosso, verranno aggiornate) e, con il calendario completo, la scheda di destinazione di ogni riga.</li>
+    <li><strong>Dopo la conferma</strong>: un riepilogo con le righe importate/aggiornate, quante gare sono finite in ciascuna scheda, quante designazioni sono state conservate e quante cambiate.</li>
+    <li><strong>Arbitri cambiati dall'import</strong>: tabella con data, gara, scheda, arbitri di prima e quelli nuovi, ed eventuale rimborso da ricontrollare.</li>
+    <li><strong>Gare rinviate</strong>: tabella con data/ora prima e dopo.</li>
+  </ul>
+  <p>Se c'è almeno una delle due tabelle, la finestra resta aperta finché non la chiudi, così hai il tempo di leggerle.</p>
+
+  <h3>12. In pratica</h3>
+  <ol>
+    <li>Scarica dal portale federale il file "filtro gare" con tutte le gare (giocate e da giocare).</li>
+    <li>In Partite clicca <strong>Importa calendario completo</strong>, lascia <strong>Aggiungi ai dati esistenti</strong> e guarda l'<strong>anteprima</strong>.</li>
+    <li>Conferma, poi leggi gli elenchi "Arbitri cambiati" e "Gare rinviate".</li>
+    <li>In <strong>Designazioni</strong> passa le gare con una striscia (gialla "prima dell'import", arancione "cambiata", blu o rossa "rinviata" con la disponibilità degli arbitri) e clicca "Ok, controllata" quando le hai verificate.</li>
+    <li>Se l'elenco segnalava un <strong>rimborso da ricontrollare</strong>, sistemalo in Rimborsi km.</li>
+  </ol>
 </section>
 
 <section id="designazioni">

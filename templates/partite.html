@@ -287,17 +287,21 @@
     <p>
       In ogni import, se il file non porta un nome la designazione già fatta resta quella che avevi impostato tu; se invece il file ne porta uno (es. chi ha arbitrato davvero), è sempre quello a vincere, anche se diverso.<br>
       1° e 2° arbitro vanno <strong>in coppia</strong>: se il file porta il 1° arbitro, anche il 2° viene preso dal file (vuoto compreso), così accanto al nuovo 1° non resta il 2° della designazione precedente.<br>
-      Sulle gare ancora <strong>da disputare</strong> la designazione conservata viene segnata in Designazioni con una striscia gialla <strong>"Designata prima dell'import"</strong>: data, ora o campo potrebbero essere cambiati, quindi va ricontrollata. Il segno sparisce con "Ok, controllata" oppure ridesignando la gara.
+      Sulle gare ancora <strong>da disputare</strong> che erano già designate l'import lascia un segno in Designazioni: una striscia gialla <strong>"Designata prima dell'import"</strong> se la designazione è stata conservata (data, ora o campo potrebbero essere cambiati), oppure una striscia arancione <strong>"Designazione cambiata dall'import: prima c'era …"</strong> se il file ha portato arbitri diversi. Il segno sparisce con "Ok, controllata" oppure ridesignando la gara.
     </p>
 
-    <p class="riepilogo-label">Il rimborso km non si riapplica mai da solo</p>
+    <p class="riepilogo-label">Rimborso km</p>
     <p>
-      L'accordo di trasferta (auto unica, tutoraggio, km a mano) non viene mai riportato in automatico su una gara reimportata. Se ne esisteva uno impostato in precedenza, lo ritrovi come <span class="tag tag-giallo">Proposto</span> nella pagina <strong>Rimborsi km</strong>: resta un semplice suggerimento finché non lo confermi tu con un clic.
+      Con <strong>Aggiungi</strong> l'accordo di trasferta già impostato su una gara (auto unica, tutoraggio, km a mano) non viene mai toccato, nemmeno se l'import cambia gli arbitri: in quel caso l'elenco di fine import lo segnala come <span class="tag tag-rosso">Rimborso km da ricontrollare</span>.<br>
+      Con <strong>Sostituisci</strong> le gare vengono ricreate: tornano da sole solo le proposte già confermate in <strong>Rimborsi km</strong>; quelle in attesa ricompaiono come <span class="tag tag-giallo">Proposto</span> da confermare.
     </p>
+
+    <p class="riepilogo-label">Tutti i casi possibili</p>
+    <p>Il manuale (menu a sinistra &rarr; Manuale &rarr; "Import: tutte le casistiche") ha le tabelle complete di cosa succede a ogni gara: da disputare o giocata, designata o no, con arbitri uguali, diversi o assenti nel file.</p>
 
     <p class="riepilogo-label">Gare rinviate</p>
     <p>
-      Se una gara reimportata ha una data o un orario diverso da quello già in sistema, dopo l'import te la trovi segnalata in un elenco a parte ("gare rinviate"): la designazione resta quella di prima, ma vale la pena ricontrollare la disponibilità dell'arbitro sulla nuova data.
+      Se una gara reimportata ha una data o un orario diverso da quello già in sistema, dopo l'import te la trovi segnalata in un elenco a parte ("gare rinviate"). In più resta segnata in <strong>Designazioni</strong> con la striscia "Gara rinviata: era il … ora il …" e, per ogni arbitro designato, se è <strong>disponibile</strong> o <strong>indisponibile</strong> nella nuova data, finché non clicchi "Ok, controllata".
     </p>
 
     <div class="modal-footer">

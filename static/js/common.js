@@ -555,11 +555,37 @@ function creaImportOverlay(overlayId, config) {
           ? `<div class="import-result ok">Importate ${data.inseriti} righe nuove, aggiornate ${data.aggiornati} già esistenti.</div>`
           : `<div class="import-result ok">Importate ${data.inseriti} righe con successo.</div>`)
           + (data.nota ? `<div class="import-result ok">${_esc(data.nota)}</div>` : "");
-        // gare la cui data/ora e' cambiata rispetto a prima (rinvio): l'arbitro gia' assegnato
-        // resta quello, ma vale la pena ricontrollarne la disponibilita' sulla nuova data.
+        // Riepiloghi da guardare prima di chiudere: gare rinviate (data/ora cambiate, l'arbitro
+        // resta ma va ricontrollata la disponibilità) e gare in cui il file ha cambiato gli
+        // arbitri designati. Se ce n'è almeno uno la finestra resta aperta.
+        const sezioni = [];
+        if (data.arbitri_cambiati && data.arbitri_cambiati.length) {
+          sezioni.push(`
+            <p class="riepilogo-label" style="margin:14px 0 6px;">Arbitri cambiati dall'import (${data.arbitri_cambiati.length})</p>
+            <div class="table-scroll" style="max-height:240px;">
+              <table>
+                <thead><tr><th>Data</th><th>Campionato</th><th>N. Gara</th><th>Scheda</th><th>Prima</th><th>Dopo (dal file)</th><th></th></tr></thead>
+                <tbody>
+                  ${data.arbitri_cambiati.map(g => `
+                    <tr>
+                      <td>${formattaData(g.data)}</td>
+                      <td>${_esc(g.campionato)}</td>
+                      <td>${_esc(g.numero_gara)}</td>
+                      <td>${g.scheda === "Disputata" ? '<span class="tag tag-verde">Disputata</span>' : '<span class="tag tag-arancione">Da disputare</span>'}</td>
+                      <td>${_esc(g.prima)}</td>
+                      <td><strong>${_esc(g.dopo)}</strong></td>
+                      <td>${g.rimborso_da_ricontrollare ? '<span class="tag tag-rosso" title="Sulla gara c\'era un accordo di rimborso km pensato per gli arbitri di prima: ricontrollalo in Rimborsi km">Rimborso km da ricontrollare</span>' : ""}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+            <p class="hint" style="margin-top:6px;">Vale sempre quanto scritto nel file. Le gare ancora da disputare sono segnate in Designazioni con chi c'era prima.</p>`);
+        }
         if (data.rinviate && data.rinviate.length) {
-          anteprimaDiv.innerHTML = `
-            <div class="table-scroll" style="max-height:220px; margin-top:10px;">
+          sezioni.push(`
+            <p class="riepilogo-label" style="margin:14px 0 6px;">Gare rinviate (${data.rinviate.length})</p>
+            <div class="table-scroll" style="max-height:220px;">
               <table>
                 <thead><tr><th>Campionato</th><th>N. Gara</th><th>Data/ora prima</th><th>Data/ora dopo</th></tr></thead>
                 <tbody>
@@ -574,8 +600,10 @@ function creaImportOverlay(overlayId, config) {
                 </tbody>
               </table>
             </div>
-            <p class="hint" style="margin-top:6px;">${data.rinviate.length} gare rinviate: l'arbitro già designato resta assegnato, ma ricontrolla la disponibilità sulla nuova data.</p>
-          `;
+            <p class="hint" style="margin-top:6px;">Data o ora cambiate: l'arbitro già designato resta assegnato. In Designazioni ogni gara resta segnata come rinviata, con la disponibilità degli arbitri nella nuova data, finché non clicchi "Ok, controllata".</p>`);
+        }
+        if (sezioni.length) {
+          anteprimaDiv.innerHTML = sezioni.join("");
           submitBtn.style.display = "none";
           if (config.onDone) config.onDone();
           return;

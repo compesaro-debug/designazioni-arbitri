@@ -307,7 +307,10 @@ def update_partita(id):
     # cambiando 1° o 2° arbitro la designazione diventa nuova: non è più "da prima dell'import"
     attuale = conn.execute("SELECT arbitro, assistente1 FROM partite WHERE id=?", (id,)).fetchone()
     if attuale and (attuale["arbitro"] != data.get("arbitro", "") or attuale["assistente1"] != data.get("assistente1", "")):
-        conn.execute(f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='' WHERE id=?", (id,))
+        conn.execute(
+            f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='', {db.PARTITE_DESIGNAZIONE_PRECEDENTE}='', "
+            f"{db.PARTITE_RINVIO_PRECEDENTE}='' WHERE id=?", (id,)
+        )
     conn.execute(f"UPDATE partite SET {assegnazioni_sql} WHERE id=?", valori)
     suggerimento = _suggerimento_tutoraggio(conn, data.get("arbitro", ""), data.get("assistente1", ""))
     conn.commit()
@@ -317,9 +320,13 @@ def update_partita(id):
 
 @app.route("/api/partite/<int:id>/designazione-controllata", methods=["PUT"])
 def segna_designazione_controllata(id):
-    """Toglie il segno "da prima dell'import": la designazione conservata è stata ricontrollata."""
+    """Toglie i segni lasciati dall'import (designazione conservata o cambiata, gara rinviata):
+    la gara è stata ricontrollata."""
     conn = db.get_db()
-    conn.execute(f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='' WHERE id=?", (id,))
+    conn.execute(
+        f"UPDATE partite SET {db.PARTITE_DESIGNAZIONE_PREIMPORT}='', {db.PARTITE_DESIGNAZIONE_PRECEDENTE}='', "
+        f"{db.PARTITE_RINVIO_PRECEDENTE}='' WHERE id=?", (id,)
+    )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -3260,6 +3267,15 @@ CAMPI_DESIGNAZIONE_PARTITE = [
 CAMPI_COPPIA_ARBITRI = {"arbitro", "residenza_arbitro", "assistente1", "residenza_assistente1"}
 
 
+def _testo_coppia(arbitro, assistente1):
+    parti = []
+    if arbitro:
+        parti.append(f"1° {arbitro}")
+    if assistente1:
+        parti.append(f"2° {assistente1}")
+    return " · ".join(parti)
+
+
 def _disputata_da_file(riga):
     """Import unico: una gara è disputata se nel file ha il risultato. Una gara giocata ha
     sempre il risultato; senza risultato, anche con la data passata, è da disputare (rinviata)."""
@@ -3296,12 +3312,19 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
         for r in conn.execute("SELECT id, campionato, numero_gara FROM partite").fetchall()
     }
 
-    colonne = db.PARTITE_COLONNE + ["disputata", db.PARTITE_DESIGNAZIONE_PREIMPORT]
+    colonne = db.PARTITE_COLONNE + [
+        "disputata", db.PARTITE_DESIGNAZIONE_PREIMPORT, db.PARTITE_DESIGNAZIONE_PRECEDENTE, db.PARTITE_RINVIO_PRECEDENTE,
+    ]
     inseriti = aggiornati = 0
     rinviate = []
     per_scheda = {0: 0, 1: 0}
     momento_import = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     n_designazioni_conservate = 0
+    n_designazioni_cambiate = 0
+    # ogni gara (di entrambe le schede) in cui il file ha cambiato la coppia già designata:
+    # mostrate a fine import, perché su una gara che passa tra le disputate il cambio non
+    # lascia segni in Designazioni e l'eventuale accordo di rimborso km va ricontrollato
+    arbitri_cambiati = []
 
     for riga in record:
         chiave = (_norm_confronto(riga.get("campionato")), _norm_confronto(riga.get("numero_gara")))
@@ -3312,15 +3335,16 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
         valori = {c: riga.get(c, "") for c in db.PARTITE_COLONNE}
         valori["disputata"] = disputata_riga
         valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = ""
+        valori[db.PARTITE_DESIGNAZIONE_PRECEDENTE] = ""
+        # un rinvio non ancora ricontrollato resta segnato anche ai reimport successivi
+        valori[db.PARTITE_RINVIO_PRECEDENTE] = (precedente or {}).get(db.PARTITE_RINVIO_PRECEDENTE) or ""
 
         if precedente:
             # 1° e 2° arbitro sono una coppia e seguono le stesse regole: se il file porta il 1°
             # arbitro (anche il segnaposto "Arbitro Associato" di una gara giocata), l'intera
             # coppia viene dal file, 2° compreso anche se vuoto, così accanto al nuovo 1° non
             # resta il 2° della vecchia designazione. Se il 1° nel file è vuoto resta la coppia
-            # già designata (salvo un 2° portato dal file). Su una gara ancora da disputare la
-            # designazione conservata viene segnata come "precedente all'import", perché
-            # data/ora/campo potrebbero essere cambiati e va ricontrollata.
+            # già designata (salvo un 2° portato dal file).
             coppia_dal_file = bool(valori["arbitro"])
             conservata = not coppia_dal_file and any(not valori[c] and precedente[c] for c in ("arbitro", "assistente1"))
             for campo in CAMPI_DESIGNAZIONE_PARTITE:
@@ -3328,10 +3352,31 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
                     continue
                 if not valori[campo]:
                     valori[campo] = precedente[campo]
-            if disputata_riga == 0 and conservata:
-                valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = momento_import
-                n_designazioni_conservate += 1
+            # Su una gara ancora da disputare che era già designata l'import lascia un segno da
+            # ricontrollare in Designazioni: "cambiata" se la coppia ora è diversa (con chi
+            # c'era prima), altrimenti "conservata" (data/ora/campo potrebbero essere cambiati).
+            coppia_prima = (_norm_nome(precedente["arbitro"]), _norm_nome(precedente["assistente1"]))
+            coppia_dopo = (_norm_nome(valori["arbitro"]), _norm_nome(valori["assistente1"]))
+            if any(coppia_prima) and coppia_dopo != coppia_prima:
+                arbitri_cambiati.append({
+                    "campionato": valori["campionato"],
+                    "numero_gara": valori["numero_gara"],
+                    "data": valori["data"],
+                    "scheda": "Disputata" if disputata_riga else "Da disputare",
+                    "prima": _testo_coppia(precedente["arbitro"], precedente["assistente1"]),
+                    "dopo": _testo_coppia(valori["arbitro"], valori["assistente1"]) or "nessun arbitro",
+                    "rimborso_da_ricontrollare": bool((precedente["rimborso_km_modalita"] or "").strip()),
+                })
+            if disputata_riga == 0 and any(coppia_prima):
+                if coppia_dopo != coppia_prima:
+                    valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = momento_import
+                    valori[db.PARTITE_DESIGNAZIONE_PRECEDENTE] = _testo_coppia(precedente["arbitro"], precedente["assistente1"])
+                    n_designazioni_cambiate += 1
+                elif conservata:
+                    valori[db.PARTITE_DESIGNAZIONE_PREIMPORT] = momento_import
+                    n_designazioni_conservate += 1
             if precedente["data"] != valori["data"] or precedente["ora"] != valori["ora"]:
+                valori[db.PARTITE_RINVIO_PRECEDENTE] = f"{precedente['data']} {precedente['ora'] or ''}".strip()
                 rinviate.append({
                     "campionato": riga.get("campionato", ""),
                     "numero_gara": riga.get("numero_gara", ""),
@@ -3353,13 +3398,20 @@ def _importa_righe_partite(conn, record, disputata_target, modalita):
 
     _riapplica_proposte_confermate(conn)
     conn.commit()
-    risultato = {"ok": True, "inseriti": inseriti, "aggiornati": aggiornati, "rinviate": rinviate}
+    risultato = {"ok": True, "inseriti": inseriti, "aggiornati": aggiornati, "rinviate": rinviate, "arbitri_cambiati": arbitri_cambiati}
     note = []
+    n_giocate_cambiate = sum(1 for g in arbitri_cambiati if g["scheda"] == "Disputata")
     if disputata_target is None:
         note.append(f"{per_scheda[1]} gare con risultato tra le Disputate, {per_scheda[0]} senza risultato tra le Da disputare.")
     if n_designazioni_conservate:
         quante = "1 gara da disputare era già designata" if n_designazioni_conservate == 1 else f"{n_designazioni_conservate} gare da disputare erano già designate"
         note.append(f"{quante}: la designazione è stata conservata e segnata \"da prima dell'import\" in Designazioni, da ricontrollare.")
+    if n_designazioni_cambiate:
+        quante = "1 gara da disputare ha" if n_designazioni_cambiate == 1 else f"{n_designazioni_cambiate} gare da disputare hanno"
+        note.append(f"{quante} cambiato arbitro con l'import: in Designazioni sono segnate con chi c'era prima, da ricontrollare.")
+    if n_giocate_cambiate:
+        quante = "1 gara giocata risulta arbitrata" if n_giocate_cambiate == 1 else f"{n_giocate_cambiate} gare giocate risultano arbitrate"
+        note.append(f"{quante} da arbitri diversi da quelli designati: vale quanto scritto nel file.")
     if note:
         risultato["nota"] = " ".join(note)
     return risultato

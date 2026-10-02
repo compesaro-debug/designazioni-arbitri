@@ -57,7 +57,10 @@ function _normComuneDesignazioni(s) {
 }
 
 async function caricaDatiKmDesignazioni() {
-  const [arbitri, distanze] = await Promise.all([apiGet("/api/arbitri"), apiGet("/api/distanze-comuni")]);
+  const [arbitri, distanze, indisponibilita] = await Promise.all([
+    apiGet("/api/arbitri"), apiGet("/api/distanze-comuni"), apiGet("/api/indisponibilita"),
+  ]);
+  window._indisponibilitaDesignazioni = indisponibilita;
   window._mappaComuneArbitroDesignazioni = {};
   window._associatiZeroKmDesignazioni = new Set();
   arbitri.forEach(a => {
@@ -301,19 +304,65 @@ function _designataPrimaImport(p) {
   return !!p.designazione_preimport && !!(p.arbitro || p.assistente1);
 }
 
+function _testoSegnoImport(p) {
+  const quando = _momentoImport(p.designazione_preimport);
+  return p.designazione_precedente_import
+    ? `Designazione cambiata dall'import del ${quando}: prima c'era ${p.designazione_precedente_import}.`
+    : `Designata prima dell'import del ${quando}: ricontrolla data, ora e disponibilità.`;
+}
+
 function _avvisoPreimport(p) {
   if (!_designataPrimaImport(p)) return "";
+  const cambiata = !!p.designazione_precedente_import;
   return `
-    <div class="riquadro-preimport" data-azioni>
-      <span>Designata prima dell'import del ${_momentoImport(p.designazione_preimport)}: ricontrolla data, ora e disponibilità.</span>
+    <div class="riquadro-preimport${cambiata ? " cambiata" : ""}" data-azioni>
+      <span>${_esc(_testoSegnoImport(p))}</span>
       <button type="button" class="btn-testo" title="Segna la designazione come controllata" data-icona="conferma" onclick="segnaDesignazioneControllata(${p.id})">Ok, controllata</button>
+    </div>`;
+}
+
+// ---------- GARE RINVIATE DA UN IMPORT ----------
+// Stessa regola della griglia candidati (app.py): indisponibile se il momento della gara cade
+// dentro un periodo di indisponibilità (ora inizio vuota = 00:00, ora fine vuota = 23:59).
+function _indisponibilitaNelMomento(nome, data, ora) {
+  const chi = _normNomeDesignazioni(nome);
+  const momento = `${data} ${ora || "00:00"}`;
+  return (window._indisponibilitaDesignazioni || []).find(ind =>
+    _normNomeDesignazioni(ind.arbitro) === chi
+    && `${ind.data_inizio} ${ind.ora_inizio || "00:00"}` <= momento
+    && momento <= `${ind.data_fine} ${ind.ora_fine || "23:59"}`
+  ) || null;
+}
+
+function _statoDisponibilitaHtml(nome, p) {
+  const ind = _indisponibilitaNelMomento(nome, p.data, p.ora);
+  if (!ind) return `<span class="tag tag-verde">Disponibile</span>`;
+  const dal = `${formattaData(ind.data_inizio)}${ind.ora_inizio ? " " + ind.ora_inizio : ""}`;
+  const al = `${formattaData(ind.data_fine)}${ind.ora_fine ? " " + ind.ora_fine : ""}`;
+  return `<span class="tag tag-rosso">Indisponibile</span> <span class="riquadro-rinvio-motivo">dal ${_esc(dal)} al ${_esc(al)}${ind.motivo ? " — " + _esc(ind.motivo) : ""}</span>`;
+}
+
+function _avvisoRinvio(p) {
+  if (!p.rinvio_data_precedente) return "";
+  const designati = [["arbitro", "1°"], ["assistente1", "2°"]].filter(([campo]) => p[campo]);
+  const righe = designati.length
+    ? designati.map(([campo, etichetta]) => `<li><strong>${etichetta} ${_esc(p[campo])}</strong>: ${_statoDisponibilitaHtml(p[campo], p)}</li>`).join("")
+    : `<li>Nessun arbitro designato.</li>`;
+  const qualcunoIndisponibile = designati.some(([campo]) => _indisponibilitaNelMomento(p[campo], p.data, p.ora));
+  return `
+    <div class="riquadro-rinvio${qualcunoIndisponibile ? " problema" : ""}" data-azioni>
+      <div class="riquadro-rinvio-testata">
+        <span><strong>Gara rinviata</strong>: era il ${_momentoImport(p.rinvio_data_precedente)}, ora il ${formattaData(p.data)}${p.ora ? " alle " + p.ora : ""}.</span>
+        <button type="button" class="btn-testo" title="Segna il rinvio come controllato" data-icona="conferma" onclick="segnaDesignazioneControllata(${p.id})">Ok, controllata</button>
+      </div>
+      <ul class="riquadro-rinvio-arbitri">${righe}</ul>
     </div>`;
 }
 
 async function segnaDesignazioneControllata(partitaId) {
   await apiSend(`/api/partite/${partitaId}/designazione-controllata`, "PUT", {});
   await caricaPartiteDesignazioni();
-  avviso("Designazione segnata come controllata.");
+  avviso("Gara segnata come controllata.");
 }
 
 // una gara è coperta del tutto con 1° e 2° arbitro, oppure con un solo associato
@@ -403,6 +452,7 @@ function renderVistaGiornaliera() {
               </div>
               <div class="riquadro-designazione-squadre">${p.squadra_casa} <span class="riquadro-designazione-vs">vs</span> ${p.squadra_ospite}</div>
               <div class="riquadro-designazione-luogo">${p.localita || ""}${p.campo ? " — " + p.campo : ""}</div>
+              ${_avvisoRinvio(p)}
               ${_avvisoPreimport(p)}
               <div class="riquadro-designazione-ruoli" data-azioni>
                 ${_riquadroRuolo(p, "arbitro", "Arbitro")}
@@ -443,10 +493,13 @@ function renderTabellaDesignazioni() {
   partite.forEach(p => {
     const tr = document.createElement("tr");
     const tagPreimport = _designataPrimaImport(p)
-      ? ` <span class="tag tag-giallo" title="Designata prima dell'import del ${_momentoImport(p.designazione_preimport)}: ricontrolla">Pre-import</span>`
+      ? ` <span class="tag ${p.designazione_precedente_import ? "tag-arancione" : "tag-giallo"}" title="${_esc(_testoSegnoImport(p))}">${p.designazione_precedente_import ? "Cambiata dall'import" : "Pre-import"}</span>`
+      : "";
+    const tagRinvio = p.rinvio_data_precedente
+      ? ` <span class="tag tag-arancione" title="Rinviata: era il ${_esc(_momentoImport(p.rinvio_data_precedente))}">Rinviata</span>`
       : "";
     tr.innerHTML = `
-      <td>${formattaData(p.data)}${tagPreimport}</td>
+      <td>${formattaData(p.data)}${tagRinvio}${tagPreimport}</td>
       <td>${p.ora}</td>
       <td>${p.campionato}</td>
       <td>${tagFase(p.tipo_fase)}</td>

@@ -23,6 +23,12 @@ PARTITE_RIMBORSO_COLONNE = ["rimborso_km_modalita", "rimborso_km_manuale_arbitro
 # la designazione (il file non portava nomi): vuoto quando la designazione è stata fatta o
 # ricontrollata dopo l'ultimo import.
 PARTITE_DESIGNAZIONE_PREIMPORT = "designazione_preimport"
+# Se quello stesso import ha invece CAMBIATO la designazione (il file portava altri nomi),
+# qui resta chi c'era prima (es. "1° Rossi Mario · 2° Bianchi Anna"); vuoto se conservata.
+PARTITE_DESIGNAZIONE_PRECEDENTE = "designazione_precedente_import"
+# Data e ora che la gara aveva prima che un import la spostasse (es. "2026-10-14 21:00"):
+# resta finché il rinvio non viene ricontrollato in Designazioni.
+PARTITE_RINVIO_PRECEDENTE = "rinvio_data_precedente"
 
 # Elenco completo dei campi della tabella "indisponibilita", nell'ordine in cui compaiono
 # nel file Excel di export usato per l'import (colonne Da/A con data e ora combinate).
@@ -57,7 +63,8 @@ def _migra_se_necessario(conn):
     la aggiunge con ALTER TABLE (senza mai toccare i dati già presenti)."""
     schema_atteso = {
         "arbitri": ["codice_fiscale", "cognome_nome", "matricola", "comune", "ruolo", "scadenza_certificato_medico", "cellulare", "email"],
-        "partite": PARTITE_COLONNE + ["disputata"] + PARTITE_RIMBORSO_COLONNE + [PARTITE_DESIGNAZIONE_PREIMPORT],
+        "partite": PARTITE_COLONNE + ["disputata"] + PARTITE_RIMBORSO_COLONNE
+                   + [PARTITE_DESIGNAZIONE_PREIMPORT, PARTITE_DESIGNAZIONE_PRECEDENTE, PARTITE_RINVIO_PRECEDENTE],
         "indisponibilita": INDISPONIBILITA_COLONNE,
         "note_inibizioni": NOTE_INIBIZIONI_COLONNE,
         "campionati": CAMPIONATI_COLONNE,
